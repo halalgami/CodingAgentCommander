@@ -1,0 +1,96 @@
+# Copy to ~/.config/commander/config.toml and edit.
+tmux_session = "commander"
+default_model = "claude-opus-4-8"
+
+[[models]]
+id = "claude-opus-4-8"
+label = "Anthropic · Opus 4.8"
+provider = "anthropic"
+input_price = 15.0
+output_price = 75.0
+
+[[models]]
+id = "claude-sonnet-5"
+label = "Anthropic · Sonnet 5"
+provider = "anthropic"
+input_price = 3.0
+output_price = 15.0
+
+# --- OpenCode Go routed models (via local LiteLLM proxy; set your Go API key under ZEN_KEY in Providers) ---
+# All four route via OpenCode Go's OpenAI-compatible endpoint (/zen/go/v1) as
+# openai/<id> (LiteLLM forces /chat/completions). Kimi and DeepSeek have no
+# working Anthropic path on Go; the proxy's strip_thinking hook repairs the
+# bridge's thinking-block breakage. See internal/router/config.go HookSource.
+[[models]]
+id = "qwen3.6-plus"
+label = "Go · Qwen 3.6 Plus"
+provider = "opencode-go"
+upstream = "openai/qwen3.6-plus"
+api_base = "https://opencode.ai/zen/go/v1"
+key_env = "ZEN_KEY"
+input_price = 0.0
+output_price = 0.0
+
+[[models]]
+id = "deepseek-v4-pro"
+label = "Go · DeepSeek V4 Pro"
+provider = "opencode-go"
+upstream = "openai/deepseek-v4-pro"
+api_base = "https://opencode.ai/zen/go/v1"
+key_env = "ZEN_KEY"
+input_price = 0.0
+output_price = 0.0
+
+[[models]]
+id = "kimi-k2.7-code"
+label = "Go · Kimi K2.5"
+provider = "opencode-go"
+upstream = "openai/kimi-k2.7-code"
+api_base = "https://opencode.ai/zen/go/v1"
+key_env = "ZEN_KEY"
+input_price = 0.0
+output_price = 0.0
+
+[[models]]
+id = "glm-5.2"
+label = "Go · GLM 5.2"
+provider = "opencode-go"
+upstream = "openai/glm-5.2"
+api_base = "https://opencode.ai/zen/go/v1"
+key_env = "ZEN_KEY"
+input_price = 0.0
+output_price = 0.0
+
+# --- AWS Bedrock coding models (via local LiteLLM proxy) ---
+# Bedrock uses AWS SigV4, not a bearer key: set AWS_ACCESS_KEY_ID and
+# AWS_SECRET_ACCESS_KEY once in the Providers panel (shared by every bedrock
+# model). Region is per-model config below (not a secret). `upstream` is the
+# LiteLLM bedrock model string — cross-region inference-profile IDs (us./eu.)
+# are used so throughput isn't pinned to a single region. Prices are the
+# on-demand Bedrock rates; adjust to your negotiated rate.
+[[models]]
+id = "bedrock-claude-opus-4-1"
+label = "Bedrock · Claude Opus 4.1"
+provider = "bedrock"
+upstream = "bedrock/us.anthropic.claude-opus-4-1-20250805-v1:0"
+region = "us-east-1"
+input_price = 15.0
+output_price = 75.0
+
+[[models]]
+id = "bedrock-claude-sonnet-4"
+label = "Bedrock · Claude Sonnet 4"
+provider = "bedrock"
+upstream = "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
+region = "us-east-1"
+input_price = 3.0
+output_price = 15.0
+
+[[models]]
+id = "bedrock-claude-haiku-4-5"
+label = "Bedrock · Claude Haiku 4.5"
+provider = "bedrock"
+upstream = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+region = "us-east-1"
+input_price = 1.0
+output_price = 5.0

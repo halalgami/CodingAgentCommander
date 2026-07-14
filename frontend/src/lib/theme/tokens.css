@@ -1,0 +1,45 @@
+/* Commander design tokens — Amber Deck. OKLCH; accent vars are set at runtime
+   by theme.svelte.js (defaults here must match DEFAULT_ACCENT in accent.js). */
+:root {
+  /* surfaces (graphite, warm-tinted) */
+  --surface-0: oklch(16% 0.008 75);   /* window base / terminal chrome */
+  --surface-1: oklch(20% 0.009 75);   /* sidebar, titlebar, drawers */
+  --surface-2: oklch(24% 0.010 75);   /* cards, inputs */
+  --surface-3: oklch(29% 0.011 75);   /* hover */
+  --border-0:  oklch(32% 0.012 75);
+  --border-1:  oklch(40% 0.014 75);   /* focused */
+
+  /* text */
+  --text-0: oklch(93% 0.010 80);
+  --text-1: oklch(66% 0.014 80);      /* dim/secondary */
+  --text-2: oklch(50% 0.012 80);      /* faint/disabled */
+
+  /* accent (runtime-overridden; these are Amber Deck defaults, hue 65) */
+  --accent:       oklch(74% 0.145 65);
+  --accent-hover: oklch(80% 0.145 65);
+  --accent-dim:   oklch(45% 0.070 65);
+  --accent-faint: oklch(30% 0.035 65);
+  --on-accent:    oklch(20% 0.030 65);
+
+  /* status bands — FIXED, never follow accent */
+  --ok:   oklch(76% 0.13 155);
+  --warn: oklch(82% 0.13 95);
+  --crit: oklch(68% 0.19 25);
+
+  /* type */
+  --font-ui: "Geist Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --fs-0: 11px; --fs-1: 12px; --fs-2: 13px; --fs-3: 15px; --fs-4: 18px;
+
+  /* space / radius / motion */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --r-1: 4px; --r-2: 6px; --r-3: 10px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 120ms; --t-med: 200ms;
+
+  /* layout */
+  --titlebar-h: 38px; --sidebar-w: 300px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-med: 0ms; }
+}

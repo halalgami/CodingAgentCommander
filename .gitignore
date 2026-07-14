@@ -1,0 +1,17 @@
+/commander
+/dist/
+*.test
+.DS_Store
+
+# Wails GUI build output
+/build/bin/
+frontend/dist/
+frontend/node_modules/
+/.playwright-mcp/
+build/darwin/Info.dev.plist
+frontend/test-results/
+frontend/playwright-report/
+frontend/package.json.md5
+
+# agent scratch (progress ledgers, task briefs, review diffs)
+/.superpowers/

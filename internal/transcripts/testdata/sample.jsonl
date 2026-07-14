@@ -1,0 +1,3 @@
+{"type":"user","sessionId":"abc","message":{"role":"user","content":"hi"}}
+{"type":"assistant","sessionId":"abc","message":{"role":"assistant","usage":{"input_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"output_tokens":5}}}
+{"type":"assistant","sessionId":"abc","message":{"role":"assistant","usage":{"input_tokens":2,"cache_read_input_tokens":500,"cache_creation_input_tokens":34,"output_tokens":100}}}

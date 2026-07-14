@@ -1,0 +1,9 @@
+/* Single source of stacking order. Nothing else declares raw z-index. */
+:root {
+  --layer-chrome: 10;
+  --layer-backdrop: 40;
+  --layer-drawer: 50;
+  --layer-palette: 60;
+  --layer-toast: 70;
+  --layer-boot: 100;
+}

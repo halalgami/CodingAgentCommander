@@ -1,0 +1,19 @@
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "./lib/theme/tokens.css";
+@import "./lib/theme/layers.css";
+
+html, body, #app { height: 100%; margin: 0; }
+html { background: oklch(16% 0.008 75); }
+body {
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+button { font-family: inherit; }
+input, select { font-family: inherit; }
+::selection { background: var(--accent-faint); }
