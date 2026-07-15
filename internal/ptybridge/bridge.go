@@ -25,6 +25,13 @@ func Attach(session string, rows, cols uint16) (*Bridge, error) {
 	_ = exec.Command("tmux", "set-option", "-t", session, "status", "off").Run()
 
 	cmd := exec.Command("tmux", "attach-session", "-t", session)
+	// GUI-launched apps have no TERM; without one the attach client dies with
+	// "open terminal failed: terminal does not support clear" and the embedded
+	// terminal stays blank. xterm.js is xterm-256color compatible.
+	cmd.Env = os.Environ()
+	if os.Getenv("TERM") == "" {
+		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
+	}
 	f, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: rows, Cols: cols})
 	if err != nil {
 		return nil, fmt.Errorf("pty attach %s: %w", session, err)

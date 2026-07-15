@@ -22,6 +22,8 @@
     stat ? Math.min(100, Math.max(2, stat.contextTokens / 2000)) : 0,
   );
   const running = $derived(stat?.status === "active" && !isFinished);
+  // Project folder, shown unless the window name already is the folder.
+  const folder = $derived(stat?.cwd ? (stat.cwd.split("/").filter(Boolean).pop() ?? "") : "");
 </script>
 
 <li class="card" class:finished={isFinished} data-testid="session-card">
@@ -51,6 +53,9 @@
       >{killArmed ? "confirm?" : "✕"}</button>
     </span>
   </div>
+  {#if folder && folder !== session.name}
+    <div class="folder mono" title={stat.cwd} data-testid="session-folder">{folder}</div>
+  {/if}
   {#if stat}
     <div class="meter" aria-hidden="true">
       <div class="fill {stat.band}" style="width: {meterPct}%"></div>
@@ -130,6 +135,10 @@
     font-size: var(--fs-0); color: var(--text-1);
   }
   .mono { font-family: var(--font-mono); }
+  .folder {
+    margin-top: 2px; font-size: var(--fs-0); color: var(--text-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .rc { color: var(--accent); }
   .detail { opacity: 0; transition: opacity var(--t-fast); }
   .card:hover .detail, .card:focus-within .detail { opacity: 1; }

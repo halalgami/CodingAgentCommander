@@ -6,6 +6,7 @@ export namespace bedrock {
 	    upstream: string;
 	    region: string;
 	    anthropic: boolean;
+	    agentCapable: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Model(source);
@@ -18,6 +19,7 @@ export namespace bedrock {
 	        this.upstream = source["upstream"];
 	        this.region = source["region"];
 	        this.anthropic = source["anthropic"];
+	        this.agentCapable = source["agentCapable"];
 	    }
 	}
 
@@ -143,6 +145,7 @@ export namespace main {
 	    uptimeSeconds: number;
 	    status: string;
 	    remoteControl: boolean;
+	    cwd: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionStats(source);
@@ -159,6 +162,7 @@ export namespace main {
 	        this.uptimeSeconds = source["uptimeSeconds"];
 	        this.status = source["status"];
 	        this.remoteControl = source["remoteControl"];
+	        this.cwd = source["cwd"];
 	    }
 	}
 

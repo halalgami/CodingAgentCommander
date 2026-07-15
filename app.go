@@ -145,6 +145,7 @@ type SessionStats struct {
 	UptimeSeconds  int     `json:"uptimeSeconds"`
 	Status         string  `json:"status"`
 	RemoteControl  bool    `json:"remoteControl"`
+	Cwd            string  `json:"cwd"`
 }
 
 // now is a tiny seam so tests don't depend on wall clock.
@@ -705,9 +706,14 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 	if err != nil {
 		return SessionInfo{}, err
 	}
-	name := m.Label
-	if name == "" {
-		name = m.ID
+	// Window name = project folder, so cards are tellable apart; the model
+	// already shows on the card's badge (and via @commander_model for swap).
+	name := filepath.Base(folder)
+	if name == "." || name == string(filepath.Separator) || name == "" {
+		name = m.Label
+		if name == "" {
+			name = m.ID
+		}
 	}
 	cmd := append(append([]string{}, launch.Command()...), extraArgs...)
 	w, err := a.host.Launch(tmux.LaunchSpec{
@@ -880,6 +886,7 @@ func (a *App) SessionStats(windowID string) SessionStats {
 		Model: model, Provider: provider, Status: status,
 		UptimeSeconds: int(a.now().Sub(launched).Seconds()),
 		RemoteControl: remoteControl,
+		Cwd:           cwd,
 	}
 	if tpath == "" {
 		if p, err := transcripts.NewestTranscript(a.projectsRoot(), cwd); err == nil {

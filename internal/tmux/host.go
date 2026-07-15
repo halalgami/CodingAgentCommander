@@ -2,6 +2,7 @@
 package tmux
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -79,14 +80,24 @@ func (h *ExecHost) Launch(spec LaunchSpec) (WindowState, error) {
 	return WindowState{ID: id, Name: spec.WindowName, Active: true, ModelID: spec.ModelID}, nil
 }
 
-// List returns the windows of a session.
+// List returns the windows of a session. A genuinely absent session (or no
+// tmux server yet) is empty-not-error; anything else — including a missing
+// tmux binary — must surface, or the UI silently blanks (the Finder-launch
+// bare-PATH failure mode).
 func (h *ExecHost) List(session string) ([]WindowState, error) {
-	if !h.hasSession(session) {
-		return nil, nil
-	}
 	out, err := exec.Command("tmux", "list-windows", "-t", session,
 		"-F", "#{window_id}\t#{window_name}\t#{window_active}\t#{pane_current_path}\t#{"+modelOption+"}").Output()
 	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			msg := string(ee.Stderr)
+			if strings.Contains(msg, "can't find session") ||
+				strings.Contains(msg, "no server running") ||
+				strings.Contains(msg, "error connecting") {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("tmux list-windows: %w: %s", err, strings.TrimSpace(msg))
+		}
 		return nil, fmt.Errorf("tmux list-windows: %w", err)
 	}
 	var ws []WindowState

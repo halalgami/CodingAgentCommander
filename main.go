@@ -13,6 +13,8 @@ import (
 var assets embed.FS
 
 func main() {
+	ensureLoginPATH() // must run before anything shells out (tmux/claude/litellm)
+
 	// Create an instance of the app structure
 	app := NewApp()
 
