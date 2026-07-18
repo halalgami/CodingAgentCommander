@@ -7,9 +7,9 @@ export CGO_LDFLAGS := -framework UniformTypeIdentifiers
 
 WAILS ?= $(HOME)/go/bin/wails
 
-VERSION ?= 0.9.0
+VERSION ?= 0.9.1
 
-.PHONY: build dev test vet dist release
+.PHONY: build dev test vet dist release install
 
 build:
 	$(WAILS) build
@@ -32,4 +32,12 @@ dist: build
 
 release: dist
 	gh release create v$(VERSION) build/bin/Commander.dmg \
+		--repo halalgami/CodingAgentCommander \
 		--title "Commander v$(VERSION)" --generate-notes
+
+# Build and install into /Applications as Commander.app. ditto preserves
+# bundle structure/xattrs (plain cp can mangle .app bundles).
+install: build
+	rm -rf /Applications/Commander.app
+	ditto build/bin/commander-gui.app /Applications/Commander.app
+	@echo "Installed /Applications/Commander.app"
