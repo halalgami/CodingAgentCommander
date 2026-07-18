@@ -11,6 +11,7 @@
       <SessionCard
         session={s}
         stat={app.stats[s.windowID]}
+        isActive={app.sessionKey.split(":")[0] === s.windowID}
         isFinished={!!app.finished[s.windowID]}
         models={app.models}
         onselect={select}

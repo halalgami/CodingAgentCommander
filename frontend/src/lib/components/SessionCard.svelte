@@ -1,5 +1,5 @@
 <script>
-  let { session, stat, isFinished, models, onselect, onrename, onkill, onswap, onrc } = $props();
+  let { session, stat, isActive = false, isFinished, models, onselect, onrename, onkill, onswap, onrc } = $props();
   const native = $derived(stat?.provider === "anthropic");
 
   let renaming = $state(false);
@@ -26,7 +26,8 @@
   const folder = $derived(stat?.cwd ? (stat.cwd.split("/").filter(Boolean).pop() ?? "") : "");
 </script>
 
-<li class="card" class:finished={isFinished} data-testid="session-card">
+<li class="card" class:active={isActive} class:finished={isFinished} data-testid="session-card"
+  aria-current={isActive ? "true" : undefined}>
   <div class="row">
     <span class="led" class:running class:done={isFinished} aria-hidden="true"></span>
     {#if renaming}
@@ -89,6 +90,13 @@
     transition: border-color var(--t-fast) var(--ease-out), background var(--t-med) var(--ease-out);
   }
   .card:hover { border-color: var(--border-1); }
+  /* On deck = accent left edge + lifted surface, visible at a glance without
+     shouting over the finished tint. */
+  .card.active {
+    border-color: var(--accent-dim);
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--surface-3);
+  }
   /* Finished = persistent surface tint + solid LED (readable across a room). */
   .card.finished { background: var(--accent-faint); border-color: var(--accent-dim); }
 
