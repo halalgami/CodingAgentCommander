@@ -14,6 +14,19 @@ func TestTurnInputCost(t *testing.T) {
 	}
 }
 
+func TestContextBand(t *testing.T) {
+	cases := map[int]string{
+		0: "green", 99_999: "green",
+		100_000: "amber", 159_999: "amber",
+		160_000: "red", 210_000: "red",
+	}
+	for tokens, want := range cases {
+		if got := ContextBand(tokens); got != want {
+			t.Errorf("ContextBand(%d) = %q, want %q", tokens, got, want)
+		}
+	}
+}
+
 func TestBand(t *testing.T) {
 	cases := map[float64]string{0.05: "green", 0.30: "amber", 1.50: "red"}
 	for cost, want := range cases {

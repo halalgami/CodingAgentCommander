@@ -100,5 +100,7 @@
 
 <div class="term" bind:this={el}></div>
 <style>
-  .term { width: 100%; height: 100%; text-align: left; }
+  /* Flex-center keeps a col-capped terminal from hugging the left edge with a
+     dead void beside it; uncapped terminals fill the pane as before. */
+  .term { width: 100%; height: 100%; text-align: left; display: flex; justify-content: center; }
 </style>

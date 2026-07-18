@@ -78,7 +78,7 @@ test("font size pref persists and hotkey bumps it", async ({ page }) => {
   await page.keyboard.press("Meta+Equal");
   await page.reload();
   await page.goto("/?nointro");
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v1")).fontSize);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v2")).fontSize);
   if (stored !== 17) throw new Error(`expected 17, got ${stored}`);
 });
 
@@ -90,7 +90,7 @@ test("sidebar divider drag persists width", async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(380, box.y + 200);
   await page.mouse.up();
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v1")).sidebarW);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v2")).sidebarW);
   if (stored < 360 || stored > 400) throw new Error(`expected ~380, got ${stored}`);
 });
 
@@ -100,6 +100,6 @@ test("rc auto toggle persists", async ({ page }) => {
   await page.getByTestId("rc-auto-toggle").check();
   await page.reload();
   await page.goto("/?nointro");
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v1")).rcAutoEnable);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v2")).rcAutoEnable);
   if (stored !== true) throw new Error("rcAutoEnable not persisted");
 });

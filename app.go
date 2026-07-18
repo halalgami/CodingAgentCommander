@@ -898,7 +898,14 @@ func (a *App) SessionStats(windowID string) SessionStats {
 	}
 	if m, ok := a.modelByID(model); ok {
 		st.EstCostPerTurn = pricing.TurnInputCost(st.ContextTokens, m)
-		st.Band = pricing.Band(st.EstCostPerTurn)
+		// Routed sessions spend real per-token money — band by cost. Native
+		// subscription sessions don't, so cost-red is noise; band by how full
+		// the context window is instead.
+		if m.IsRouted() {
+			st.Band = pricing.Band(st.EstCostPerTurn)
+		} else {
+			st.Band = pricing.ContextBand(st.ContextTokens)
+		}
 	}
 	return st
 }

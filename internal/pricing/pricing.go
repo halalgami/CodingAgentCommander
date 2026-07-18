@@ -22,3 +22,17 @@ func Band(costUSD float64) string {
 		return "red"
 	}
 }
+
+// ContextBand classifies context fullness against the 200k window for
+// sessions where per-turn dollars are meaningless (subscription-billed native
+// Anthropic): green while roomy, amber past half, red when compaction nears.
+func ContextBand(tokens int) string {
+	switch {
+	case tokens < 100_000:
+		return "green"
+	case tokens < 160_000:
+		return "amber"
+	default:
+		return "red"
+	}
+}
