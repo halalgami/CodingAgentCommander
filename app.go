@@ -159,7 +159,7 @@ func (a *App) projectsRoot() string {
 
 // NewApp constructs the backend.
 func NewApp() *App {
-	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: osascriptNotifier{}}
+	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{}}
 	a.emitter = wailsEmitter{a: a}
 	return a
 }
