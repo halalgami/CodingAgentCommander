@@ -103,3 +103,9 @@ test("rc auto toggle persists", async ({ page }) => {
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("commander.prefs.v2")).rcAutoEnable);
   if (stored !== true) throw new Error("rcAutoEnable not persisted");
 });
+
+test("usage drawer opens and shows fetch error in plain browser", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.getByTestId("open-usage").click();
+  await expect(page.getByTestId("drawer-usage")).toBeVisible();
+});

@@ -7,7 +7,7 @@ export CGO_LDFLAGS := -framework UniformTypeIdentifiers
 
 WAILS ?= $(HOME)/go/bin/wails
 
-VERSION ?= 0.9.2
+VERSION ?= 0.9.3
 
 .PHONY: build dev test vet dist release install
 

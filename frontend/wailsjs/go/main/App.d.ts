@@ -25,6 +25,8 @@ export function Models():Promise<Array<main.ModelDetail>>;
 
 export function PickFolder():Promise<string>;
 
+export function PlanUsage():Promise<main.PlanUsage>;
+
 export function RemoveModel(arg1:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<void>;

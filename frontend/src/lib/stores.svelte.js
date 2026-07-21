@@ -5,7 +5,7 @@ import {
   Config, LaunchSession, ListSessions, SelectSession, PickFolder,
   KillSession, RenameSession, SessionStats, KeyStatus, SetKey, ClearKey,
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
-  EnableRemoteControl,
+  EnableRemoteControl, PlanUsage,
 } from "../../wailsjs/go/main/App.js";
 import { pushRecent } from "./recents.js";
 import { prefs } from "./prefs.svelte.js";
@@ -14,7 +14,7 @@ export const app = $state({
   models: [], catalog: [], keys: [],
   sessions: [], stats: {}, finished: {},
   sessionKey: "", selectedModel: "", folder: "",
-  drawer: null,            // null | "providers" | "models" | "settings"
+  drawer: null,            // null | "providers" | "models" | "settings" | "usage"
   paletteOpen: false,
   launchError: "",
 });
@@ -141,6 +141,9 @@ export async function removeModel(id) {
 }
 export async function discoverBedrock(region) {
   return await DiscoverBedrockModels(region);
+}
+export async function fetchPlanUsage() {
+  return await PlanUsage(); // throws -> drawer renders the error inline
 }
 
 export async function enableRemoteControl(windowID) {

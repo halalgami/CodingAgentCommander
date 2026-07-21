@@ -9,6 +9,7 @@
   import ProvidersDrawer from "./lib/components/ProvidersDrawer.svelte";
   import ModelsDrawer from "./lib/components/ModelsDrawer.svelte";
   import SettingsDrawer from "./lib/components/SettingsDrawer.svelte";
+  import UsageDrawer from "./lib/components/UsageDrawer.svelte";
   import Hotkeys from "./lib/components/Hotkeys.svelte";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import BootIntro, { bootOnFirstRun } from "./lib/components/BootIntro.svelte";
@@ -72,6 +73,7 @@
   {#if app.drawer === "providers"}<ProvidersDrawer />{/if}
   {#if app.drawer === "models"}<ModelsDrawer />{/if}
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
+  {#if app.drawer === "usage"}<UsageDrawer />{/if}
   <CommandPalette />
   <Hotkeys />
   <Toast />

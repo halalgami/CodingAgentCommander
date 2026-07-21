@@ -25,6 +25,7 @@
   <footer>
     <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
     <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
+    <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>
     <button data-testid="open-settings" onclick={() => (app.drawer = "settings")}>Settings</button>
   </footer>
 </aside>

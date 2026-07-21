@@ -46,6 +46,10 @@ export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
 }
 
+export function PlanUsage() {
+  return window['go']['main']['App']['PlanUsage']();
+}
+
 export function RemoveModel(arg1) {
   return window['go']['main']['App']['RemoveModel'](arg1);
 }
