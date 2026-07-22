@@ -402,9 +402,12 @@ provider = "anthropic"
 	if err := a.loadConfigFrom(cfgPath); err != nil {
 		t.Fatal(err)
 	}
+	if err := a.AddProvider(config.ProviderOpencodeGo, "", ""); err != nil {
+		t.Fatalf("AddProvider: %v", err)
+	}
 	// Add a routed model.
-	if err := a.AddModel(ModelInput{ID: "kimi", Label: "Kimi", Provider: "zen",
-		Upstream: "openai/kimi", APIBase: "https://x/v1", KeyEnv: "ZEN_KEY"}); err != nil {
+	if err := a.AddModel(ModelInput{ID: "kimi", Label: "Kimi", Provider: config.ProviderOpencodeGo,
+		Upstream: "openai/kimi"}); err != nil {
 		t.Fatalf("AddModel: %v", err)
 	}
 	// It's in the in-memory catalog AND persisted.
@@ -415,15 +418,12 @@ provider = "anthropic"
 	if _, ok := reloaded.Model("kimi"); !ok {
 		t.Error("model not persisted to disk")
 	}
-	// Validation: dup id, and routed without upstream/api_base/key_env.
-	if err := a.AddModel(ModelInput{ID: "kimi", Provider: "zen", Upstream: "x", APIBase: "https://x/v1", KeyEnv: "K"}); err == nil {
+	// Validation: dup id, and routed without upstream.
+	if err := a.AddModel(ModelInput{ID: "kimi", Provider: config.ProviderOpencodeGo, Upstream: "x"}); err == nil {
 		t.Error("expected dup-id rejection")
 	}
-	if err := a.AddModel(ModelInput{ID: "bad", Provider: "zen"}); err == nil {
-		t.Error("expected routed-without-upstream/api_base/key rejection")
-	}
-	if err := a.AddModel(ModelInput{ID: "bad2", Provider: "zen", Upstream: "x", KeyEnv: "K"}); err == nil {
-		t.Error("expected routed-without-api_base rejection")
+	if err := a.AddModel(ModelInput{ID: "bad", Provider: config.ProviderOpencodeGo}); err == nil {
+		t.Error("expected routed-without-upstream rejection")
 	}
 	// Remove.
 	if err := a.RemoveModel("kimi"); err != nil {
@@ -454,7 +454,10 @@ func TestCatalogConcurrentReadWriteNoRace(t *testing.T) {
 		wg.Add(3)
 		go func() { defer wg.Done(); _ = a.Config() }()
 		go func() { defer wg.Done(); _ = a.KeyStatus() }()
-		go func(n int) { defer wg.Done(); _ = a.AddModel(ModelInput{ID: fmt.Sprintf("m%d", n), Provider: "anthropic"}) }(i)
+		go func(n int) {
+			defer wg.Done()
+			_ = a.AddModel(ModelInput{ID: fmt.Sprintf("m%d", n), Provider: "anthropic"})
+		}(i)
 	}
 	wg.Wait()
 }
@@ -493,7 +496,7 @@ func (c *captureHost) SendKeys(windowID, text string) error {
 	c.mu.Unlock()
 	return nil
 }
-func (c *captureHost) SetOption(string, string, string) error { return nil }
+func (c *captureHost) SetOption(string, string, string) error   { return nil }
 func (c *captureHost) GetOption(string, string) (string, error) { return "", nil }
 
 func TestStartSessionNative(t *testing.T) {
@@ -748,37 +751,90 @@ func TestSwapCarriesRemoteControlToNativeTarget(t *testing.T) {
 	}
 }
 
-// AWS creds must be listed in Providers before any bedrock model exists —
-// discovery needs them first (the chicken-and-egg the model-derived list had).
-func TestKeyStatusAlwaysListsAWSCreds(t *testing.T) {
+// newProviderTestApp builds an App with a fresh keyring and config.Default(),
+// backed by a scratch configPath, for provider-resolution tests.
+func newProviderTestApp(t *testing.T) *App {
+	t.Helper()
 	keyring.MockInit()
 	a := NewApp()
-	if err := a.loadConfigFrom("example.config.toml"); err != nil {
+	a.configPath = filepath.Join(t.TempDir(), "config.toml")
+	a.cfg = config.Default()
+	return a
+}
+
+func TestSnapshotModelsResolvesProviderFields(t *testing.T) {
+	a := newProviderTestApp(t)
+	a.cfg = config.Config{
+		Providers: []config.Provider{{Type: config.ProviderOpencodeGo, APIBase: config.ZenDefaultAPIBase}},
+		Models: []config.Model{
+			{ID: "glm", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2"},
+		},
+	}
+	m := a.snapshotModels()[0]
+	if m.APIBase != config.ZenDefaultAPIBase || m.KeyEnv != config.ZenKeyEnv {
+		t.Fatalf("snapshotModels must resolve: %+v", m)
+	}
+	got, ok := a.modelByID("glm")
+	if !ok || got.KeyEnv != config.ZenKeyEnv {
+		t.Fatalf("modelByID must resolve: %+v %v", got, ok)
+	}
+}
+
+func TestKeyStatusDerivesFromProviders(t *testing.T) {
+	a := newProviderTestApp(t)
+	a.cfg = config.Config{Models: []config.Model{{ID: "a", Provider: config.ProviderAnthropic}}}
+	if got := a.KeyStatus(); len(got) != 0 {
+		t.Fatalf("no defined providers -> no slots, got %+v", got)
+	}
+	a.cfg.Providers = []config.Provider{{Type: config.ProviderOpencodeGo, APIBase: config.ZenDefaultAPIBase}}
+	got := a.KeyStatus()
+	if len(got) != 1 || got[0].Env != config.ZenKeyEnv || got[0].Optional {
+		t.Fatalf("zen defined -> ZEN_KEY required slot, got %+v", got)
+	}
+	a.cfg.Providers = append(a.cfg.Providers, config.Provider{Type: config.ProviderBedrock, Region: "us-east-1"})
+	envs := map[string]bool{}
+	for _, k := range a.KeyStatus() {
+		envs[k.Env] = k.Optional
+	}
+	if len(envs) != 4 {
+		t.Fatalf("want ZEN + AWS trio, got %+v", envs)
+	}
+	if envs[config.AWSAccessKeyEnv] || envs[config.AWSSecretKeyEnv] || !envs[config.AWSSessionTokenEnv] {
+		t.Fatalf("AWS key+secret required, session token optional: %+v", envs)
+	}
+}
+
+func TestAddRemoveProvider(t *testing.T) {
+	a := newProviderTestApp(t)
+	if err := a.AddProvider("nonsense", "", ""); err == nil {
+		t.Fatal("unknown type must fail")
+	}
+	if err := a.AddProvider(config.ProviderOpencodeGo, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	// Remove any bedrock models so only the fallback can list AWS refs.
-	a.mu.Lock()
-	var kept []config.Model
-	for _, m := range a.cfg.Models {
-		if m.Provider != config.ProviderBedrock {
-			kept = append(kept, m)
-		}
+	if p, ok := a.cfg.ProviderByType(config.ProviderOpencodeGo); !ok || p.APIBase != config.ZenDefaultAPIBase {
+		t.Fatalf("empty api_base must default: %+v", p)
 	}
-	a.cfg.Models = kept
-	a.mu.Unlock()
-
-	got := map[string]bool{} // env -> optional
-	for _, k := range a.KeyStatus() {
-		got[k.Env] = k.Optional
+	if err := a.AddProvider(config.ProviderOpencodeGo, "", ""); err == nil {
+		t.Fatal("duplicate must fail")
 	}
-	for _, env := range []string{config.AWSAccessKeyEnv, config.AWSSecretKeyEnv, config.AWSSessionTokenEnv} {
-		opt, ok := got[env]
-		if !ok {
-			t.Fatalf("%s missing from KeyStatus with no bedrock models", env)
-		}
-		if !opt {
-			t.Fatalf("%s should be optional while no bedrock model is configured", env)
-		}
+	// RemoveProvider drops the entry and its models.
+	a.cfg.Models = append(a.cfg.Models, config.Model{ID: "glm", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2"})
+	if err := a.RemoveProvider(config.ProviderOpencodeGo); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := a.cfg.ProviderByType(config.ProviderOpencodeGo); ok {
+		t.Fatal("provider entry must be gone")
+	}
+	if _, ok := a.cfg.Model("glm"); ok {
+		t.Fatal("provider's models must be gone")
+	}
+	// Refuse removal that would delete the default model.
+	a.cfg.DefaultModel = "glm2"
+	a.cfg.Providers = []config.Provider{{Type: config.ProviderOpencodeGo, APIBase: config.ZenDefaultAPIBase}}
+	a.cfg.Models = append(a.cfg.Models, config.Model{ID: "glm2", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2"})
+	if err := a.RemoveProvider(config.ProviderOpencodeGo); err == nil {
+		t.Fatal("must refuse removing provider of default model")
 	}
 }
 
@@ -804,5 +860,27 @@ func TestLoadConfigMissingFileSeedsDefaults(t *testing.T) {
 	// configPath made Save rename into "").
 	if err := a.AddModel(ModelInput{ID: "x-test", Provider: "anthropic", Label: "X"}); err != nil {
 		t.Fatalf("AddModel after seed: %v", err)
+	}
+}
+
+func TestAddModelRequiresDefinedProviderAndPersistsClean(t *testing.T) {
+	a := newProviderTestApp(t)
+	err := a.AddModel(ModelInput{ID: "glm", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2"})
+	if err == nil || !strings.Contains(err.Error(), "define") {
+		t.Fatalf("undefined provider must be rejected with guidance, got %v", err)
+	}
+	if err := a.AddProvider(config.ProviderOpencodeGo, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AddModel(ModelInput{ID: "glm", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := a.cfg.Model("glm")
+	if raw.KeyEnv != "" || raw.APIBase != "" {
+		t.Fatalf("persisted model must not carry inline provider fields: %+v", raw)
+	}
+	resolved, _ := a.modelByID("glm")
+	if resolved.KeyEnv != config.ZenKeyEnv || resolved.APIBase != config.ZenDefaultAPIBase {
+		t.Fatalf("resolution must supply fields: %+v", resolved)
 	}
 }

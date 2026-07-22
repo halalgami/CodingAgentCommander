@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -29,6 +30,85 @@ const (
 	ProviderAnthropic = "anthropic"
 	ProviderBedrock   = "bedrock"
 )
+
+// ProviderOpencodeGo is the OpenCode Zen/Go gateway (OpenAI-compatible, routed).
+const ProviderOpencodeGo = "opencode-go"
+
+// Type-level credential constants for definable providers. The key itself
+// lives in the OS keychain under this ref; only endpoint/region metadata is
+// stored in TOML.
+const (
+	ZenKeyEnv         = "ZEN_KEY"
+	ZenDefaultAPIBase = "https://opencode.ai/zen/go/v1"
+)
+
+// Provider is a user-defined upstream a model can route through. Anthropic is
+// built-in (subscription OAuth) and never appears here.
+type Provider struct {
+	Type    string `toml:"type"`               // ProviderOpencodeGo | ProviderBedrock
+	APIBase string `toml:"api_base,omitempty"` // opencode-go endpoint
+	Region  string `toml:"region,omitempty"`   // bedrock default region
+}
+
+// DefinableProviderTypes are the provider types a user may add.
+var DefinableProviderTypes = []string{ProviderOpencodeGo, ProviderBedrock}
+
+// ProviderByType returns the defined provider entry of the given type.
+func (c Config) ProviderByType(t string) (Provider, bool) {
+	for _, p := range c.Providers {
+		if p.Type == t {
+			return p, true
+		}
+	}
+	return Provider{}, false
+}
+
+// MigrateProviders synthesizes [[providers]] entries from legacy configs whose
+// models carry inline api_base/key_env/region. First matching model wins.
+// Returns true if the config changed (caller may persist).
+func (c *Config) MigrateProviders() bool {
+	changed := false
+	for _, m := range c.Models {
+		switch m.Provider {
+		case ProviderOpencodeGo:
+			if _, ok := c.ProviderByType(ProviderOpencodeGo); !ok {
+				base := m.APIBase
+				if base == "" {
+					base = ZenDefaultAPIBase
+				}
+				c.Providers = append(c.Providers, Provider{Type: ProviderOpencodeGo, APIBase: base})
+				changed = true
+			}
+		case ProviderBedrock:
+			if _, ok := c.ProviderByType(ProviderBedrock); !ok {
+				c.Providers = append(c.Providers, Provider{Type: ProviderBedrock, Region: m.Region})
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
+// ResolveModel fills a model's empty provider-supplied fields (KeyEnv, APIBase,
+// Region) from its provider entry. Inline values from legacy configs win.
+// Launch/router/creds code paths consume resolved models only.
+func (c Config) ResolveModel(m Model) Model {
+	switch m.Provider {
+	case ProviderOpencodeGo:
+		p, ok := c.ProviderByType(ProviderOpencodeGo)
+		if m.APIBase == "" && ok {
+			m.APIBase = p.APIBase
+		}
+		if m.KeyEnv == "" {
+			m.KeyEnv = ZenKeyEnv
+		}
+	case ProviderBedrock:
+		if p, ok := c.ProviderByType(ProviderBedrock); ok && m.Region == "" {
+			m.Region = p.Region
+		}
+	}
+	return m
+}
 
 // Well-known keychain refs shared by all AWS Bedrock models (one AWS account).
 // The region is per-model config, not a secret, so it is not stored here.
@@ -87,9 +167,10 @@ func NormalizeBedrockUpstream(upstream string) string {
 
 // Config is the resolved Commander configuration.
 type Config struct {
-	TmuxSession  string  `toml:"tmux_session"`
-	DefaultModel string  `toml:"default_model"`
-	Models       []Model `toml:"models"`
+	TmuxSession  string     `toml:"tmux_session"`
+	DefaultModel string     `toml:"default_model"`
+	Models       []Model    `toml:"models"`
+	Providers    []Provider `toml:"providers,omitempty"`
 }
 
 // IsRouted reports whether this model must go through the local LiteLLM proxy.
@@ -135,6 +216,17 @@ func Load(path string) (Config, error) {
 			return Config{}, fmt.Errorf("config %s: default_model %q not found in catalog", path, c.DefaultModel)
 		}
 	}
+	seenProv := map[string]bool{}
+	for _, p := range c.Providers {
+		if !slices.Contains(DefinableProviderTypes, p.Type) {
+			return Config{}, fmt.Errorf("config %s: unknown provider type %q", path, p.Type)
+		}
+		if seenProv[p.Type] {
+			return Config{}, fmt.Errorf("config %s: duplicate provider type %q", path, p.Type)
+		}
+		seenProv[p.Type] = true
+	}
+	c.MigrateProviders()
 	return c, nil
 }
 

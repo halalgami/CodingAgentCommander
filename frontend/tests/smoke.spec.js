@@ -27,6 +27,13 @@ test("models drawer opens with add form", async ({ page }) => {
   await expect(page.getByTestId("add-model-submit")).toBeVisible();
 });
 
+test("models drawer shows anthropic section", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.getByTestId("open-models").click();
+  await expect(page.getByTestId("drawer-models")).toBeVisible();
+  await expect(page.getByTestId("models-section-anthropic")).toBeVisible();
+});
+
 test("launch without folder shows inline error, not a toast", async ({ page }) => {
   await page.goto("/?nointro");
   await page.getByTestId("launch-button").click();

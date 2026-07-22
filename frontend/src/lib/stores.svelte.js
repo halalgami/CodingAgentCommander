@@ -5,13 +5,14 @@ import {
   Config, LaunchSession, ListSessions, SelectSession, PickFolder,
   KillSession, RenameSession, SessionStats, KeyStatus, SetKey, ClearKey,
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
+  DiscoverZenModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
 } from "../../wailsjs/go/main/App.js";
 import { pushRecent } from "./recents.js";
 import { prefs } from "./prefs.svelte.js";
 
 export const app = $state({
-  models: [], catalog: [], keys: [],
+  models: [], catalog: [], keys: [], providers: [],
   sessions: [], stats: {}, finished: {},
   sessionKey: "", selectedModel: "", folder: "",
   drawer: null,            // null | "providers" | "models" | "settings" | "usage"
@@ -44,6 +45,7 @@ export async function loadAll() {
   } catch {}
   try { app.keys = await KeyStatus(); } catch {}
   try { app.catalog = await Models(); } catch {}
+  try { app.providers = await ListProviders(); } catch {}
   await refresh();
 }
 
@@ -121,11 +123,31 @@ export async function saveKey(env, value) {
   await SetKey(env, value.trim());
   app.keys = await KeyStatus();
   app.models = await Config();
+  app.providers = await ListProviders();
 }
 export async function clearKey(env) {
   await ClearKey(env);
   app.keys = await KeyStatus();
   app.models = await Config();
+  app.providers = await ListProviders();
+}
+export function providerLabel(type) {
+  return { "opencode-go": "OpenCode Zen/Go", bedrock: "AWS Bedrock" }[type] ?? type;
+}
+export async function addProvider(type, apiBase = "", region = "") {
+  await AddProvider(type, apiBase, region);
+  app.providers = await ListProviders();
+  app.keys = await KeyStatus();
+}
+export async function removeProvider(type) {
+  await RemoveProvider(type);
+  app.providers = await ListProviders();
+  app.keys = await KeyStatus();
+  app.catalog = await Models();
+  app.models = await Config();
+}
+export async function discoverZen() {
+  return await DiscoverZenModels();
 }
 export async function addModel(model) {
   await AddModel(model);

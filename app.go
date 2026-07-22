@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 	"github.com/halalgami/CodingAgentCommander/internal/transcripts"
 	"github.com/halalgami/CodingAgentCommander/internal/wsterm"
+	"github.com/halalgami/CodingAgentCommander/internal/zen"
 )
 
 // ModelInfo is the picker entry sent to the frontend.
@@ -483,18 +485,27 @@ func (a *App) WSPort() int { return a.wsPort }
 // WSToken returns the per-run token the frontend must present on the /ws stream.
 func (a *App) WSToken() string { return a.wsToken }
 
-// snapshotModels returns a copy of the catalog under lock (safe to range lock-free).
+// snapshotModels returns a copy of the catalog under lock, each model resolved
+// against its provider (safe to range lock-free).
 func (a *App) snapshotModels() []config.Model {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return append([]config.Model{}, a.cfg.Models...)
+	out := make([]config.Model, 0, len(a.cfg.Models))
+	for _, m := range a.cfg.Models {
+		out = append(out, a.cfg.ResolveModel(m))
+	}
+	return out
 }
 
-// modelByID looks up a model under lock.
+// modelByID looks up a model under lock, resolved against its provider.
 func (a *App) modelByID(id string) (config.Model, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.cfg.Model(id)
+	m, ok := a.cfg.Model(id)
+	if !ok {
+		return config.Model{}, false
+	}
+	return a.cfg.ResolveModel(m), true
 }
 
 // Config returns all models for the picker (native + routed), each flagged
@@ -515,44 +526,38 @@ type KeyInfo struct {
 	Optional bool   `json:"optional"`
 }
 
-// KeyStatus lists the distinct credential slots across routed models (required
-// first, then optional) with whether each is set.
+// ProviderInfo describes one definable provider type for the admin panel.
+type ProviderInfo struct {
+	Type     string `json:"type"`     // "opencode-go" | "bedrock"
+	Defined  bool   `json:"defined"`  // [[providers]] entry exists
+	Active   bool   `json:"active"`   // defined && required keys set
+	APIBase  string `json:"apiBase"`  // zen (default prefilled when undefined)
+	Region   string `json:"region"`   // bedrock
+	ModelCnt int    `json:"modelCnt"` // catalog models of this type (for remove confirm)
+}
+
+// KeyStatus lists credential slots for the DEFINED providers. Slots appear the
+// moment a provider is defined — before any of its models exist — which is the
+// whole point of the provider-first flow.
 func (a *App) KeyStatus() []KeyInfo {
-	seen := map[string]bool{}
+	a.mu.Lock()
+	providers := append([]config.Provider{}, a.cfg.Providers...)
+	a.mu.Unlock()
 	out := []KeyInfo{}
 	add := func(ref string, optional bool) {
-		if seen[ref] {
-			return
-		}
-		seen[ref] = true
 		v, err := secrets.Get(ref)
 		out = append(out, KeyInfo{Env: ref, Set: err == nil && v != "", Optional: optional})
 	}
-	models := a.snapshotModels()
-	for _, m := range models {
-		for _, ref := range m.CredEnvs() {
-			add(ref, false)
+	for _, p := range providers {
+		switch p.Type {
+		case config.ProviderOpencodeGo:
+			add(config.ZenKeyEnv, false)
+		case config.ProviderBedrock:
+			add(config.AWSAccessKeyEnv, false)
+			add(config.AWSSecretKeyEnv, false)
+			add(config.AWSSessionTokenEnv, true)
 		}
 	}
-	for _, m := range models {
-		for _, ref := range m.OptionalCredEnvs() {
-			add(ref, true)
-		}
-	}
-	// AWS creds must be enterable BEFORE any bedrock model exists: the 🔍
-	// Discover flow needs them to list models, but the loops above only
-	// surface envs of already-configured models (chicken-and-egg). Always
-	// list the AWS trio; optional until a bedrock model is in the catalog.
-	hasBedrock := false
-	for _, m := range models {
-		if m.Provider == config.ProviderBedrock {
-			hasBedrock = true
-			break
-		}
-	}
-	add(config.AWSAccessKeyEnv, !hasBedrock)
-	add(config.AWSSecretKeyEnv, !hasBedrock)
-	add(config.AWSSessionTokenEnv, true)
 	return out
 }
 
@@ -564,6 +569,19 @@ func (a *App) DiscoverBedrockModels(region string) ([]bedrock.Model, error) {
 	sk, _ := secrets.Get(config.AWSSecretKeyEnv)
 	token, _ := secrets.Get(config.AWSSessionTokenEnv) // optional
 	return bedrock.ListModels(a.ctx, ak, sk, token, region)
+}
+
+// DiscoverZenModels lists the models the stored ZEN_KEY can use on the defined
+// OpenCode Zen provider.
+func (a *App) DiscoverZenModels() ([]zen.Model, error) {
+	a.mu.Lock()
+	p, ok := a.cfg.ProviderByType(config.ProviderOpencodeGo)
+	a.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("define the OpenCode Zen provider first")
+	}
+	key, _ := secrets.Get(config.ZenKeyEnv)
+	return zen.ListModels(a.ctx, p.APIBase, key)
 }
 
 // SetKey stores a provider API key in the keychain.
@@ -614,6 +632,116 @@ func (a *App) Models() []ModelDetail {
 	return out
 }
 
+// ListProviders reports the definable provider types for the admin panel:
+// whether each is defined, active (defined + required keys set), its stored
+// endpoint/region, and how many catalog models use it (for remove confirm).
+func (a *App) ListProviders() []ProviderInfo {
+	a.mu.Lock()
+	byType := map[string]config.Provider{}
+	for _, p := range a.cfg.Providers {
+		byType[p.Type] = p
+	}
+	modelCnt := map[string]int{}
+	for _, m := range a.cfg.Models {
+		modelCnt[m.Provider]++
+	}
+	a.mu.Unlock()
+
+	// secrets.Get hits the keychain and can block on a macOS unlock prompt;
+	// do it lock-free so it can't freeze the whole app (a.mu gates everything).
+	keySet := func(ref string) bool { v, err := secrets.Get(ref); return err == nil && v != "" }
+	out := []ProviderInfo{}
+	for _, t := range config.DefinableProviderTypes {
+		p, defined := byType[t]
+		info := ProviderInfo{Type: t, Defined: defined, APIBase: p.APIBase, Region: p.Region, ModelCnt: modelCnt[t]}
+		if !defined && t == config.ProviderOpencodeGo {
+			info.APIBase = config.ZenDefaultAPIBase
+		}
+		switch t {
+		case config.ProviderOpencodeGo:
+			info.Active = defined && keySet(config.ZenKeyEnv)
+		case config.ProviderBedrock:
+			info.Active = defined && keySet(config.AWSAccessKeyEnv) && keySet(config.AWSSecretKeyEnv)
+		}
+		out = append(out, info)
+	}
+	return out
+}
+
+// AddProvider defines a new provider entry, persisting before it is committed
+// to the in-memory catalog.
+func (a *App) AddProvider(ptype, apiBase, region string) error {
+	ptype = strings.TrimSpace(ptype)
+	if !slices.Contains(config.DefinableProviderTypes, ptype) {
+		return fmt.Errorf("unknown provider type %q", ptype)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.cfg.ProviderByType(ptype); ok {
+		return fmt.Errorf("provider %q already defined", ptype)
+	}
+	p := config.Provider{Type: ptype}
+	switch ptype {
+	case config.ProviderOpencodeGo:
+		p.APIBase = strings.TrimSpace(apiBase)
+		if p.APIBase == "" {
+			p.APIBase = config.ZenDefaultAPIBase
+		}
+	case config.ProviderBedrock:
+		p.Region = strings.TrimSpace(region)
+		if p.Region == "" {
+			p.Region = "us-east-1"
+		}
+	}
+	next := a.cfg
+	next.Providers = append(append([]config.Provider{}, a.cfg.Providers...), p)
+	if err := config.Save(a.configPath, next); err != nil {
+		return err
+	}
+	a.cfg = next
+	return nil
+}
+
+// RemoveProvider drops a provider entry and its models, persisting before it
+// is committed to the in-memory catalog. Refuses if one of its models is the
+// default model.
+func (a *App) RemoveProvider(ptype string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.cfg.ProviderByType(ptype); !ok {
+		return fmt.Errorf("provider %q not defined", ptype)
+	}
+	for _, m := range a.cfg.Models {
+		if m.Provider == ptype && m.ID == a.cfg.DefaultModel {
+			return fmt.Errorf("cannot remove %s: its model %q is the default model", ptype, m.ID)
+		}
+	}
+	next := a.cfg
+	next.Providers = nil
+	for _, p := range a.cfg.Providers {
+		if p.Type != ptype {
+			next.Providers = append(next.Providers, p)
+		}
+	}
+	next.Models = nil
+	for _, m := range a.cfg.Models {
+		if m.Provider != ptype {
+			next.Models = append(next.Models, m)
+		}
+	}
+	if err := config.Save(a.configPath, next); err != nil {
+		return err
+	}
+	a.cfg = next
+	return nil
+}
+
+// providerDefined reports whether ptype has a [[providers]] entry. Caller must
+// hold a.mu.
+func (a *App) providerDefined(ptype string) (config.Provider, bool) {
+	return a.cfg.ProviderByType(ptype)
+}
+
 // AddModel validates and appends a catalog model, persisting before it is
 // committed to the in-memory catalog.
 func (a *App) AddModel(in ModelInput) error {
@@ -622,25 +750,35 @@ func (a *App) AddModel(in ModelInput) error {
 	if in.ID == "" || in.Provider == "" {
 		return fmt.Errorf("id and provider are required")
 	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	switch in.Provider {
 	case config.ProviderAnthropic:
 		in.Upstream, in.APIBase, in.KeyEnv, in.Region = "", "", "", "" // native carries no routed fields
 	case config.ProviderBedrock:
 		// Credentials come from the shared AWS_* keychain refs (set in Providers),
-		// so no key_env/api_base — only the bedrock/ model string and a region.
-		if in.Upstream == "" || in.Region == "" {
-			return fmt.Errorf("bedrock models require upstream (bedrock/<model-id>) and region")
+		// so no key_env/api_base — only the bedrock/ model string; region is
+		// per-model (from discovery/form) and defaults from the provider entry
+		// at resolution time if left empty.
+		if _, ok := a.providerDefined(config.ProviderBedrock); !ok {
+			return fmt.Errorf("define the Bedrock provider in Providers first")
+		}
+		if in.Upstream == "" {
+			return fmt.Errorf("bedrock models require upstream (bedrock/<model-id>)")
 		}
 		in.Upstream = config.NormalizeBedrockUpstream(strings.TrimSpace(in.Upstream))
-		in.APIBase, in.KeyEnv = "", ""
-	default:
-		if in.Upstream == "" || in.APIBase == "" || in.KeyEnv == "" {
-			return fmt.Errorf("routed models require upstream, api_base, and key_env")
+		in.APIBase, in.KeyEnv = "", "" // region kept: per-model, from discovery or form
+	case config.ProviderOpencodeGo:
+		if _, ok := a.providerDefined(config.ProviderOpencodeGo); !ok {
+			return fmt.Errorf("define the OpenCode Zen provider in Providers first")
 		}
-		in.Region = ""
+		if in.Upstream == "" {
+			return fmt.Errorf("routed models require upstream")
+		}
+		in.APIBase, in.KeyEnv, in.Region = "", "", "" // provider supplies these
+	default:
+		return fmt.Errorf("unknown provider %q", in.Provider)
 	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	if _, ok := a.cfg.Model(in.ID); ok {
 		return fmt.Errorf("model %q already exists", in.ID)
 	}

@@ -30,7 +30,7 @@ type Model struct {
 // the Bedrock Converse API (per AWS "supported models and features"). Claude
 // Code is agentic — models outside this list launch but fail on the first tool
 // call. The AWS API doesn't expose tool-use capability, hence a curated list;
-// unknown/new families default to false (badged, still addable).
+// unknown/new families default to false (hidden, not discoverable).
 var agentFamilies = []string{
 	"anthropic.claude", "amazon.nova", "cohere.command-r",
 	"meta.llama3-1", "meta.llama3-2", "meta.llama3-3", "meta.llama4",
@@ -96,42 +96,44 @@ func ListModels(ctx context.Context, accessKey, secret, sessionToken, region str
 			if !ok {
 				continue // profile's base model isn't a text model in this region
 			}
+			if !agentCapable(aws.ToString(base.ModelId)) {
+				continue // Claude Code is agentic; tool-less models just fail on first tool call
+			}
 			covered[aws.ToString(base.ModelId)] = true
 			out = append(out, Model{
-				ID:           slug(pid),
-				Label:        label(base) + " · cross-region",
-				Upstream:     "bedrock/" + pid,
-				Region:       region,
-				Anthropic:    isAnthropic(base),
-				AgentCapable: agentCapable(aws.ToString(base.ModelId)),
+				ID:        slug(pid),
+				Label:     label(base) + " · cross-region",
+				Upstream:  "bedrock/" + pid,
+				Region:    region,
+				Anthropic: isAnthropic(base),
+				// true: the `continue` above already filtered to agentCapable models.
+				AgentCapable: true,
 			})
 		}
 	}
 
 	// On-demand foundation models not already covered by a profile.
 	for _, s := range fm.ModelSummaries {
-		if covered[aws.ToString(s.ModelId)] || !onDemand(s) {
+		if covered[aws.ToString(s.ModelId)] || !onDemand(s) || !agentCapable(aws.ToString(s.ModelId)) {
 			continue
 		}
 		id := aws.ToString(s.ModelId)
 		out = append(out, Model{
-			ID:           slug(id),
-			Label:        label(s),
-			Upstream:     "bedrock/" + id,
-			Region:       region,
-			Anthropic:    isAnthropic(s),
-			AgentCapable: agentCapable(id),
+			ID:        slug(id),
+			Label:     label(s),
+			Upstream:  "bedrock/" + id,
+			Region:    region,
+			Anthropic: isAnthropic(s),
+			// true: the `continue` above already filtered to agentCapable models.
+			AgentCapable: true,
 		})
 	}
 
 	// Claude first (strongest coding agents), then other tool-capable models,
-	// then the rest (can't run Claude Code's tool calls), each alphabetical.
+	// each alphabetical.
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Anthropic != out[j].Anthropic {
 			return out[i].Anthropic
-		}
-		if out[i].AgentCapable != out[j].AgentCapable {
-			return out[i].AgentCapable
 		}
 		return out[i].Label < out[j].Label
 	})

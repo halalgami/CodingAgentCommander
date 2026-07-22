@@ -228,3 +228,171 @@ func TestSaveRoundTrip(t *testing.T) {
 		t.Errorf("native model gained routed fields: %+v", opus)
 	}
 }
+
+func TestSaveRoundTripProviders(t *testing.T) {
+	c := Config{
+		TmuxSession:  "commander",
+		DefaultModel: "claude-opus-4-8",
+		Models: []Model{
+			{ID: "claude-opus-4-8", Label: "Opus", Provider: "anthropic", InputPrice: 15, OutputPrice: 75},
+		},
+		Providers: []Provider{
+			{Type: ProviderOpencodeGo, APIBase: ZenDefaultAPIBase},
+			{Type: ProviderBedrock, Region: ""},
+		},
+	}
+	p := filepath.Join(t.TempDir(), "out.toml")
+	if err := Save(p, c); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(p)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	zenP, ok := got.ProviderByType(ProviderOpencodeGo)
+	if !ok || zenP.APIBase != ZenDefaultAPIBase {
+		t.Fatalf("opencode-go provider round-trip wrong: %+v ok=%v", zenP, ok)
+	}
+	bedrockP, ok := got.ProviderByType(ProviderBedrock)
+	if !ok {
+		t.Fatal("bedrock provider missing after round-trip")
+	}
+	if bedrockP.Region != "" {
+		t.Errorf("bedrock provider Region = %q, want empty", bedrockP.Region)
+	}
+}
+
+func TestProviderByType(t *testing.T) {
+	c := Config{Providers: []Provider{{Type: ProviderOpencodeGo, APIBase: ZenDefaultAPIBase}}}
+	p, ok := c.ProviderByType(ProviderOpencodeGo)
+	if !ok || p.APIBase != ZenDefaultAPIBase {
+		t.Fatalf("ProviderByType = %+v, %v", p, ok)
+	}
+	if _, ok := c.ProviderByType(ProviderBedrock); ok {
+		t.Fatal("bedrock should be undefined")
+	}
+}
+
+func TestLoadRejectsDuplicateAndUnknownProviders(t *testing.T) {
+	dir := t.TempDir()
+	write := func(body string) string {
+		p := filepath.Join(dir, "c.toml")
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	base := "[[models]]\nid = \"m\"\nprovider = \"anthropic\"\n"
+	if _, err := Load(write(base + "[[providers]]\ntype = \"opencode-go\"\n[[providers]]\ntype = \"opencode-go\"\n")); err == nil {
+		t.Fatal("duplicate provider type must fail")
+	}
+	if _, err := Load(write(base + "[[providers]]\ntype = \"nonsense\"\n")); err == nil {
+		t.Fatal("unknown provider type must fail")
+	}
+	if _, err := Load(write(base + "[[providers]]\ntype = \"anthropic\"\n")); err == nil {
+		t.Fatal("anthropic is built-in, not definable")
+	}
+}
+
+func TestMigrateProvidersFromLegacyInlineModels(t *testing.T) {
+	c := Config{Models: []Model{
+		{ID: "kimi", Provider: ProviderOpencodeGo, Upstream: "openai/kimi-k2.7-code",
+			APIBase: ZenDefaultAPIBase, KeyEnv: ZenKeyEnv},
+		{ID: "br", Provider: ProviderBedrock, Upstream: "bedrock/us.anthropic.claude-sonnet-5", Region: "us-east-1"},
+	}}
+	if !c.MigrateProviders() {
+		t.Fatal("expected migration to synthesize providers")
+	}
+	if p, ok := c.ProviderByType(ProviderOpencodeGo); !ok || p.APIBase != ZenDefaultAPIBase {
+		t.Fatalf("zen provider not synthesized: %+v %v", p, ok)
+	}
+	if p, ok := c.ProviderByType(ProviderBedrock); !ok || p.Region != "us-east-1" {
+		t.Fatalf("bedrock provider not synthesized: %+v %v", p, ok)
+	}
+	if c.MigrateProviders() {
+		t.Fatal("second run must be a no-op")
+	}
+}
+
+func TestResolveModelFillsFromProvider(t *testing.T) {
+	c := Config{Providers: []Provider{
+		{Type: ProviderOpencodeGo, APIBase: ZenDefaultAPIBase},
+		{Type: ProviderBedrock, Region: "eu-west-1"},
+	}}
+	m := c.ResolveModel(Model{ID: "glm", Provider: ProviderOpencodeGo, Upstream: "openai/glm-5.2"})
+	if m.APIBase != ZenDefaultAPIBase || m.KeyEnv != ZenKeyEnv {
+		t.Fatalf("zen resolution failed: %+v", m)
+	}
+	// Inline legacy values win.
+	m = c.ResolveModel(Model{ID: "old", Provider: ProviderOpencodeGo, APIBase: "https://other", KeyEnv: "OTHER_KEY"})
+	if m.APIBase != "https://other" || m.KeyEnv != "OTHER_KEY" {
+		t.Fatalf("inline values must win: %+v", m)
+	}
+	m = c.ResolveModel(Model{ID: "br", Provider: ProviderBedrock})
+	if m.Region != "eu-west-1" {
+		t.Fatalf("bedrock region resolution failed: %+v", m)
+	}
+	// Anthropic untouched.
+	if got := c.ResolveModel(Model{ID: "a", Provider: ProviderAnthropic}); got.KeyEnv != "" {
+		t.Fatalf("anthropic must not gain creds: %+v", got)
+	}
+}
+
+func TestMigrateProvidersEmptyAPIBase(t *testing.T) {
+	// Test that an empty api_base is migrated to ZenDefaultAPIBase.
+	c := Config{Models: []Model{
+		{ID: "kimi", Provider: ProviderOpencodeGo, Upstream: "openai/kimi-k2.7-code",
+			APIBase: "", KeyEnv: ZenKeyEnv},
+	}}
+	if !c.MigrateProviders() {
+		t.Fatal("expected migration to synthesize provider for empty api_base")
+	}
+	p, ok := c.ProviderByType(ProviderOpencodeGo)
+	if !ok {
+		t.Fatal("zen provider not synthesized")
+	}
+	if p.APIBase != ZenDefaultAPIBase {
+		t.Errorf("zen provider APIBase = %q, want %q", p.APIBase, ZenDefaultAPIBase)
+	}
+}
+
+func TestLoadInvokesMigrateProviders(t *testing.T) {
+	// Test that Load actually invokes MigrateProviders by loading a legacy TOML
+	// with inline api_base/key_env and verifying a provider is synthesized.
+	p := writeTemp(t, `
+default_model = "claude-opus-4-8"
+
+[[models]]
+id = "claude-opus-4-8"
+label = "Opus"
+provider = "anthropic"
+
+[[models]]
+id = "kimi"
+label = "Kimi"
+provider = "opencode-go"
+upstream = "openai/kimi-k2.7-code"
+api_base = "https://opencode.ai/zen/go/v1"
+key_env = "ZEN_KEY"
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// After Load, MigrateProviders should have been called, synthesizing a provider.
+	prov, ok := c.ProviderByType(ProviderOpencodeGo)
+	if !ok {
+		t.Fatal("zen provider not synthesized by Load")
+	}
+	if prov.APIBase != "https://opencode.ai/zen/go/v1" {
+		t.Errorf("zen provider APIBase = %q, want %q", prov.APIBase, "https://opencode.ai/zen/go/v1")
+	}
+	// The model should still be in the catalog.
+	kimi, ok := c.Model("kimi")
+	if !ok {
+		t.Fatal("kimi model not found after Load")
+	}
+	if kimi.Provider != ProviderOpencodeGo || kimi.Upstream != "openai/kimi-k2.7-code" {
+		t.Errorf("kimi model wrong after Load: %+v", kimi)
+	}
+}

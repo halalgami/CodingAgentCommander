@@ -6,6 +6,10 @@ export function AddModel(arg1) {
   return window['go']['main']['App']['AddModel'](arg1);
 }
 
+export function AddProvider(arg1, arg2, arg3) {
+  return window['go']['main']['App']['AddProvider'](arg1, arg2, arg3);
+}
+
 export function ClearKey(arg1) {
   return window['go']['main']['App']['ClearKey'](arg1);
 }
@@ -16,6 +20,10 @@ export function Config() {
 
 export function DiscoverBedrockModels(arg1) {
   return window['go']['main']['App']['DiscoverBedrockModels'](arg1);
+}
+
+export function DiscoverZenModels() {
+  return window['go']['main']['App']['DiscoverZenModels']();
 }
 
 export function EnableRemoteControl(arg1) {
@@ -32,6 +40,10 @@ export function KillSession(arg1) {
 
 export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
+}
+
+export function ListProviders() {
+  return window['go']['main']['App']['ListProviders']();
 }
 
 export function ListSessions() {
@@ -52,6 +64,10 @@ export function PlanUsage() {
 
 export function RemoveModel(arg1) {
   return window['go']['main']['App']['RemoveModel'](arg1);
+}
+
+export function RemoveProvider(arg1) {
+  return window['go']['main']['App']['RemoveProvider'](arg1);
 }
 
 export function RenameSession(arg1, arg2) {

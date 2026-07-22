@@ -171,6 +171,28 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ProviderInfo {
+	    type: string;
+	    defined: boolean;
+	    active: boolean;
+	    apiBase: string;
+	    region: string;
+	    modelCnt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProviderInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.defined = source["defined"];
+	        this.active = source["active"];
+	        this.apiBase = source["apiBase"];
+	        this.region = source["region"];
+	        this.modelCnt = source["modelCnt"];
+	    }
+	}
 	export class SessionInfo {
 	    windowID: string;
 	    name: string;
@@ -215,6 +237,25 @@ export namespace main {
 	        this.status = source["status"];
 	        this.remoteControl = source["remoteControl"];
 	        this.cwd = source["cwd"];
+	    }
+	}
+
+}
+
+export namespace zen {
+	
+	export class Model {
+	    id: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Model(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
 	    }
 	}
 
