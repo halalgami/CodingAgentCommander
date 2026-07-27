@@ -1,5 +1,8 @@
+//go:build !windows
+
 // Package ptybridge runs `tmux attach` inside a pty so a session can be
-// streamed to a terminal emulator (xterm.js) and driven by it.
+// streamed to a terminal emulator (xterm.js) and driven by it. The Windows
+// build (bridge_windows.go) provides the same API over a ConPTY.
 package ptybridge
 
 import (

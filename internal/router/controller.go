@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/halalgami/CodingAgentCommander/internal/proc"
 )
 
 // Controller runs a local LiteLLM proxy process.
@@ -25,14 +27,14 @@ type Controller struct {
 // NewController returns a controller bound to port (0 = auto).
 func NewController(port int) *Controller { return &Controller{Port: port} }
 
-func isExecFile(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0
-}
+// isExecFile and platformLitellmCandidates are defined per-OS (litellm_unix.go,
+// litellm_windows.go): executability and pip install layout differ between
+// Unix (an exec permission bit; bin/ dirs) and Windows (PATHEXT at exec time;
+// Scripts\*.exe).
 
-// LitellmBin locates the litellm executable. macOS GUI apps (and terminals
-// without pip-user bins on PATH) can't find pip --user installs, so beyond
-// PATH we probe the common install locations. Override with COMMANDER_LITELLM.
+// LitellmBin locates the litellm executable. GUI apps (and terminals without
+// pip-user bins on PATH) can't find pip --user installs, so beyond PATH we probe
+// the common install locations. Override with COMMANDER_LITELLM.
 func LitellmBin() (string, error) {
 	if p := os.Getenv("COMMANDER_LITELLM"); p != "" {
 		if isExecFile(p) {
@@ -44,16 +46,7 @@ func LitellmBin() (string, error) {
 		return p, nil
 	}
 	home, _ := os.UserHomeDir()
-	var candidates []string
-	// pip --user on macOS: ~/Library/Python/<X.Y>/bin/litellm
-	matches, _ := filepath.Glob(filepath.Join(home, "Library", "Python", "*", "bin", "litellm"))
-	candidates = append(candidates, matches...)
-	candidates = append(candidates,
-		filepath.Join(home, ".local", "bin", "litellm"), // pip --user on Linux/mac
-		"/opt/homebrew/bin/litellm",
-		"/usr/local/bin/litellm",
-	)
-	for _, c := range candidates {
+	for _, c := range platformLitellmCandidates(home) {
 		if isExecFile(c) {
 			return c, nil
 		}
@@ -102,7 +95,9 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(bin, "--config", c.ConfigPath, "--port", fmt.Sprintf("%d", c.Port))
+	// proc.Hide suppresses a console window on Windows (no-op elsewhere); stdout
+	// and stderr are still redirected below, so litellm's logs stay visible.
+	cmd := proc.Hide(exec.Command(bin, "--config", c.ConfigPath, "--port", fmt.Sprintf("%d", c.Port)))
 	cmd.Env = append(os.Environ(), c.Env...)
 	// Run from the config dir so the strip_thinking callback module (written
 	// alongside the yaml) is importable by litellm.

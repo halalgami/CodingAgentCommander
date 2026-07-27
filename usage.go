@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -39,22 +38,22 @@ var windowLabels = map[string]string{
 	"seven_day_haiku":  "Haiku",
 }
 
-// claudeOAuthToken reads Claude Code's access token from the keychain item the
-// CLI maintains ("Claude Code-credentials"). First access triggers a macOS
-// keychain consent prompt for Commander — expected.
-func claudeOAuthToken() (string, error) {
-	out, err := exec.Command("security", "find-generic-password",
-		"-s", "Claude Code-credentials", "-w").Output()
-	if err != nil {
-		return "", fmt.Errorf("Claude Code login not found in keychain (open claude once, or allow Commander keychain access)")
-	}
+// claudeOAuthToken reads Claude Code's OAuth access token from wherever the CLI
+// stores it: the macOS keychain (usage_darwin.go) or ~/.claude/.credentials.json
+// on other platforms (usage_other.go). Both hand the raw JSON to
+// parseClaudeCredential.
+
+// parseClaudeCredential extracts the OAuth access token from Claude Code's
+// credential JSON. The shape is identical whether the blob came from the macOS
+// keychain or the on-disk .credentials.json.
+func parseClaudeCredential(data string) (string, error) {
 	var blob struct {
 		ClaudeAiOauth struct {
 			AccessToken string `json:"accessToken"`
 			ExpiresAt   int64  `json:"expiresAt"`
 		} `json:"claudeAiOauth"`
 	}
-	if err := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &blob); err != nil ||
+	if err := json.Unmarshal([]byte(strings.TrimSpace(data)), &blob); err != nil ||
 		blob.ClaudeAiOauth.AccessToken == "" {
 		return "", fmt.Errorf("unrecognized Claude Code credential format")
 	}
