@@ -6,7 +6,14 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/halalgami/CodingAgentCommander/internal/proc"
 )
+
+// tmuxCmd builds an `tmux` command with a console window suppressed on Windows
+// (proc.Hide is a no-op elsewhere), so the frequent poll/reconcile calls don't
+// flash a console. Use this instead of tmuxCmd(…) throughout.
+func tmuxCmd(args ...string) *exec.Cmd { return proc.Hide(exec.Command("tmux", args...)) }
 
 // modelOption is the tmux user option Commander stamps on each window so a
 // surviving window's model survives a rename or app restart (the window name is
@@ -50,7 +57,7 @@ type ExecHost struct{}
 func NewExecHost() *ExecHost { return &ExecHost{} }
 
 func (h *ExecHost) hasSession(name string) bool {
-	return exec.Command("tmux", "has-session", "-t", name).Run() == nil
+	return tmuxCmd("has-session", "-t", name).Run() == nil
 }
 
 // Launch creates the session (if absent) or a new window (if present),
@@ -68,14 +75,14 @@ func (h *ExecHost) Launch(spec LaunchSpec) (WindowState, error) {
 	}
 	args = append(args, spec.Command...)
 
-	out, err := exec.Command("tmux", args...).Output()
+	out, err := tmuxCmd(args...).Output()
 	if err != nil {
 		return WindowState{}, fmt.Errorf("tmux launch: %w", err)
 	}
 	id := strings.TrimSpace(string(out))
 	if spec.ModelID != "" {
 		// Best-effort durable marker; a failure only degrades reconciliation.
-		_ = exec.Command("tmux", "set-option", "-t", id, modelOption, spec.ModelID).Run()
+		_ = tmuxCmd("set-option", "-t", id, modelOption, spec.ModelID).Run()
 	}
 	return WindowState{ID: id, Name: spec.WindowName, Active: true, ModelID: spec.ModelID}, nil
 }
@@ -85,7 +92,7 @@ func (h *ExecHost) Launch(spec LaunchSpec) (WindowState, error) {
 // tmux binary — must surface, or the UI silently blanks (the Finder-launch
 // bare-PATH failure mode).
 func (h *ExecHost) List(session string) ([]WindowState, error) {
-	out, err := exec.Command("tmux", "list-windows", "-t", session,
+	out, err := tmuxCmd("list-windows", "-t", session,
 		"-F", "#{window_id}\t#{window_name}\t#{window_active}\t#{pane_current_path}\t#{"+modelOption+"}").Output()
 	if err != nil {
 		var ee *exec.ExitError
@@ -123,7 +130,7 @@ func (h *ExecHost) List(session string) ([]WindowState, error) {
 
 // Kill removes a window by id.
 func (h *ExecHost) Kill(session, windowID string) error {
-	if err := exec.Command("tmux", "kill-window", "-t", windowID).Run(); err != nil {
+	if err := tmuxCmd("kill-window", "-t", windowID).Run(); err != nil {
 		return fmt.Errorf("tmux kill-window %s: %w", windowID, err)
 	}
 	return nil
@@ -131,7 +138,7 @@ func (h *ExecHost) Kill(session, windowID string) error {
 
 // Rename changes a window's display name.
 func (h *ExecHost) Rename(windowID, name string) error {
-	if err := exec.Command("tmux", "rename-window", "-t", windowID, name).Run(); err != nil {
+	if err := tmuxCmd("rename-window", "-t", windowID, name).Run(); err != nil {
 		return fmt.Errorf("tmux rename-window %s: %w", windowID, err)
 	}
 	return nil
@@ -141,22 +148,26 @@ func (h *ExecHost) Rename(windowID, name string) error {
 // the text literally (no key-name interpretation), so slash commands and
 // spaces arrive verbatim at claude's input line.
 func (h *ExecHost) SendKeys(windowID, text string) error {
-	if err := exec.Command("tmux", "send-keys", "-t", windowID, "-l", text).Run(); err != nil {
+	if err := tmuxCmd("send-keys", "-t", windowID, "-l", text).Run(); err != nil {
 		return fmt.Errorf("send-keys: %w", err)
 	}
-	return exec.Command("tmux", "send-keys", "-t", windowID, "Enter").Run()
+	return tmuxCmd("send-keys", "-t", windowID, "Enter").Run()
 }
 
 // SetOption stamps a window-scoped tmux user option (durable across app restarts).
 func (h *ExecHost) SetOption(windowID, name, value string) error {
-	return exec.Command("tmux", "set-option", "-w", "-t", windowID, name, value).Run()
+	return tmuxCmd("set-option", "-w", "-t", windowID, name, value).Run()
 }
 
-// GetOption reads a window-scoped option; "" means unset.
+// GetOption reads a window-scoped option; "" means unset. It expands the option
+// as a format variable via display-message rather than `show-options -wv`: the
+// former is portable across upstream tmux and the psmux (Windows) shim, whose
+// `show-options -wv` does not emit user options (@name). Both report an unset
+// option as an empty string.
 func (h *ExecHost) GetOption(windowID, name string) (string, error) {
-	out, err := exec.Command("tmux", "show-options", "-w", "-v", "-t", windowID, name).Output()
+	out, err := tmuxCmd("display-message", "-p", "-t", windowID, "#{"+name+"}").Output()
 	if err != nil {
-		return "", nil // unset options can exit non-zero on some tmux versions; treat as unset
+		return "", nil // treat any lookup failure as unset
 	}
 	return strings.TrimSpace(string(out)), nil
 }
