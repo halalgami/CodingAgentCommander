@@ -18,11 +18,17 @@ export function DiscoverZenModels():Promise<Array<zen.Model>>;
 
 export function EnableRemoteControl(arg1:string):Promise<void>;
 
+export function GetBuildInfo():Promise<main.BuildInfo>;
+
+export function ImportProjects(arg1:Array<main.ProjectEntry>):Promise<void>;
+
 export function KeyStatus():Promise<Array<main.KeyInfo>>;
 
 export function KillSession(arg1:string):Promise<void>;
 
 export function LaunchSession(arg1:string,arg2:string,arg3:boolean):Promise<main.SessionInfo>;
+
+export function ListProjects():Promise<Array<main.ProjectView>>;
 
 export function ListProviders():Promise<Array<main.ProviderInfo>>;
 
@@ -32,11 +38,17 @@ export function Models():Promise<Array<main.ModelDetail>>;
 
 export function PickFolder():Promise<string>;
 
+export function PinProject(arg1:string,arg2:boolean):Promise<void>;
+
 export function PlanUsage():Promise<main.PlanUsage>;
 
 export function RemoveModel(arg1:string):Promise<void>;
 
+export function RemoveProject(arg1:string):Promise<void>;
+
 export function RemoveProvider(arg1:string):Promise<void>;
+
+export function RenameProject(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<void>;
 

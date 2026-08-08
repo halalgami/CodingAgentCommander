@@ -27,6 +27,22 @@ export namespace bedrock {
 
 export namespace main {
 	
+	export class BuildInfo {
+	    version: string;
+	    commit: string;
+	    buildDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BuildInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.buildDate = source["buildDate"];
+	    }
+	}
 	export class KeyInfo {
 	    env: string;
 	    set: boolean;
@@ -170,6 +186,52 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class ProjectEntry {
+	    folder: string;
+	    label?: string;
+	    lastModelID: string;
+	    lastOpened: number;
+	    openCount: number;
+	    pinned: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.folder = source["folder"];
+	        this.label = source["label"];
+	        this.lastModelID = source["lastModelID"];
+	        this.lastOpened = source["lastOpened"];
+	        this.openCount = source["openCount"];
+	        this.pinned = source["pinned"];
+	    }
+	}
+	export class ProjectView {
+	    folder: string;
+	    label: string;
+	    lastModelID: string;
+	    lastOpened: number;
+	    openCount: number;
+	    pinned: boolean;
+	    missing: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.folder = source["folder"];
+	        this.label = source["label"];
+	        this.lastModelID = source["lastModelID"];
+	        this.lastOpened = source["lastOpened"];
+	        this.openCount = source["openCount"];
+	        this.pinned = source["pinned"];
+	        this.missing = source["missing"];
+	    }
 	}
 	export class ProviderInfo {
 	    type: string;

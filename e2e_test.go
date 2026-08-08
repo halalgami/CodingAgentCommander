@@ -40,7 +40,7 @@ func TestE2ELaunchStreamsOverWS(t *testing.T) {
 	t.Cleanup(func() { _ = killTmux(a.cfg.TmuxSession) })
 
 	// connect to the ws and read; expect substantial bytes (claude's TUI)
-	url := "ws://127.0.0.1:" + itoa(a.WSPort()) + "/ws"
+	url := "ws://127.0.0.1:" + itoaStr(a.WSPort()) + "/ws"
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial ws: %v", err)
@@ -66,7 +66,7 @@ func killTmux(s string) error {
 	return exec.Command("tmux", "kill-session", "-t", s).Run()
 }
 
-// itoa formats an int as a string.
-func itoa(i int) string {
+// itoaStr formats an int as a string.
+func itoaStr(i int) string {
 	return strconv.Itoa(i)
 }

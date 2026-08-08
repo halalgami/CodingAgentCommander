@@ -1,6 +1,6 @@
 <script>
-  import { app, select, launchInto, swapSession, enableRemoteControl } from "../stores.svelte.js";
-  import { loadRecents } from "../recents.js";
+  import { app, select, swapSession, enableRemoteControl, askLaunch } from "../stores.svelte.js";
+  import { listProjects } from "../history.js";
   import { fuzzyFilter } from "../fuzzy.js";
 
   let query = $state("");
@@ -24,15 +24,21 @@
   $effect(() => {
     if (app.paletteOpen && inputEl) inputEl.focus();
   });
+  let histItems = $state([]);
+  $effect(() => {
+    if (app.paletteOpen) {
+      listProjects().then((p) => { histItems = p; }).catch(() => { histItems = []; });
+    }
+  });
 
   const actions = $derived.by(() => {
     const items = [];
     for (const s of app.sessions) {
       items.push({ label: `Go: ${s.name}`, hint: "session", run: () => select(s.windowID) });
     }
-    for (const r of loadRecents()) {
+    for (const r of histItems) {
       const short = r.folder.split("/").slice(-2).join("/");
-      items.push({ label: `Launch: ${short}`, hint: r.modelID, run: () => launchInto(r.folder, r.modelID) });
+      items.push({ label: `Open: ${short}`, hint: r.lastModelID, run: () => askLaunch(r.folder, r.lastModelID, r.missing) });
     }
     if (app.sessionKey) {
       const wid = app.sessionKey.split(":")[0];
@@ -50,6 +56,7 @@
     items.push({ label: "Settings", hint: "config", run: () => (app.drawer = "settings") });
     items.push({ label: "Providers", hint: "config", run: () => (app.drawer = "providers") });
     items.push({ label: "Models", hint: "config", run: () => (app.drawer = "models") });
+    items.push({ label: "About", hint: "app", run: () => (app.about = true) });
     return items;
   });
 

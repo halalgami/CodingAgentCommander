@@ -884,3 +884,14 @@ func TestAddModelRequiresDefinedProviderAndPersistsClean(t *testing.T) {
 		t.Fatalf("resolution must supply fields: %+v", resolved)
 	}
 }
+
+func TestGetBuildInfoReflectsVars(t *testing.T) {
+	a := NewApp()
+	got := a.GetBuildInfo()
+	if got.Version != appVersion || got.Commit != appCommit || got.BuildDate != appBuildDate {
+		t.Fatalf("GetBuildInfo mismatch: %+v vs %q/%q/%q", got, appVersion, appCommit, appBuildDate)
+	}
+	if got.Version == "" {
+		t.Error("version must default to non-empty (\"dev\") when not built with ldflags")
+	}
+}

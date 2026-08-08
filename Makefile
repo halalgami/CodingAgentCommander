@@ -7,12 +7,12 @@ export CGO_LDFLAGS := -framework UniformTypeIdentifiers
 
 WAILS ?= $(HOME)/go/bin/wails
 
-VERSION ?= 0.9.3
+VERSION ?= 0.11.2
 
 .PHONY: build dev test vet dist release install
 
 build:
-	$(WAILS) build
+	$(WAILS) build -ldflags "-X main.appVersion=$(VERSION) -X main.appCommit=$(shell git rev-parse --short HEAD) -X main.appBuildDate=$(shell date -u +%Y-%m-%d)"
 
 dev:
 	$(WAILS) dev

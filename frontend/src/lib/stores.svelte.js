@@ -7,15 +7,19 @@ import {
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
   DiscoverZenModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
+  GetBuildInfo,
 } from "../../wailsjs/go/main/App.js";
-import { pushRecent } from "./recents.js";
+import { BrowserOpenURL } from "../../wailsjs/runtime/runtime.js";
+import { migrateHistoryOnce } from "./history.js";
 import { prefs } from "./prefs.svelte.js";
 
 export const app = $state({
   models: [], catalog: [], keys: [], providers: [],
   sessions: [], stats: {}, finished: {},
   sessionKey: "", selectedModel: "", folder: "",
-  drawer: null,            // null | "providers" | "models" | "settings" | "usage"
+  drawer: null,            // null | "providers" | "models" | "settings" | "usage" | "history"
+  launchConfirm: null,     // null | { folder, modelID, missing } — drives LaunchConfirmModal
+  about: false,            // About modal open?
   paletteOpen: false,
   launchError: "",
 });
@@ -46,6 +50,7 @@ export async function loadAll() {
   try { app.keys = await KeyStatus(); } catch {}
   try { app.catalog = await Models(); } catch {}
   try { app.providers = await ListProviders(); } catch {}
+  try { await migrateHistoryOnce(); } catch {}
   await refresh();
 }
 
@@ -56,16 +61,36 @@ export async function launch() {
     const m = app.models.find((x) => x.id === app.selectedModel);
     const rc = !!(prefs.rcAutoEnable && m && !m.routed);
     const s = await LaunchSession(app.folder, app.selectedModel, rc);
-    pushRecent({ folder: app.folder, modelID: app.selectedModel });
     await refresh();
     app.sessionKey = s.windowID;
   } catch (e) { app.launchError = "" + e; }
 }
 
-export async function launchInto(folder, modelID) {
+// Launch-confirm modal: history surfaces call askLaunch to open it; the modal's
+// Launch calls confirmLaunch (sets folder+model, closes modal+drawer, launches);
+// Cancel calls cancelLaunch.
+export function askLaunch(folder, modelID, missing = false) {
+  app.launchConfirm = { folder, modelID, missing };
+}
+export async function confirmLaunch(folder, modelID) {
   app.folder = folder;
   if (modelID) app.selectedModel = modelID;
+  app.launchConfirm = null;
+  app.drawer = null;
   await launch();
+}
+export function cancelLaunch() {
+  app.launchConfirm = null;
+}
+
+// About panel: build info comes from Go (defaults to dev values in a plain
+// browser); openURL hands links to the OS browser, never the app webview.
+export async function buildInfo() {
+  try { return await GetBuildInfo(); }
+  catch { return { version: "dev", commit: "", buildDate: "" }; }
+}
+export function openURL(url) {
+  try { BrowserOpenURL(url); } catch { /* no runtime in a plain browser */ }
 }
 
 export async function pickFolder() {

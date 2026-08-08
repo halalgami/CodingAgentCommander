@@ -23,6 +23,8 @@
     {/each}
   </ul>
   <footer>
+    <button data-testid="open-history" onclick={() => (app.drawer = "history")}>History</button>
+    <button data-testid="open-about" onclick={() => (app.about = true)}>About</button>
     <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
     <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
     <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>

@@ -10,6 +10,9 @@
   import ModelsDrawer from "./lib/components/ModelsDrawer.svelte";
   import SettingsDrawer from "./lib/components/SettingsDrawer.svelte";
   import UsageDrawer from "./lib/components/UsageDrawer.svelte";
+  import HistoryDrawer from "./lib/components/HistoryDrawer.svelte";
+  import LaunchConfirmModal from "./lib/components/LaunchConfirmModal.svelte";
+  import AboutModal from "./lib/components/AboutModal.svelte";
   import Hotkeys from "./lib/components/Hotkeys.svelte";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import BootIntro, { bootOnFirstRun } from "./lib/components/BootIntro.svelte";
@@ -20,6 +23,7 @@
   // without this the mount aborts (the B1 blank-window bug).
   try {
     EventsOn("session:finished", (windowID) => markFinished(windowID));
+    EventsOn("menu:about", () => (app.about = true));
   } catch {}
 
   onMount(() => {
@@ -27,6 +31,7 @@
     initTheme();
     initPrefs();
     loadAll();
+    window.__prefs = prefs; // exposed so the built-preview smoke can toggle prefs
     const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   });
@@ -74,7 +79,10 @@
   {#if app.drawer === "models"}<ModelsDrawer />{/if}
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
   {#if app.drawer === "usage"}<UsageDrawer />{/if}
+  {#if app.drawer === "history"}<HistoryDrawer />{/if}
   <CommandPalette />
+  <LaunchConfirmModal />
+  <AboutModal />
   <Hotkeys />
   <Toast />
   <BootIntro />

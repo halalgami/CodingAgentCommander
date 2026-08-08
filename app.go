@@ -52,6 +52,19 @@ type SessionInfo struct {
 	Model    string `json:"model"`
 }
 
+// BuildInfo is the app version/build stamp shown in the About panel. Values are
+// injected at build time via ldflags (see Makefile); defaults are dev-run values.
+type BuildInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
+}
+
+// GetBuildInfo returns the ldflags-injected version stamp (main.appVersion etc.).
+func (a *App) GetBuildInfo() BuildInfo {
+	return BuildInfo{Version: appVersion, Commit: appCommit, BuildDate: appBuildDate}
+}
+
 // App is the Wails backend.
 type App struct {
 	ctx        context.Context
@@ -88,6 +101,8 @@ type App struct {
 	// mtime, so the 5s stats poll doesn't re-parse unchanged transcripts.
 	statCache map[string]statEntry
 	statMu    sync.Mutex
+	// historyMu guards projects.json reads/writes (project-open history).
+	historyMu sync.Mutex
 }
 
 // statEntry is a cached transcript parse, valid while the file's mtime is mod.
@@ -896,6 +911,9 @@ func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (Session
 		}
 		a.mu.Unlock()
 		_ = a.host.SetOption(s.WindowID, "@commander_rc", "1")
+	}
+	if err == nil {
+		a.recordProjectOpen(folder, modelID) // remember this project for the history
 	}
 	return s, err
 }

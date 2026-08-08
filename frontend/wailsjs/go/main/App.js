@@ -30,6 +30,14 @@ export function EnableRemoteControl(arg1) {
   return window['go']['main']['App']['EnableRemoteControl'](arg1);
 }
 
+export function GetBuildInfo() {
+  return window['go']['main']['App']['GetBuildInfo']();
+}
+
+export function ImportProjects(arg1) {
+  return window['go']['main']['App']['ImportProjects'](arg1);
+}
+
 export function KeyStatus() {
   return window['go']['main']['App']['KeyStatus']();
 }
@@ -40,6 +48,10 @@ export function KillSession(arg1) {
 
 export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
+}
+
+export function ListProjects() {
+  return window['go']['main']['App']['ListProjects']();
 }
 
 export function ListProviders() {
@@ -58,6 +70,10 @@ export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
 }
 
+export function PinProject(arg1, arg2) {
+  return window['go']['main']['App']['PinProject'](arg1, arg2);
+}
+
 export function PlanUsage() {
   return window['go']['main']['App']['PlanUsage']();
 }
@@ -66,8 +82,16 @@ export function RemoveModel(arg1) {
   return window['go']['main']['App']['RemoveModel'](arg1);
 }
 
+export function RemoveProject(arg1) {
+  return window['go']['main']['App']['RemoveProject'](arg1);
+}
+
 export function RemoveProvider(arg1) {
   return window['go']['main']['App']['RemoveProvider'](arg1);
+}
+
+export function RenameProject(arg1, arg2) {
+  return window['go']['main']['App']['RenameProject'](arg1, arg2);
 }
 
 export function RenameSession(arg1, arg2) {

@@ -33,7 +33,9 @@ test("wrong-typed and unknown keys are dropped", () => {
 });
 
 test("defaults are the spec values", () => {
-  assert.deepEqual(DEFAULTS, { fontSize: 13, scrollback: 5000, maxCols: 0, uiScale: 100, sidebarW: 300, rcAutoEnable: false });
+  assert.deepEqual(DEFAULTS, {
+    fontSize: 13, scrollback: 5000, maxCols: 0, uiScale: 100, sidebarW: 300, rcAutoEnable: false,
+  });
 });
 
 test("v1 payload migrates: default 120 cap becomes unlimited", () => {
