@@ -3,6 +3,7 @@
 import {main} from '../models';
 import {bedrock} from '../models';
 import {zen} from '../models';
+import {router} from '../models';
 
 export function AddModel(arg1:main.ModelInput):Promise<void>;
 
@@ -22,6 +23,8 @@ export function GetBuildInfo():Promise<main.BuildInfo>;
 
 export function ImportProjects(arg1:Array<main.ProjectEntry>):Promise<void>;
 
+export function InstallLitellmRuntime():Promise<void>;
+
 export function KeyStatus():Promise<Array<main.KeyInfo>>;
 
 export function KillSession(arg1:string):Promise<void>;
@@ -33,6 +36,8 @@ export function ListProjects():Promise<Array<main.ProjectView>>;
 export function ListProviders():Promise<Array<main.ProviderInfo>>;
 
 export function ListSessions():Promise<Array<main.SessionInfo>>;
+
+export function LitellmRuntimeStatus():Promise<router.RuntimeStatus>;
 
 export function Models():Promise<Array<main.ModelDetail>>;
 

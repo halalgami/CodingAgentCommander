@@ -304,6 +304,31 @@ export namespace main {
 
 }
 
+export namespace router {
+	
+	export class RuntimeStatus {
+	    installed: boolean;
+	    path: string;
+	    managed: boolean;
+	    python: string;
+	    canInstall: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RuntimeStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.installed = source["installed"];
+	        this.path = source["path"];
+	        this.managed = source["managed"];
+	        this.python = source["python"];
+	        this.canInstall = source["canInstall"];
+	    }
+	}
+
+}
+
 export namespace zen {
 	
 	export class Model {

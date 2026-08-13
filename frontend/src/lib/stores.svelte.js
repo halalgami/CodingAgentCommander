@@ -7,9 +7,9 @@ import {
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
   DiscoverZenModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
-  GetBuildInfo,
+  GetBuildInfo, LitellmRuntimeStatus, InstallLitellmRuntime,
 } from "../../wailsjs/go/main/App.js";
-import { BrowserOpenURL } from "../../wailsjs/runtime/runtime.js";
+import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime.js";
 import { migrateHistoryOnce } from "./history.js";
 import { prefs } from "./prefs.svelte.js";
 
@@ -22,6 +22,9 @@ export const app = $state({
   about: false,            // About modal open?
   paletteOpen: false,
   launchError: "",
+  // LiteLLM first-run installer. null = closed; object = open, driving
+  // LitellmRuntimeModal: { python, canInstall, running, log[], error, done }.
+  litellmInstall: null,
 });
 
 export const toasts = $state([]);
@@ -63,7 +66,57 @@ export async function launch() {
     const s = await LaunchSession(app.folder, app.selectedModel, rc);
     await refresh();
     app.sessionKey = s.windowID;
-  } catch (e) { app.launchError = "" + e; }
+  } catch (e) {
+    app.launchError = "" + e;
+    maybeOfferLitellmInstall(e);
+  }
+}
+
+// ---- LiteLLM first-run runtime installer ----
+// Routed models (zen/bedrock) need the LiteLLM proxy, a Python package the DMG
+// can't ship inline. When the backend reports it missing, offer to build an
+// app-managed venv from an in-app button instead of sending the user to a shell.
+
+function isLitellmMissing(e) {
+  return ("" + e).toLowerCase().includes("litellm not found");
+}
+
+// maybeOfferLitellmInstall opens the installer when the error is the missing
+// runtime; otherwise no-op so the normal error surface (toast/inline) stands.
+export function maybeOfferLitellmInstall(e) {
+  if (isLitellmMissing(e)) openLitellmInstaller();
+}
+
+export async function openLitellmInstaller() {
+  let st = { python: "", canInstall: false };
+  try { st = await LitellmRuntimeStatus(); } catch {}
+  app.litellmInstall = {
+    python: st.python, canInstall: st.canInstall,
+    running: false, log: [], error: "", done: false,
+  };
+}
+
+export function closeLitellmInstaller() { app.litellmInstall = null; }
+
+export async function runLitellmInstall() {
+  const s = app.litellmInstall;
+  if (!s || s.running) return;
+  s.running = true; s.error = ""; s.done = false; s.log = [];
+  // Live progress arrives as events; unsubscribe on the terminal event.
+  const offLog = EventsOn("litellm-install:log", (line) => { s.log.push(line); });
+  const offDone = EventsOn("litellm-install:done", () => {
+    s.running = false; s.done = true; cleanup();
+    toast("LiteLLM runtime installed — routed models ready", "info");
+  });
+  const offErr = EventsOn("litellm-install:error", (msg) => {
+    s.running = false; s.error = "" + msg; cleanup();
+  });
+  function cleanup() { offLog?.(); offDone?.(); offErr?.(); }
+  try {
+    await InstallLitellmRuntime();
+  } catch (e) {
+    s.running = false; s.error = "" + e; cleanup();
+  }
 }
 
 // Launch-confirm modal: history surfaces call askLaunch to open it; the modal's
@@ -139,7 +192,7 @@ export async function swapSession(windowID, modelID) {
     } else {
       toast(`Swapped to ${modelID}`);
     }
-  } catch (e) { toast("" + e, "error"); }
+  } catch (e) { toast("" + e, "error"); maybeOfferLitellmInstall(e); }
 }
 
 // ---- config actions (drawers own their pending-input state; these throw so

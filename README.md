@@ -48,7 +48,12 @@ both rotate every run and gate only loopback services.
 - macOS (Apple Silicon primary)
 - tmux ≥ 3.2 — `brew install tmux`
 - The [`claude` CLI](https://code.claude.com/docs) — `npm install -g @anthropic-ai/claude-code`
-- For routed models: `pip install 'litellm[proxy]'` (or set `COMMANDER_LITELLM`)
+- For routed models: the app builds a LiteLLM runtime on first use (launch a
+  routed model → **Install** in the prompt; needs Python 3.10–3.13 + network
+  once). To install it yourself, pin the tested pair — a floating
+  `litellm[proxy]` pulls an incompatible FastAPI and the proxy won't boot:
+  `python3.12 -m pip install --user 'litellm[proxy]==1.83.9' 'fastapi==0.124.4'`
+  (or point `COMMANDER_LITELLM` at an existing litellm)
 - For Remote Control: a claude.ai subscription plan that includes it
 - To build: Go 1.24+, Node 20+, [Wails v2](https://wails.io) CLI
   (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)

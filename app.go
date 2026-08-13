@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -97,6 +98,9 @@ type App struct {
 	// was started with, so ensureRouter can detect drift (a model or key added
 	// after start) and restart instead of serving a stale model list.
 	routerHash string
+	// runtimeInstalling guards against overlapping first-run LiteLLM installs
+	// (a double-clicked Install button); a second call no-ops while one runs.
+	runtimeInstalling atomic.Bool
 	// statCache memoizes parsed transcript stats keyed by path, invalidated by
 	// mtime, so the 5s stats poll doesn't re-parse unchanged transcripts.
 	statCache map[string]statEntry
@@ -387,6 +391,35 @@ func modelReady(m config.Model) (bool, string) {
 		}
 	}
 	return true, ""
+}
+
+// LitellmRuntimeStatus reports whether the LiteLLM proxy runtime is resolvable
+// (system pip install or the app-managed venv) and, if not, whether a first-run
+// install can build it here. The frontend calls this to decide whether to prompt.
+func (a *App) LitellmRuntimeStatus() router.RuntimeStatus { return router.Status() }
+
+// InstallLitellmRuntime builds the managed LiteLLM runtime in the background,
+// streaming progress to the frontend via events:
+//
+//	litellm-install:log    string  — one line of venv/pip output
+//	litellm-install:done   (none)  — install succeeded
+//	litellm-install:error  string  — install failed, with the message
+//
+// It returns immediately; the frontend listens for the terminal event. A second
+// call while an install is in flight is a no-op.
+func (a *App) InstallLitellmRuntime() {
+	if !a.runtimeInstalling.CompareAndSwap(false, true) {
+		return // an install is already running
+	}
+	go func() {
+		defer a.runtimeInstalling.Store(false)
+		emit := func(line string) { wruntime.EventsEmit(a.ctx, "litellm-install:log", line) }
+		if err := router.InstallRuntime(a.ctx, "", emit); err != nil {
+			wruntime.EventsEmit(a.ctx, "litellm-install:error", err.Error())
+			return
+		}
+		wruntime.EventsEmit(a.ctx, "litellm-install:done")
+	}()
 }
 
 // litellmConfigPath is where the generated LiteLLM config.yaml is written.

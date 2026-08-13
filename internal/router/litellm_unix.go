@@ -14,9 +14,10 @@ func isExecFile(p string) bool {
 }
 
 // platformLitellmCandidates lists common pip install locations on Unix that may
-// not be on a GUI app's PATH.
+// not be on a GUI app's PATH. The app-managed venv (first-run install) is
+// probed first so it wins once built.
 func platformLitellmCandidates(home string) []string {
-	var c []string
+	c := []string{ManagedLitellm()}
 	// pip --user on macOS: ~/Library/Python/<X.Y>/bin/litellm
 	matches, _ := filepath.Glob(filepath.Join(home, "Library", "Python", "*", "bin", "litellm"))
 	c = append(c, matches...)
@@ -26,4 +27,31 @@ func platformLitellmCandidates(home string) []string {
 		"/usr/local/bin/litellm",
 	)
 	return c
+}
+
+// ManagedLitellm is the litellm console script inside the managed venv.
+func ManagedLitellm() string { return filepath.Join(ManagedVenvDir(), "bin", "litellm") }
+
+// venvPython is the interpreter inside a venv, used to drive pip during install.
+func venvPython(venv string) string { return filepath.Join(venv, "bin", "python") }
+
+// platformPythonCandidates lists generic python3 locations off a GUI app's bare
+// PATH. Version-gated by the caller.
+func platformPythonCandidates() []string {
+	return []string{
+		"/opt/homebrew/bin/python3", // Apple-silicon Homebrew
+		"/usr/local/bin/python3",    // Intel Homebrew / python.org
+		"/usr/bin/python3",          // macOS Command Line Tools / Linux system
+	}
+}
+
+// platformVersionedPython lists bin-dir locations for a specific pythonX.Y that
+// a GUI app's PATH may miss (Homebrew keg bins especially).
+func platformVersionedPython(name string) []string {
+	return []string{
+		filepath.Join("/opt/homebrew/bin", name), // Apple-silicon Homebrew
+		filepath.Join("/usr/local/bin", name),    // Intel Homebrew / python.org
+		// python.org framework builds: /Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+		filepath.Join("/Library/Frameworks/Python.framework/Versions", name[len("python"):], "bin", name),
+	}
 }

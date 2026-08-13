@@ -38,6 +38,10 @@ export function ImportProjects(arg1) {
   return window['go']['main']['App']['ImportProjects'](arg1);
 }
 
+export function InstallLitellmRuntime() {
+  return window['go']['main']['App']['InstallLitellmRuntime']();
+}
+
 export function KeyStatus() {
   return window['go']['main']['App']['KeyStatus']();
 }
@@ -60,6 +64,10 @@ export function ListProviders() {
 
 export function ListSessions() {
   return window['go']['main']['App']['ListSessions']();
+}
+
+export function LitellmRuntimeStatus() {
+  return window['go']['main']['App']['LitellmRuntimeStatus']();
 }
 
 export function Models() {
