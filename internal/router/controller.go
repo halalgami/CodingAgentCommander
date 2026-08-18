@@ -58,12 +58,16 @@ func LitellmBin() (string, error) {
 // configPath — an orphan left when the GUI exited uncleanly (force-quit/crash)
 // so its OnShutdown never ran to Stop() the child. It matches on the --config
 // argument, so it never touches an unrelated litellm serving a different config.
-// No-op on an empty path or where pkill is absent (e.g. Windows).
+// No-op on an empty path.
+//
+// Every failure is swallowed: this runs on the startup and shutdown paths, and
+// a machine that will not let us enumerate or kill processes is not a reason to
+// refuse to boot. The mechanism is per-OS — see reap_unix.go / reap_windows.go.
 func ReapStale(configPath string) {
 	if configPath == "" {
 		return
 	}
-	_ = exec.Command("pkill", "-f", configPath).Run()
+	reapStale(configPath)
 }
 
 // Running reports whether the proxy process has been started and not stopped.
