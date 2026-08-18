@@ -32,11 +32,14 @@ func pythonEnv(extra ...string) []string {
 	return env
 }
 
-// hasEnvKey reports whether env already assigns key. The comparison is
-// case-insensitive because Windows environment names are.
+// hasEnvKey reports whether env assigns key a non-empty value. The comparison
+// is case-insensitive because Windows environment names are. An empty
+// assignment counts as absent: Python itself treats PYTHONIOENCODING="" as
+// unset, so honouring it as an override would silently reinstate the cp1252
+// default this whole file exists to avoid.
 func hasEnvKey(env []string, key string) bool {
 	for _, kv := range env {
-		if k, _, ok := strings.Cut(kv, "="); ok && strings.EqualFold(k, key) {
+		if k, v, ok := strings.Cut(kv, "="); ok && strings.EqualFold(k, key) && v != "" {
 			return true
 		}
 	}

@@ -81,12 +81,46 @@ Common to both platforms:
 
 ## Install
 
-**From a release** (if you've been handed one):
+**From a release — macOS:**
 
 ```bash
 gh release download --repo halalgami/CodingAgentCommander -p "*.dmg"
 # open the DMG, drag Commander to Applications, right-click → Open (first time)
 ```
+
+**From a release — Windows.** A single portable exe: no installer, no admin
+rights, nothing written outside your user profile. Delete the file to uninstall.
+
+```powershell
+gh release download --repo halalgami/CodingAgentCommander -p "commander-gui.exe" -p "*.sha256"
+```
+
+Then verify it before you run it — the releases are built by GitHub Actions
+precisely so that you can:
+
+```powershell
+# 1. Integrity — must match the published .sha256
+(Get-FileHash .\commander-gui.exe -Algorithm SHA256).Hash.ToLower()
+
+# 2. Provenance — proves GitHub built this exe from this repo's source
+gh attestation verify .\commander-gui.exe --repo halalgami/CodingAgentCommander
+```
+
+The second check is the one that carries weight. A checksum only shows the file
+arrived intact — whoever could replace the exe could replace the checksum next
+to it. The attestation is signed by GitHub against the workflow run that
+produced the binary, so it ties the file to a specific commit of this public
+source tree.
+
+> **SmartScreen will warn on first run.** The exe is not code-signed, so Windows
+> shows *"Windows protected your PC"*. That is what Windows shows for any binary
+> without a paid Authenticode certificate — it is not a signal that anything is
+> wrong with this one. Verify the two checks above, then **More info → Run
+> anyway**. Signing is the one gap the provenance attestation does not close.
+
+Prefer to trust nothing at all? Build it yourself from source below; the
+release workflow (`.github/workflows/release.yml`) runs the same `.\build.ps1
+release` you would.
 
 **From source — macOS:**
 

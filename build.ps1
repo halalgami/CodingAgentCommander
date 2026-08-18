@@ -13,6 +13,7 @@
     test            — Go suite (serial; see -p 1 note below)
     vet             — go vet
     all             — vet, then test, then build
+    release         — portable exe for distribution, plus its SHA256 file
 
 .EXAMPLE
     .\build.ps1
@@ -20,7 +21,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('build', 'dev', 'test', 'vet', 'all')]
+    [ValidateSet('build', 'dev', 'test', 'vet', 'all', 'release')]
     [string]$Target = 'build',
 
     [string]$Version = '0.11.3'
@@ -89,9 +90,35 @@ switch ($Target) {
         Invoke-Step 'go test' { & $go @testArgs }
         Invoke-Step 'wails build' { & $wails build -ldflags $ldflags }
     }
+    'release' {
+        # -webview2 embed bundles Microsoft's WebView2 bootstrapper (~150 KB).
+        # Without it the default 'download' strategy sends a user whose machine
+        # lacks the runtime off to a browser mid-launch; Windows 11 always has
+        # it, Windows 10 often does not.
+        #
+        # Deliberately NOT using -upx: compressed binaries match packer
+        # heuristics, and antivirus false positives are the main thing that
+        # stops people running an unsigned download.
+        Invoke-Step 'wails build (release)' {
+            & $wails build -clean -webview2 embed -ldflags $ldflags
+        }
+
+        $exe = Join-Path $PSScriptRoot 'build\bin\commander-gui.exe'
+        if (-not (Test-Path $exe)) { throw "release build produced no exe at $exe" }
+
+        # Ship the hash next to the binary so a downloader can prove the file
+        # arrived intact. This is integrity only, not authenticity — anyone who
+        # could swap the exe could swap the .sha256 beside it. Provenance comes
+        # from the GitHub attestation (see .github/workflows/release.yml).
+        $hash = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLower()
+        $sums = "$exe.sha256"
+        "$hash  commander-gui.exe" | Set-Content -Path $sums -Encoding ascii
+        Write-Host "SHA256  $hash" -ForegroundColor Green
+        Write-Host "Wrote   $sums" -ForegroundColor Green
+    }
 }
 
-if ($Target -in @('build', 'all')) {
+if ($Target -in @('build', 'all', 'release')) {
     $exe = Join-Path $PSScriptRoot 'build\bin\commander-gui.exe'
     if (Test-Path $exe) {
         Write-Host "Built $exe" -ForegroundColor Green

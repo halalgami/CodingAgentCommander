@@ -1,0 +1,94 @@
+# Builds the portable Windows exe and publishes it with a verifiable link back
+# to the exact commit and workflow that produced it.
+#
+# The point of building in CI rather than uploading a binary from a laptop: a
+# downloader can check the artifact against a provenance attestation GitHub
+# signs on our behalf, so "this exe was built from this source" is something
+# they verify rather than something they take on trust. A hand-built upload
+# carries no such evidence, however honest the uploader.
+#
+# This is NOT Authenticode code signing. The exe stays unsigned, so Windows
+# SmartScreen still warns on first run — see the README. Signing needs a
+# purchased certificate and is the one remaining gap.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (no leading v), e.g. 0.11.4"
+        required: true
+
+permissions: {}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the release and upload assets
+      id-token: write # mint the OIDC token the attestation is signed with
+      attestations: write # record the provenance attestation
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Pinned rather than @latest: the build flags and the macOS linker
+      # workaround in the Makefile are both tied to this Wails version.
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
+
+      - name: Resolve version
+        id: v
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $env:GITHUB_REF -replace '^refs/tags/v', ''
+          } else {
+            '${{ inputs.version }}'
+          }
+          if (-not $v) { throw 'could not determine version' }
+          "version=$v" | Out-File $env:GITHUB_OUTPUT -Append
+
+      # Gate the release on a green suite: a tag should never publish a build
+      # that could not pass its own tests. `all` is deliberately not used here —
+      # it would run a full wails build that the release step then repeats.
+      # Note the psmux-backed tests SKIP on the runner, which has no psmux, so
+      # this does not cover the session paths.
+      - name: Vet
+        run: ./build.ps1 vet
+
+      - name: Test
+        run: ./build.ps1 test
+
+      - name: Build portable exe
+        run: ./build.ps1 release -Version ${{ steps.v.outputs.version }}
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: build/bin/commander-gui.exe
+
+      # Notes live in a file rather than inline: inside a PowerShell here-string
+      # the backtick is the escape character, which turns every markdown code
+      # fence into a quoting puzzle.
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+        shell: pwsh
+        run: |
+          gh release create "v$env:VERSION" `
+            build/bin/commander-gui.exe `
+            build/bin/commander-gui.exe.sha256 `
+            --title "Commander v$env:VERSION" `
+            --notes-file .github/release-notes-windows.md
