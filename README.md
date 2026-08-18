@@ -106,6 +106,18 @@ precisely so that you can:
 gh attestation verify .\commander-gui.exe --repo halalgami/CodingAgentCommander
 ```
 
+Check 2 needs the [`gh` CLI](https://cli.github.com) **signed in**
+(`gh auth login`) — it queries the attestations API, which the CLI will not do
+anonymously. No account? The attestation itself is public, so you can fetch the
+bundle and verify entirely offline:
+
+```powershell
+$d = (Get-FileHash .\commander-gui.exe -Algorithm SHA256).Hash.ToLower()
+(Invoke-RestMethod "https://api.github.com/repos/halalgami/CodingAgentCommander/attestations/sha256:$d").attestations[0].bundle |
+  ConvertTo-Json -Depth 30 -Compress | Set-Content att.jsonl -Encoding utf8
+gh attestation verify .\commander-gui.exe --bundle att.jsonl --repo halalgami/CodingAgentCommander
+```
+
 The second check is the one that carries weight. A checksum only shows the file
 arrived intact — whoever could replace the exe could replace the checksum next
 to it. The attestation is signed by GitHub against the workflow run that

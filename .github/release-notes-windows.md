@@ -18,6 +18,11 @@ arrived intact; anyone able to swap the exe could swap the checksum beside it.
 The attestation is signed by GitHub against the workflow run that built the
 binary, so it ties this file to a specific commit of the public source.
 
+It needs the [`gh` CLI](https://cli.github.com) **signed in** (`gh auth login`):
+the CLI will not query the attestations API anonymously. The attestation is
+itself public, though, so without an account you can download the bundle and
+verify offline instead — see "Verify what you downloaded" in the README.
+
 ## SmartScreen will warn you
 
 The exe is **not** code-signed, so Windows shows *"Windows protected your PC"*
