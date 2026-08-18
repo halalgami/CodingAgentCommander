@@ -11,16 +11,14 @@ import (
 )
 
 // Sentinel marks Commander's hook command so Remove/Install act only on our block.
+// It is carried as a trailing `#` comment, which is a line comment in every shell
+// Claude Code runs hooks under (sh, bash, PowerShell).
 const Sentinel = "__commander_notify__"
 
-func command(port int, token string) string {
-	// Claude pipes the hook JSON to stdin; curl posts it to the notify endpoint.
-	// The sentinel comment lets us identify our own block. The token authenticates
-	// the post so a stray local process can't spoof session-finished events.
-	return fmt.Sprintf(
-		"curl -s -m 2 -X POST 'http://localhost:%d/notify?token=%s' -H 'Content-Type: application/json' -d @- >/dev/null 2>&1 # %s",
-		port, token, Sentinel)
-}
+// command builds the Stop-hook command line. Claude pipes the hook JSON to
+// stdin; curl posts it to the notify endpoint. The token authenticates the post
+// so a stray local process can't spoof session-finished events. The concrete
+// syntax is per-OS: see command_unix.go / command_windows.go.
 
 func load(path string) (map[string]any, error) {
 	b, err := os.ReadFile(path)

@@ -1,0 +1,21 @@
+# Normalise line endings. Without this, building on Windows rewrites generated
+# files (frontend/wailsjs/**, go.mod) with CRLF and leaves the tree dirty after
+# every `wails build`, producing whitespace-only diffs against the macOS repo.
+* text=auto eol=lf
+
+# Shell scripts and Makefiles must keep LF even when checked out on Windows —
+# CRLF breaks the shebang line and make's recipe parsing.
+*.sh   text eol=lf
+Makefile text eol=lf
+
+# PowerShell is happiest with CRLF on Windows.
+*.ps1  text eol=crlf
+
+# Binary assets: never convert, never diff as text.
+*.png  binary
+*.ico  binary
+*.icns binary
+*.woff  binary
+*.woff2 binary
+*.dmg  binary
+*.exe  binary

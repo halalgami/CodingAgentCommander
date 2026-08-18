@@ -1,17 +1,20 @@
 # Commander
 
-**Claude Code fleet control.** A macOS command deck for running multiple
+**Claude Code fleet control.** A command deck for running multiple
 [Claude Code](https://code.claude.com) sessions across projects — each on a
 different model, from Anthropic-native to OpenCode Zen to AWS Bedrock —
 launched, watched, swapped, and resumed from one window.
+
+Runs natively on **macOS** (primary) and **Windows** (no WSL — sessions are
+hosted by [psmux](https://github.com/psmux/psmux), a native tmux for Windows).
 
 ![Commander deck](docs/screenshots/deck.png)
 
 ## What it does
 
 - **Launch** Claude Code into any project folder on any configured model.
-  Sessions live in tmux windows: they survive the app closing, crashing, or
-  your Mac sleeping.
+  Sessions live in tmux windows (psmux windows on Windows): they survive the
+  app closing, crashing, or the machine sleeping.
 - **Watch** live telemetry per session: context-window fill (green/amber/red
   bands), estimated $/turn, turn count, uptime. Finished sessions light up —
   readable from across the room.
@@ -30,8 +33,9 @@ launched, watched, swapped, and resumed from one window.
 | **OpenCode Zen/Go** (GLM, Kimi, DeepSeek, Qwen…) | Routed through a local [LiteLLM](https://github.com/BerriAI/litellm) proxy, started lazily |
 | **AWS Bedrock** (Claude, Nova, Llama…) | Routed via LiteLLM with SigV4; one-click model discovery from your AWS account, tool-capable models flagged |
 
-**Provider API keys live in the macOS keychain — never on disk.** Generated
-LiteLLM configs reference keys as `os.environ/…` env vars, never values.
+**Provider API keys live in the OS credential store — never on disk** (macOS
+Keychain; Windows Credential Manager). Generated LiteLLM configs reference keys
+as `os.environ/…` env vars, never values.
 
 Security model, plainly: Commander runs a loopback-only HTTP server for the
 terminal stream (`/ws`) and Claude Code's finish hook (`/notify`); both are
@@ -45,8 +49,8 @@ both rotate every run and gate only loopback services.
 
 ## Requirements
 
-- macOS (Apple Silicon primary)
-- tmux ≥ 3.2 — `brew install tmux`
+Common to both platforms:
+
 - The [`claude` CLI](https://code.claude.com/docs) — `npm install -g @anthropic-ai/claude-code`
 - For routed models: the app builds a LiteLLM runtime on first use (launch a
   routed model → **Install** in the prompt; needs Python 3.10–3.13 + network
@@ -55,8 +59,25 @@ both rotate every run and gate only loopback services.
   `python3.12 -m pip install --user 'litellm[proxy]==1.83.9' 'fastapi==0.124.4'`
   (or point `COMMANDER_LITELLM` at an existing litellm)
 - For Remote Control: a claude.ai subscription plan that includes it
-- To build: Go 1.24+, Node 20+, [Wails v2](https://wails.io) CLI
-  (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- To build: Go 1.25+, Node 20+, [Wails v2](https://wails.io) CLI
+  (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0`)
+
+**macOS** (Apple Silicon primary):
+
+- tmux ≥ 3.2 — `brew install tmux`
+
+**Windows** (10/11, x64 — no WSL required):
+
+- [psmux](https://github.com/psmux/psmux) ≥ 3.3 — a native tmux for Windows. It
+  installs a `tmux` shim, which is the binary Commander actually calls:
+  `scoop bucket add psmux https://github.com/psmux/scoop-psmux; scoop install psmux`
+  (or `choco install psmux`, `cargo install psmux`, or unzip a
+  [release](https://github.com/psmux/psmux/releases) onto your `PATH`)
+- **PowerShell 7+** (`pwsh`). Not optional and not the same as the Windows
+  PowerShell 5.1 that ships with Windows — psmux's Claude Code integration
+  requires it: `winget install Microsoft.PowerShell`
+- WebView2 runtime — preinstalled on Windows 11; on Windows 10 get it from
+  [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/)
 
 ## Install
 
@@ -67,13 +88,24 @@ gh release download --repo halalgami/CodingAgentCommander -p "*.dmg"
 # open the DMG, drag Commander to Applications, right-click → Open (first time)
 ```
 
-**From source:**
+**From source — macOS:**
 
 ```bash
 git clone https://github.com/halalgami/CodingAgentCommander
 cd CodingAgentCommander
 make build          # → build/bin/commander-gui.app
 make dev            # live-reload dev mode
+```
+
+**From source — Windows:** Windows has no `make`, so use the PowerShell helper,
+which mirrors the same targets:
+
+```powershell
+git clone https://github.com/halalgami/CodingAgentCommander
+cd CodingAgentCommander
+.\build.ps1         # → build\bin\commander-gui.exe
+.\build.ps1 dev     # live-reload dev mode
+.\build.ps1 all     # vet, test, then build
 ```
 
 First run: just launch — Commander seeds `~/.config/commander/config.toml`
@@ -90,19 +122,41 @@ Models drawer grows it from there. Prefer curating by hand? Copy
    discovery), Settings (accent color, terminal font/scrollback/width,
    UI scale, RC-on-launch).
 4. **⌘K** — command palette. **⌘= / ⌘- / ⌘0** — terminal font size.
+   (On Windows: **Ctrl** in place of **⌘**.)
 
 ## Development
 
 ```bash
-make test                            # Go suite
+make test                            # Go suite (.\build.ps1 test on Windows)
 cd frontend
 npx playwright install chromium      # once, downloads the test browser
 npx playwright test                  # UI smokes
 node --test src/lib/*.test.js src/lib/theme/*.test.js
 ```
 
+The Go suite runs packages serially on Windows (`-p 1`, applied automatically by
+the Makefile and `build.ps1`). The tmux/ptybridge/wsterm integration tests drive
+one shared psmux server and wait on fixed timeouts for `pwsh` to start; run
+those packages concurrently and they flake. Those same tests skip outright if
+`tmux` (psmux) or `pwsh` is missing, so a green run on a box without them has
+not exercised the Windows session paths at all — check for `SKIP`.
+
 Manual-verification guide: `docs/RUN_GUI.md`. Distribution notes:
 `docs/BUNDLING_MACOS.md`.
+
+## Troubleshooting
+
+**Terminal output has no colour (Windows).** Something in the launch
+environment set `NO_COLOR`. psmux honours it and strips every SGR attribute, so
+panes render monochrome. Note that the psmux *server* keeps the environment it
+was first started with and passes it to every pane it later spawns — so
+restarting Commander alone is not enough. Clear the variable, then
+`tmux kill-server` so the next launch starts a clean server.
+
+**Sessions never light up as finished.** Commander installs a `Stop` hook into
+`~/.claude/settings.json` at startup and removes it on shutdown. If the app was
+killed rather than closed, a stale hook can survive — look for the
+`__commander_notify__` sentinel and delete that block.
 
 ## License
 

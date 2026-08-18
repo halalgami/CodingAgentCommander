@@ -1,24 +1,61 @@
 # ClaudeCodeCommander build helpers.
 #
+# Host detection: Windows has no uname, but sets OS=Windows_NT.
+ifeq ($(OS),Windows_NT)
+  HOST_OS := windows
+else
+  HOST_OS := $(shell uname -s)
+endif
+
+ifeq ($(HOST_OS),Darwin)
 # Wails v2.13 on the Xcode 26 SDK fails to link without this flag (the linker
 # can't find the UTType symbol from UniformTypeIdentifiers). Persisted here so
 # every build/dev invocation carries it — do not remove until Wails ships a fix.
+# Scoped to macOS: UniformTypeIdentifiers is an Apple framework, and handing
+# -framework to the MinGW or GNU linker fails the build outright.
 export CGO_LDFLAGS := -framework UniformTypeIdentifiers
+endif
 
-WAILS ?= $(HOME)/go/bin/wails
+ifeq ($(HOST_OS),windows)
+  WAILS ?= $(USERPROFILE)\go\bin\wails.exe
+  BUILD_DATE ?= $(shell powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')")
+  # The psmux-backed integration tests (tmux, ptybridge, wsterm) drive one
+  # shared psmux server and wait on fixed timeouts for pwsh to start. Running
+  # those packages concurrently blows the timeout budget and flakes, so keep
+  # package execution serial on Windows.
+  TESTFLAGS ?= -p 1
+else
+  WAILS ?= $(HOME)/go/bin/wails
+  BUILD_DATE ?= $(shell date -u +%Y-%m-%d)
+  TESTFLAGS ?=
+endif
 
 VERSION ?= 0.11.3
+COMMIT ?= $(shell git rev-parse --short HEAD)
+LDFLAGS := -X main.appVersion=$(VERSION) -X main.appCommit=$(COMMIT) -X main.appBuildDate=$(BUILD_DATE)
+
+# dist/release/install package a macOS .app bundle (create-dmg, ditto,
+# /Applications) and cannot work anywhere else. Refuse early, and only when one
+# of them is actually the requested goal — a bare top-level $(error) would abort
+# every target, including `build`, on a non-Darwin host. A recipe-level shell
+# guard is no good either: make drives recipes through cmd.exe on Windows, where
+# `[ ... ]` is not a command.
+ifneq ($(HOST_OS),Darwin)
+ifneq ($(filter dist release install,$(MAKECMDGOALS)),)
+$(error '$(MAKECMDGOALS)' packages a macOS .app and only runs on macOS. On Windows build with .\build.ps1 — the exe lands in build\bin\commander-gui.exe)
+endif
+endif
 
 .PHONY: build dev test vet dist release install
 
 build:
-	$(WAILS) build -ldflags "-X main.appVersion=$(VERSION) -X main.appCommit=$(shell git rev-parse --short HEAD) -X main.appBuildDate=$(shell date -u +%Y-%m-%d)"
+	$(WAILS) build -ldflags "$(LDFLAGS)"
 
 dev:
 	$(WAILS) dev
 
 test:
-	go test ./...
+	go test ./... $(TESTFLAGS)
 
 vet:
 	go vet ./...

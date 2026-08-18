@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -140,7 +141,9 @@ func TestLitellmBinFindsInstalled(t *testing.T) {
 	if err != nil {
 		t.Skipf("litellm not installed anywhere known: %v", err)
 	}
-	if filepath.Base(p) != "litellm" || !isExecFile(p) {
+	// Windows resolves the pip console script as litellm.exe; Unix has no
+	// suffix. Trim it so the check is the same assertion on both.
+	if strings.TrimSuffix(filepath.Base(p), ".exe") != "litellm" || !isExecFile(p) {
 		t.Errorf("resolved non-exec/odd path: %q", p)
 	}
 	t.Logf("resolved litellm at %s", p)
