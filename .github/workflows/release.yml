@@ -59,9 +59,19 @@ jobs:
           if (-not $v) { throw 'could not determine version' }
           "version=$v" | Out-File $env:GITHUB_OUTPUT -Append
 
-      # Gate the release on a green suite: a tag should never publish a build
-      # that could not pass its own tests. `all` is deliberately not used here —
-      # it would run a full wails build that the release step then repeats.
+      # The build MUST come before vet/test. main.go carries
+      # `//go:embed all:frontend/dist`, and frontend/dist is gitignored, so on a
+      # clean checkout nothing in the module compiles — `go vet ./...` dies with
+      # "pattern all:frontend/dist: no matching files found" — until the wails
+      # build has run the frontend. Running vet first passes locally only
+      # because a developer tree has a stale dist lying around.
+      #
+      # Ordering the build first does not weaken the gate: steps are fail-fast,
+      # so a red vet or test still aborts the job before anything is attested or
+      # published. It also avoids building the frontend twice.
+      - name: Build portable exe
+        run: ./build.ps1 release -Version ${{ steps.v.outputs.version }}
+
       # Note the psmux-backed tests SKIP on the runner, which has no psmux, so
       # this does not cover the session paths.
       - name: Vet
@@ -69,9 +79,6 @@ jobs:
 
       - name: Test
         run: ./build.ps1 test
-
-      - name: Build portable exe
-        run: ./build.ps1 release -Version ${{ steps.v.outputs.version }}
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
