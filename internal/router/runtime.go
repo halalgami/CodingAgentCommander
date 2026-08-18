@@ -178,6 +178,7 @@ func runStreaming(ctx context.Context, args []string, onLine func(string)) error
 	}
 	emit("$ " + strings.Join(args, " "))
 	cmd := proc.Hide(exec.CommandContext(ctx, args[0], args[1:]...))
+	cmd.Env = pythonEnv()
 	r, w, err := os.Pipe()
 	if err != nil {
 		return err

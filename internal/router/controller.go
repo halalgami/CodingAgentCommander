@@ -98,7 +98,7 @@ func (c *Controller) Start() error {
 	// proc.Hide suppresses a console window on Windows (no-op elsewhere); stdout
 	// and stderr are still redirected below, so litellm's logs stay visible.
 	cmd := proc.Hide(exec.Command(bin, "--config", c.ConfigPath, "--port", fmt.Sprintf("%d", c.Port)))
-	cmd.Env = append(os.Environ(), c.Env...)
+	cmd.Env = pythonEnv(c.Env...)
 	// Run from the config dir so the strip_thinking callback module (written
 	// alongside the yaml) is importable by litellm.
 	cmd.Dir = filepath.Dir(c.ConfigPath)
