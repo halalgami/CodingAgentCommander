@@ -8,6 +8,7 @@ import {
   DiscoverZenModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
   GetBuildInfo, LitellmRuntimeStatus, InstallLitellmRuntime,
+  DependencyStatus, InstallPwsh,
 } from "../../wailsjs/go/main/App.js";
 import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime.js";
 import { migrateHistoryOnce } from "./history.js";
@@ -25,6 +26,12 @@ export const app = $state({
   // LiteLLM first-run installer. null = closed; object = open, driving
   // LitellmRuntimeModal: { python, canInstall, running, log[], error, done }.
   litellmInstall: null,
+  // External-tool preflight: the last DependencyStatus() snapshot (tmux, pwsh,
+  // claude), and null | { running, log[], error, done } driving
+  // DependenciesModal. Kept separate so the sidebar can show the tool state
+  // without the modal being open.
+  deps: [],
+  depsModal: null,
 });
 
 export const toasts = $state([]);
@@ -54,7 +61,49 @@ export async function loadAll() {
   try { app.catalog = await Models(); } catch {}
   try { app.providers = await ListProviders(); } catch {}
   try { await migrateHistoryOnce(); } catch {}
+  await checkDependencies();
   await refresh();
+}
+
+// checkDependencies snapshots the external tools and, by default, opens the
+// preflight modal when a required one is missing. Running it at startup is the
+// point: without it the first sign of a missing tmux is a failed launch
+// reporting `exec: "tmux": executable file not found in %PATH%`, which tells a
+// user nothing about what to install.
+export async function checkDependencies({ openIfMissing = true } = {}) {
+  try { app.deps = await DependencyStatus(); } catch { return; }
+  if (openIfMissing && app.deps.some((t) => t.required && !t.found)) openDependencies();
+}
+
+export function openDependencies() {
+  app.depsModal = { running: false, log: [], error: "", done: false };
+}
+
+export function closeDependencies() { app.depsModal = null; }
+
+// runPwshInstall drives the on-demand PowerShell 7 download. Progress arrives as
+// events; the subscriptions are dropped on the terminal one.
+export async function runPwshInstall() {
+  const s = app.depsModal;
+  if (!s || s.running) return;
+  s.running = true; s.error = ""; s.done = false; s.log = [];
+  const offLog = EventsOn("pwsh-install:log", (line) => { s.log.push(line); });
+  const offDone = EventsOn("pwsh-install:done", async () => {
+    s.running = false; s.done = true; cleanup();
+    // Re-snapshot rather than assume: the installer puts the managed copy on
+    // PATH, so the row should now resolve to it.
+    await checkDependencies({ openIfMissing: false });
+    toast("PowerShell 7 installed — sessions ready", "info");
+  });
+  const offErr = EventsOn("pwsh-install:error", (msg) => {
+    s.running = false; s.error = "" + msg; cleanup();
+  });
+  function cleanup() { offLog?.(); offDone?.(); offErr?.(); }
+  try {
+    await InstallPwsh();
+  } catch (e) {
+    s.running = false; s.error = "" + e; cleanup();
+  }
 }
 
 export async function launch() {

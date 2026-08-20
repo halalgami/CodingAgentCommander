@@ -13,5 +13,10 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/package.json.md5
 
+# Bundled psmux, fetched and hash-verified by build.ps1 (Ensure-PsmuxAsset).
+# Deliberately not committed: a 7 MB binary would sit in every clone's history
+# forever, and the pin in build.ps1 gives the same reproducibility for free.
+internal/deps/assets/
+
 # agent scratch (progress ledgers, task briefs, review diffs)
 /.superpowers/

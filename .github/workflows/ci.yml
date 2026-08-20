@@ -1,0 +1,79 @@
+# Build, vet and test on every pull request.
+#
+# release.yml gates the same three steps, but only on a v* tag — by which point a
+# red build is a broken release rather than a rejected change. This runs them
+# where they can still stop something.
+#
+# Windows-only on purpose: the macOS build needs the Xcode linker workaround in
+# the Makefile and a runner an order of magnitude more expensive, while every
+# Windows-specific path in this repo (psmux hosting, the pty bridge, the bundled
+# tmux) is the part that actually breaks.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Supersede in-flight runs for the same ref: only the latest push matters.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Pinned to match release.yml: a CI pass under a different Wails version
+      # would not be evidence about the binary a release produces.
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
+
+      # The build MUST come before vet/test — same reason as release.yml.
+      # main.go carries `//go:embed all:frontend/dist` and frontend/dist is
+      # gitignored, so on a clean checkout nothing in the module compiles until
+      # the wails build has run the frontend. This step also fetches and
+      # hash-verifies the psmux asset that internal/deps embeds.
+      - name: Build
+        run: ./build.ps1 build
+
+      # A build that stops embedding psmux still succeeds: without the tag,
+      # internal/deps compiles the stub and the exe ships with no session host —
+      # failing only on a user's machine, and only if they have no psmux of their
+      # own. Size is the cheap proxy that catches it, since the embedded binary is
+      # ~7 MB of an otherwise ~17 MB exe.
+      - name: Verify psmux is embedded
+        shell: pwsh
+        run: |
+          $exe = 'build/bin/commander-gui.exe'
+          if (-not (Test-Path $exe)) { throw "no exe at $exe" }
+          $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "commander-gui.exe = $mb MB"
+          if ($mb -lt 20) {
+            throw "exe is $mb MB, expected >20 MB with psmux embedded - was '-tags bundled' dropped?"
+          }
+
+      - name: Vet
+        run: ./build.ps1 vet
+
+      # The psmux-backed integration tests (tmux, ptybridge, wsterm) SKIP here:
+      # the runner has no psmux on PATH and no pwsh 7 in the location they probe,
+      # so this does not cover the live session paths. It does cover everything
+      # else, including the dependency resolution in internal/deps.
+      - name: Test
+        run: ./build.ps1 test
