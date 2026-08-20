@@ -52,6 +52,22 @@ jobs:
       - name: Build
         run: ./build.ps1 build
 
+      # A build that stops embedding psmux still succeeds: without the tag,
+      # internal/deps compiles the stub and the exe ships with no session host —
+      # failing only on a user's machine, and only if they have no psmux of their
+      # own. Size is the cheap proxy that catches it, since the embedded binary is
+      # ~7 MB of an otherwise ~17 MB exe.
+      - name: Verify psmux is embedded
+        shell: pwsh
+        run: |
+          $exe = 'build/bin/commander-gui.exe'
+          if (-not (Test-Path $exe)) { throw "no exe at $exe" }
+          $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "commander-gui.exe = $mb MB"
+          if ($mb -lt 20) {
+            throw "exe is $mb MB, expected >20 MB with psmux embedded - was '-tags bundled' dropped?"
+          }
+
       - name: Vet
         run: ./build.ps1 vet
 
