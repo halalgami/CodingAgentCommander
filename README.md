@@ -66,18 +66,36 @@ Common to both platforms:
 
 - tmux ≥ 3.2 — `brew install tmux`
 
-**Windows** (10/11, x64 — no WSL required):
+**Windows** (10/11, x64 — no WSL required). The release exe brings its own
+session host, so the only thing you must install yourself is the `claude` CLI
+above:
 
-- [psmux](https://github.com/psmux/psmux) ≥ 3.3 — a native tmux for Windows. It
-  installs a `tmux` shim, which is the binary Commander actually calls:
-  `scoop bucket add psmux https://github.com/psmux/scoop-psmux; scoop install psmux`
-  (or `choco install psmux`, `cargo install psmux`, or unzip a
-  [release](https://github.com/psmux/psmux/releases) onto your `PATH`)
-- **PowerShell 7+** (`pwsh`). Not optional and not the same as the Windows
-  PowerShell 5.1 that ships with Windows — psmux's Claude Code integration
-  requires it: `winget install Microsoft.PowerShell`
-- WebView2 runtime — preinstalled on Windows 11; on Windows 10 get it from
-  [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/)
+- [psmux](https://github.com/psmux/psmux) — **bundled**. The release embeds
+  psmux 3.3.8 (MIT) and extracts it to `%AppData%\Commander\bin` on first
+  launch. psmux is a native tmux for Windows; the `tmux` shim it provides is the
+  binary Commander actually calls. A psmux already on your `PATH` takes
+  precedence over the bundled copy, so `winget install marlocarlo.psmux` (or
+  scoop, choco, cargo) still works if you would rather manage it yourself.
+- **PowerShell 7+** (`pwsh`) — **fetched on demand**. Not optional and not the
+  same as the Windows PowerShell 5.1 that ships with Windows: psmux's Claude
+  Code integration requires 7+. If it is missing, Commander offers a one-click
+  download (~106 MB, verified against a checksum pinned in
+  `internal/deps/pwsh_windows.go`) into `%AppData%\Commander\runtime`. To
+  install it yourself instead: `winget install Microsoft.PowerShell`
+- WebView2 runtime — the release embeds Microsoft's bootstrapper, so a machine
+  without the runtime installs it rather than being sent to a browser
+  mid-launch. Preinstalled on Windows 11 either way.
+
+Nothing is written outside your user profile, and a missing dependency is named
+in a startup panel with the command that fixes it — not surfaced as a failed
+launch.
+
+> **Why bundle psmux at all?** Because "installed" and "runnable" are different
+> claims on Windows. A winget package whose `Links` shim was never recreated, or
+> a scoop install whose shims directory is off `PATH`, leaves
+> `exec: "tmux": executable file not found in %PATH%` while the package manager
+> insists psmux is installed. Carrying the binary removes that failure mode for
+> the one tool Commander cannot run without.
 
 ## Install
 

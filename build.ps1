@@ -43,6 +43,69 @@ foreach ($p in $extra) {
     if (($env:Path -split ';') -notcontains $p) { $env:Path = "$p;$env:Path" }
 }
 
+# The psmux release the Windows exe embeds, pinned by content hash. Bundling it
+# is what stops a release being defeated by a package manager that reports psmux
+# as installed while its `tmux` shim is missing or unregistered — the exact
+# failure this mechanism exists to prevent.
+#
+# To bump: change both values here together with PsmuxVersion in
+# internal/deps/psmux_bundled.go. Ensure-PsmuxAsset fails the build on drift.
+$psmuxVersion = '3.3.8'
+$psmuxSha256 = '1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe'
+
+# Built with the `bundled` tag so internal/deps embeds the psmux binary. Every
+# target passes it, vet and test included: code behind a build tag is invisible
+# to a toolchain that does not pass the tag, so omitting it from the gates would
+# mean shipping a path nothing ever type-checked.
+$buildTags = 'bundled'
+
+function Ensure-PsmuxAsset {
+    $assetDir = Join-Path $PSScriptRoot 'internal\deps\assets'
+    $exe = Join-Path $assetDir 'tmux.exe'
+    $lic = Join-Path $assetDir 'psmux-LICENSE'
+
+    # Keep this pin and the version baked into the Go const from drifting apart:
+    # the extracted binary would otherwise be installed into a directory named
+    # for a version it is not.
+    $goSrc = Join-Path $PSScriptRoot 'internal\deps\psmux_bundled.go'
+    $m = Select-String -Path $goSrc -Pattern 'PsmuxVersion\s*=\s*"([^"]+)"' | Select-Object -First 1
+    if (-not $m) { throw "could not find PsmuxVersion in $goSrc" }
+    $declared = $m.Matches[0].Groups[1].Value
+    if ($declared -ne $psmuxVersion) {
+        throw "psmux version mismatch: build.ps1 pins $psmuxVersion, $goSrc declares $declared"
+    }
+
+    # The asset is gitignored and cached, so this downloads once per version per
+    # working tree rather than on every build.
+    if ((Test-Path $exe) -and (Test-Path $lic)) { return }
+
+    New-Item -ItemType Directory -Force $assetDir | Out-Null
+    $zipName = "psmux-v$psmuxVersion-windows-x64.zip"
+    $url = "https://github.com/psmux/psmux/releases/download/v$psmuxVersion/$zipName"
+    $tmpDir = Join-Path ([IO.Path]::GetTempPath()) "commander-psmux-$psmuxVersion"
+    New-Item -ItemType Directory -Force $tmpDir | Out-Null
+    $zip = Join-Path $tmpDir $zipName
+
+    Write-Host "==> fetch $zipName" -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+
+    $got = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLower()
+    if ($got -ne $psmuxSha256) {
+        Remove-Item $zip -Force
+        throw "psmux checksum mismatch for ${zipName}: got $got, expected $psmuxSha256"
+    }
+
+    $unpack = Join-Path $tmpDir 'unpacked'
+    if (Test-Path $unpack) { Remove-Item $unpack -Recurse -Force }
+    Expand-Archive -Path $zip -DestinationPath $unpack -Force
+
+    # tmux.exe is the shim Commander execs; psmux.exe and pmux.exe in the archive
+    # are byte-identical copies under other names, so only one gets embedded.
+    Copy-Item (Join-Path $unpack 'tmux.exe') $exe -Force
+    Copy-Item (Join-Path $unpack 'LICENSE') $lic -Force
+    Write-Host "    psmux $psmuxVersion staged for embedding" -ForegroundColor Green
+}
+
 function Resolve-Tool {
     param([string]$Name, [string[]]$Candidates, [string]$Hint)
     $cmd = Get-Command $Name -ErrorAction SilentlyContinue
@@ -78,17 +141,20 @@ function Invoke-Step {
 # The psmux-backed integration tests (tmux, ptybridge, wsterm) share one psmux
 # server and wait on fixed timeouts for pwsh to start; running those packages
 # concurrently blows the budget and flakes. -p 1 keeps them serial.
-$testArgs = @('test', './...', '-p', '1')
+$testArgs = @('test', './...', '-p', '1', '-tags', $buildTags)
+
+# Every target compiles the embedding path, so every target needs the asset.
+Ensure-PsmuxAsset
 
 switch ($Target) {
-    'build' { Invoke-Step 'wails build' { & $wails build -ldflags $ldflags } }
-    'dev' { Invoke-Step 'wails dev' { & $wails dev } }
+    'build' { Invoke-Step 'wails build' { & $wails build -tags $buildTags -ldflags $ldflags } }
+    'dev' { Invoke-Step 'wails dev' { & $wails dev -tags $buildTags } }
     'test' { Invoke-Step 'go test' { & $go @testArgs } }
-    'vet' { Invoke-Step 'go vet' { & $go vet ./... } }
+    'vet' { Invoke-Step 'go vet' { & $go vet -tags $buildTags ./... } }
     'all' {
-        Invoke-Step 'go vet' { & $go vet ./... }
+        Invoke-Step 'go vet' { & $go vet -tags $buildTags ./... }
         Invoke-Step 'go test' { & $go @testArgs }
-        Invoke-Step 'wails build' { & $wails build -ldflags $ldflags }
+        Invoke-Step 'wails build' { & $wails build -tags $buildTags -ldflags $ldflags }
     }
     'release' {
         # -webview2 embed bundles Microsoft's WebView2 bootstrapper (~150 KB).
@@ -99,8 +165,10 @@ switch ($Target) {
         # Deliberately NOT using -upx: compressed binaries match packer
         # heuristics, and antivirus false positives are the main thing that
         # stops people running an unsigned download.
+        # -tags bundled embeds the hash-pinned psmux staged by Ensure-PsmuxAsset,
+        # so the exe can host sessions on a machine that has never installed it.
         Invoke-Step 'wails build (release)' {
-            & $wails build -clean -webview2 embed -ldflags $ldflags
+            & $wails build -clean -webview2 embed -tags $buildTags -ldflags $ldflags
         }
 
         $exe = Join-Path $PSScriptRoot 'build\bin\commander-gui.exe'

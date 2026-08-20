@@ -14,6 +14,7 @@
   import LaunchConfirmModal from "./lib/components/LaunchConfirmModal.svelte";
   import AboutModal from "./lib/components/AboutModal.svelte";
   import LitellmRuntimeModal from "./lib/components/LitellmRuntimeModal.svelte";
+  import DependenciesModal from "./lib/components/DependenciesModal.svelte";
   import Hotkeys from "./lib/components/Hotkeys.svelte";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import BootIntro, { bootOnFirstRun } from "./lib/components/BootIntro.svelte";
@@ -85,6 +86,7 @@
   <LaunchConfirmModal />
   <AboutModal />
   <LitellmRuntimeModal />
+  <DependenciesModal />
   <Hotkeys />
   <Toast />
   <BootIntro />

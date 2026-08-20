@@ -26,6 +26,7 @@ import (
 
 	"github.com/halalgami/CodingAgentCommander/internal/bedrock"
 	"github.com/halalgami/CodingAgentCommander/internal/config"
+	"github.com/halalgami/CodingAgentCommander/internal/deps"
 	"github.com/halalgami/CodingAgentCommander/internal/hookmgr"
 	"github.com/halalgami/CodingAgentCommander/internal/launch"
 	"github.com/halalgami/CodingAgentCommander/internal/pricing"
@@ -101,6 +102,10 @@ type App struct {
 	// runtimeInstalling guards against overlapping first-run LiteLLM installs
 	// (a double-clicked Install button); a second call no-ops while one runs.
 	runtimeInstalling atomic.Bool
+	// pwshInstalling does the same for the on-demand PowerShell 7 download,
+	// which matters more there: the archive is ~106 MB, so a double click would
+	// otherwise mean downloading it twice into the same staging directory.
+	pwshInstalling atomic.Bool
 	// statCache memoizes parsed transcript stats keyed by path, invalidated by
 	// mtime, so the 5s stats poll doesn't re-parse unchanged transcripts.
 	statCache map[string]statEntry
@@ -419,6 +424,40 @@ func (a *App) InstallLitellmRuntime() {
 			return
 		}
 		wruntime.EventsEmit(a.ctx, "litellm-install:done")
+	}()
+}
+
+// DependencyStatus reports every external tool Commander needs — tmux (psmux on
+// Windows), pwsh 7 there too, and the claude CLI — with the resolved path and an
+// install hint for the ones that are missing.
+//
+// The frontend calls this on startup so a missing dependency surfaces as a named
+// prompt rather than as `exec: "tmux": executable file not found in %PATH%` on
+// the first launch attempt.
+func (a *App) DependencyStatus() []deps.Tool { return deps.Status() }
+
+// InstallPwsh downloads the pinned PowerShell 7 into the managed runtime dir in
+// the background, streaming progress to the frontend via events:
+//
+//	pwsh-install:log    string  — one line of download/extract progress
+//	pwsh-install:done   (none)  — install succeeded
+//	pwsh-install:error  string  — install failed, with the message
+//
+// It returns immediately; the frontend listens for the terminal event. A second
+// call while an install is in flight is a no-op. Windows-only in practice — off
+// Windows deps.InstallPwsh reports that pwsh is not required.
+func (a *App) InstallPwsh() {
+	if !a.pwshInstalling.CompareAndSwap(false, true) {
+		return // an install is already running
+	}
+	go func() {
+		defer a.pwshInstalling.Store(false)
+		emit := func(line string) { wruntime.EventsEmit(a.ctx, "pwsh-install:log", line) }
+		if err := deps.InstallPwsh(a.ctx, emit); err != nil {
+			wruntime.EventsEmit(a.ctx, "pwsh-install:error", err.Error())
+			return
+		}
+		wruntime.EventsEmit(a.ctx, "pwsh-install:done")
 	}()
 }
 
