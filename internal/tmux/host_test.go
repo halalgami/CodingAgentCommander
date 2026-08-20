@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -106,4 +107,82 @@ func TestRename(t *testing.T) {
 	if !found {
 		t.Errorf("window not renamed; got %+v", ws)
 	}
+}
+
+// TestLaunchDoesNotLeakEnvBetweenWindows guards the fix for the leak that made
+// every session answer as whichever model was launched first: env staged for
+// one window must not survive into the next. Real tmux applies `-e` per window
+// and never had the bug (psmux, on Windows, does), but the staging Launch now
+// does for psmux's benefit is what could reintroduce it here.
+func TestLaunchDoesNotLeakEnvBetweenWindows(t *testing.T) {
+	requireTmux(t)
+	h := NewExecHost()
+	session := "commander_test_leak"
+	_ = exec.Command("tmux", "kill-session", "-t", session).Run()
+	t.Cleanup(func() { _ = exec.Command("tmux", "kill-session", "-t", session).Run() })
+
+	dir := t.TempDir()
+	managed := []string{"ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
+	probe := func(out string) []string {
+		return []string{"sh", "-c",
+			`printf '%s\n[%s]\n' "$ANTHROPIC_MODEL" "$ANTHROPIC_BASE_URL" > ` + out + `; sleep 30`}
+	}
+
+	routedOut := filepath.Join(dir, "routed.txt")
+	if _, err := h.Launch(LaunchSpec{
+		SessionName: session, WindowName: "routed", Dir: dir,
+		Env: map[string]string{
+			"ANTHROPIC_MODEL":      "glm-5.3",
+			"ANTHROPIC_BASE_URL":   "http://localhost:65000",
+			"ANTHROPIC_AUTH_TOKEN": "sk-routed",
+		},
+		ClearEnv: managed, Command: probe(routedOut),
+	}); err != nil {
+		t.Fatalf("Launch routed: %v", err)
+	}
+
+	nativeOut := filepath.Join(dir, "native.txt")
+	if _, err := h.Launch(LaunchSpec{
+		SessionName: session, WindowName: "native", Dir: dir,
+		Env:      map[string]string{"ANTHROPIC_MODEL": "claude-opus-4-8"},
+		ClearEnv: managed, Command: probe(nativeOut),
+	}); err != nil {
+		t.Fatalf("Launch native: %v", err)
+	}
+
+	lines := readProbe(t, nativeOut, 2)
+	if lines[0] != "claude-opus-4-8" {
+		t.Errorf("native window model = %q, want claude-opus-4-8", lines[0])
+	}
+	if lines[1] != "[]" {
+		t.Errorf("native window inherited ANTHROPIC_BASE_URL = %s; the routed launch leaked into it", lines[1])
+	}
+
+	routed := readProbe(t, routedOut, 2)
+	if routed[0] != "glm-5.3" {
+		t.Errorf("routed window model = %q, want glm-5.3", routed[0])
+	}
+	if routed[1] != "[http://localhost:65000]" {
+		t.Errorf("routed window base url = %s", routed[1])
+	}
+}
+
+// readProbe waits for a probe file to hold at least n lines and returns them
+// trimmed.
+func readProbe(t *testing.T, path string, n int) []string {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		if b, err := os.ReadFile(path); err == nil {
+			lines := strings.Split(string(b), "\n")
+			if len(lines) >= n {
+				for j := range lines {
+					lines[j] = strings.TrimSpace(lines[j])
+				}
+				return lines
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("probe %s never reached %d lines", path, n)
+	return nil
 }

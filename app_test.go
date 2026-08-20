@@ -11,6 +11,7 @@ import (
 	"github.com/zalando/go-keyring"
 
 	"github.com/halalgami/CodingAgentCommander/internal/config"
+	"github.com/halalgami/CodingAgentCommander/internal/launch"
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 )
@@ -893,5 +894,35 @@ func TestGetBuildInfoReflectsVars(t *testing.T) {
 	}
 	if got.Version == "" {
 		t.Error("version must default to non-empty (\"dev\") when not built with ldflags")
+	}
+}
+
+// A native launch sets only ANTHROPIC_MODEL, so it is the ClearEnv list — not
+// the Env map — that keeps a routed session's proxy variables from being
+// inherited. Without it every native session went to the LiteLLM proxy and
+// answered as whichever routed model was launched first.
+func TestStartSessionClearsEveryManagedEnvVar(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	if err := a.loadConfigFrom("example.config.toml"); err != nil {
+		t.Fatal(err)
+	}
+	ch := &captureHost{}
+	a.host = ch
+	m, _ := a.cfg.Model("claude-opus-4-8")
+	if _, err := a.startSession("/tmp/p", m, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(ch.launched) != 1 {
+		t.Fatalf("expected 1 launch, got %d", len(ch.launched))
+	}
+	cleared := map[string]bool{}
+	for _, k := range ch.launched[0].ClearEnv {
+		cleared[k] = true
+	}
+	for _, k := range launch.EnvKeys() {
+		if !cleared[k] {
+			t.Errorf("%s not in ClearEnv; a routed launch could leave it behind", k)
+		}
 	}
 }

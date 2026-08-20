@@ -943,7 +943,11 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 	cmd := append(append([]string{}, launch.Command()...), extraArgs...)
 	w, err := a.host.Launch(tmux.LaunchSpec{
 		SessionName: a.cfg.TmuxSession, WindowName: name, Dir: folder, Env: env, Command: cmd,
-		ModelID: m.ID,
+		// Every variable Commander can set, not just this launch's: a native
+		// launch sets only ANTHROPIC_MODEL, and would otherwise inherit the
+		// proxy vars a routed launch left on the session.
+		ClearEnv: launch.EnvKeys(),
+		ModelID:  m.ID,
 	})
 	if err != nil {
 		return SessionInfo{}, err
