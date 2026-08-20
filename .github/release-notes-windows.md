@@ -32,11 +32,23 @@ Verify the two checks above, then **More info → Run anyway**.
 
 ## Prerequisites
 
-The exe itself is self-contained, but Commander drives other tools:
+Only one now — the [`claude` CLI](https://code.claude.com/docs)
+(`npm install -g @anthropic-ai/claude-code`). It stays external because it is a
+self-updating npm package that owns its own login; freezing a copy in here would
+break its updater.
 
-- [psmux](https://github.com/psmux/psmux) ≥ 3.3 — hosts the sessions
-- **PowerShell 7+** (`pwsh`) — not the bundled Windows PowerShell 5.1
-- the [`claude` CLI](https://code.claude.com/docs)
-- WebView2 — preinstalled on Windows 11; the installer is bundled for Windows 10
+Everything else the exe handles itself:
+
+- [psmux](https://github.com/psmux/psmux) 3.3.8 — **bundled**, extracted to
+  `%AppData%\Commander\bin` on first launch. It hosts the sessions. A psmux
+  already on your `PATH` still takes precedence.
+- **PowerShell 7+** (`pwsh`) — **fetched on demand** if missing (~106 MB,
+  checksum-pinned), because psmux's Claude Code integration needs it and the
+  Windows PowerShell 5.1 that ships with Windows does not qualify.
+- WebView2 — the bootstrapper is embedded; preinstalled on Windows 11 anyway.
+
+A missing dependency is now named in a startup panel with the command that fixes
+it, rather than surfacing as `exec: "tmux": executable file not found in %PATH%`
+on your first launch. Nothing is written outside your user profile.
 
 See the README for full setup.
