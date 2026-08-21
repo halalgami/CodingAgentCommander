@@ -52,21 +52,29 @@ export async function refresh() {
   } catch { /* plain browser / backend gone */ }
 }
 
+// preferredModel is config's default_model, falling back to the first entry.
+// Not simply models[0]: new models merge in at the end of the catalog, so an
+// upgraded config's first entry is whatever it happened to list first.
+function preferredModel() {
+  return (app.models.find((m) => m.default) ?? app.models[0]).id;
+}
+
 // reloadModels refreshes just the picker. Discovery runs in the background at
 // launch, so this can land after the user has already opened the launch panel —
-// it must not reset selectedModel or re-run the dependency preflight.
+// it must not re-run the dependency preflight, and it must leave a selection the
+// user has already made alone unless that model has gone away.
 export async function reloadModels() {
   try { app.models = await Config(); } catch { return; }
   try { app.catalog = await Models(); } catch {}
   if (app.models.length && !app.models.some((m) => m.id === app.selectedModel)) {
-    app.selectedModel = app.models[0].id;
+    app.selectedModel = preferredModel();
   }
 }
 
 export async function loadAll() {
   try {
     app.models = await Config();
-    if (app.models.length && !app.selectedModel) app.selectedModel = app.models[0].id;
+    if (app.models.length && !app.selectedModel) app.selectedModel = preferredModel();
   } catch {}
   try { app.keys = await KeyStatus(); } catch {}
   try { app.catalog = await Models(); } catch {}

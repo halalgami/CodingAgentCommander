@@ -12,7 +12,6 @@ import (
 
 	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 	"github.com/halalgami/CodingAgentCommander/internal/config"
-	"github.com/halalgami/CodingAgentCommander/internal/launch"
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 )
@@ -921,7 +920,10 @@ func TestStartSessionClearsEveryManagedEnvVar(t *testing.T) {
 	for _, k := range ch.launched[0].ClearEnv {
 		cleared[k] = true
 	}
-	for _, k := range launch.EnvKeys() {
+	// Spelled out rather than ranged over launch.EnvKeys(): ClearEnv is set from
+	// that same function, so comparing the two would assert a list against
+	// itself and pass for any contents, including an empty one.
+	for _, k := range []string{"ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"} {
 		if !cleared[k] {
 			t.Errorf("%s not in ClearEnv; a routed launch could leave it behind", k)
 		}
@@ -991,7 +993,6 @@ func TestMergeAnthropicIsAddOnly(t *testing.T) {
 // catalog revision moves. refreshAnthropicModels is the gate.
 func TestRefreshSkipsMergeWhenRevisionIsCurrent(t *testing.T) {
 	keyring.MockInit()
-	t.Setenv(anthropic.KeyEnv, "") // keep the background discovery pass offline
 	a := NewApp()
 	dir := t.TempDir()
 	a.configPath = filepath.Join(dir, "config.toml")
@@ -1006,5 +1007,25 @@ func TestRefreshSkipsMergeWhenRevisionIsCurrent(t *testing.T) {
 	a.refreshAnthropicModels()
 	if len(a.cfg.Models) != 1 {
 		t.Errorf("models the user removed were re-added: %+v", a.cfg.Models)
+	}
+}
+
+// The picker preselects config's default_model, so Config has to say which one
+// that is. Without it the frontend fell back to the first catalog entry, which
+// after a catalog merge is not the newest model but the oldest.
+func TestConfigMarksTheDefaultModel(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	if err := a.loadConfigFrom("example.config.toml"); err != nil {
+		t.Fatal(err)
+	}
+	var marked []string
+	for _, m := range a.Config() {
+		if m.Default {
+			marked = append(marked, m.ID)
+		}
+	}
+	if len(marked) != 1 || marked[0] != a.cfg.DefaultModel {
+		t.Errorf("Config marked %v as default, want exactly [%s]", marked, a.cfg.DefaultModel)
 	}
 }

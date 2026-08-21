@@ -93,6 +93,9 @@ func ListModels(ctx context.Context, apiKey string) ([]Model, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	// One page of 100: the listing is a couple of dozen models and 100 is the
+	// API's maximum page size, so paging would be dead code today. See the
+	// has_more handling below for what happens if that stops being true.
 	url := APIBase + "/v1/models?limit=100"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -114,11 +117,22 @@ func ListModels(ctx context.Context, apiKey string) ([]Model, error) {
 			ID          string `json:"id"`
 			DisplayName string `json:"display_name"`
 		} `json:"data"`
+		HasMore bool `json:"has_more"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	// Cap the body: this decodes a response from a host named by a mutable
+	// package var, and an unbounded decode would let a wrong APIBase exhaust
+	// memory.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&body); err != nil {
 		return nil, fmt.Errorf("anthropic discovery: decode: %w", err)
 	}
+	// HasMore is decoded rather than ignored so the single-page assumption is
+	// visible in the type. It deliberately does not error: the merge is add-only,
+	// so a truncated page means fewer additions this launch, which beats none.
+	truncated := body.HasMore
 	out := make([]Model, 0, len(body.Data))
+	if truncated && len(body.Data) == 0 {
+		return nil, fmt.Errorf("anthropic discovery: paginated response with no models on the first page")
+	}
 	for _, d := range body.Data {
 		if d.ID == "" {
 			continue

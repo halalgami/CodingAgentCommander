@@ -169,14 +169,20 @@ func NormalizeBedrockUpstream(upstream string) string {
 
 // Config is the resolved Commander configuration.
 type Config struct {
-	TmuxSession  string     `toml:"tmux_session"`
-	DefaultModel string     `toml:"default_model"`
-	Models       []Model    `toml:"models"`
-	Providers    []Provider `toml:"providers,omitempty"`
+	TmuxSession  string `toml:"tmux_session"`
+	DefaultModel string `toml:"default_model"`
 	// AnthropicCatalogRev is the anthropic.CatalogRev this config was last
 	// merged against. Absent (0) on configs written before catalog merging
 	// existed, which is what makes them pick it up on first launch.
-	AnthropicCatalogRev int `toml:"anthropic_catalog_rev,omitempty"`
+	//
+	// Declared before Models and Providers on purpose: the encoder emits fields
+	// in declaration order, and a bare key written after an array of tables
+	// belongs to that table in TOML, not to the document. Emitted last, this
+	// would decode into a Model and be lost — leaving the revision at 0 so every
+	// launch re-merged and rewrote the file, resurrecting deleted models.
+	AnthropicCatalogRev int        `toml:"anthropic_catalog_rev,omitempty"`
+	Models              []Model    `toml:"models"`
+	Providers           []Provider `toml:"providers,omitempty"`
 }
 
 // IsRouted reports whether this model must go through the local LiteLLM proxy.

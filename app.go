@@ -47,6 +47,11 @@ type ModelInfo struct {
 	Label  string `json:"label"`
 	Routed bool   `json:"routed"`
 	Ready  bool   `json:"ready"`
+	// Default marks config's default_model. Without it the picker preselected
+	// the first catalog entry, so an upgraded config kept preselecting whatever
+	// happened to be listed first — never the new models, which merge in at the
+	// end.
+	Default bool `json:"default"`
 }
 
 // SessionInfo describes a launched session for the sidebar.
@@ -296,6 +301,9 @@ func (a *App) startup(ctx context.Context) {
 		return
 	}
 	a.refreshAnthropicModels()
+	// Background: needs the network, and nothing downstream waits on it. Kept
+	// out of refreshAnthropicModels so that stays synchronous and testable.
+	go a.discoverAnthropicModels()
 	a.masterKey = randomHex(24)
 	a.wsToken = randomHex(24)
 	// Reap any litellm orphaned by a prior unclean exit before starting fresh.
@@ -312,8 +320,9 @@ func (a *App) startup(ctx context.Context) {
 // synchronously — no network — so the picker is right before the frontend's
 // first Config() call, and an install carrying a config written by an older
 // build picks up this release's models without hand-editing TOML. Then, if an
-// API key is stored, discovery runs in the background for models released since
-// the build and emits models:updated so the picker reloads.
+// ANTHROPIC_API_KEY is in the environment, startup runs discovery in the
+// background for models released since the build, emitting models:updated so the
+// picker reloads.
 //
 // Add-only in both passes: a model the user renamed or repriced keeps their
 // edits, and only ids absent from the catalog are appended. Deletions survive
@@ -332,18 +341,21 @@ func (a *App) refreshAnthropicModels() {
 			log.Printf("anthropic catalog merge: %v", err)
 		}
 	}
-	go a.discoverAnthropicModels()
 }
 
-// discoverAnthropicModels merges any models the stored API key can see that the
-// build does not know about. Native sessions authenticate with the Claude Code
-// subscription's OAuth, so most installs have no key here and this is a no-op —
-// which is exactly why the built-in catalog exists.
+// discoverAnthropicModels merges any models an ANTHROPIC_API_KEY in the
+// environment can see that the build does not know about.
+//
+// The environment is the only source: Anthropic is not a config Provider — it is
+// the built-in, subscription-authenticated one — so there is no Providers row to
+// paste a key into and nothing ever writes this ref to the keychain. Reading it
+// from there anyway would be dead code dressed as a feature. A persistent user
+// environment variable is inherited by Explorer launches on Windows, and a
+// terminal launch works anywhere; installs with no key at all just keep the
+// built-in catalog, which is the common case and why that catalog carries the
+// weight.
 func (a *App) discoverAnthropicModels() {
-	key, _ := secrets.Get(anthropic.KeyEnv)
-	if key == "" {
-		key = os.Getenv(anthropic.KeyEnv)
-	}
+	key := os.Getenv(anthropic.KeyEnv)
 	if key == "" {
 		return
 	}
@@ -701,10 +713,16 @@ func (a *App) modelByID(id string) (config.Model, bool) {
 // Config returns all models for the picker (native + routed), each flagged
 // Routed and Ready (key present for routed; native always ready).
 func (a *App) Config() []ModelInfo {
+	a.mu.Lock()
+	def := a.cfg.DefaultModel
+	a.mu.Unlock()
 	out := []ModelInfo{}
 	for _, m := range a.snapshotModels() {
 		ready, _ := modelReady(m)
-		out = append(out, ModelInfo{ID: m.ID, Label: m.Label, Routed: m.IsRouted(), Ready: ready})
+		out = append(out, ModelInfo{
+			ID: m.ID, Label: m.Label, Routed: m.IsRouted(), Ready: ready,
+			Default: m.ID == def,
+		})
 	}
 	return out
 }
