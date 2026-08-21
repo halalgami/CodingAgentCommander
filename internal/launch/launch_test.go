@@ -52,3 +52,29 @@ func TestRoutedEnvRejectsNative(t *testing.T) {
 		t.Fatal("expected error routing a native anthropic model")
 	}
 }
+
+// EnvKeys drives the clearing done on every launch, so anything Env or
+// RoutedEnv can set must appear in it. A variable that drifts out of the list
+// stops being cleared, and a routed session's copy of it survives into the next
+// native one — the failure that made Anthropic sessions answer as GLM.
+func TestEnvKeysCoversEverythingSet(t *testing.T) {
+	keys := map[string]bool{}
+	for _, k := range EnvKeys() {
+		keys[k] = true
+	}
+	native, err := Env(config.Model{ID: "claude-opus-4-8", Provider: "anthropic"})
+	if err != nil {
+		t.Fatalf("Env: %v", err)
+	}
+	routed, err := RoutedEnv(config.Model{ID: "gpt-5.5", Provider: "zen"}, 4000, "sk-master")
+	if err != nil {
+		t.Fatalf("RoutedEnv: %v", err)
+	}
+	for _, env := range []map[string]string{native, routed} {
+		for k := range env {
+			if !keys[k] {
+				t.Errorf("%s is set on launch but missing from EnvKeys(), so it is never cleared", k)
+			}
+		}
+	}
+}

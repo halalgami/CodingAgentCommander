@@ -164,3 +164,90 @@ func TestRename(t *testing.T) {
 		t.Errorf("window not renamed; got %+v", ws)
 	}
 }
+
+// TestLaunchDoesNotLeakEnvBetweenWindows guards the fix for the leak that made
+// every session answer as whichever model was launched first. psmux ignores
+// `-e` on new-window and, on the new-session that starts the server, copies it
+// into the session and server-wide environments — so a routed launch's
+// ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN were inherited by every later
+// window, quietly sending native Anthropic sessions to the LiteLLM proxy.
+//
+// Window 1 launches routed, window 2 native. Window 2 must see its own model
+// and no base URL at all.
+func TestLaunchDoesNotLeakEnvBetweenWindows(t *testing.T) {
+	requireTmux(t)
+	h := NewExecHost()
+	session := "commander_test_leak"
+	_ = exec.Command("tmux", "kill-session", "-t", session).Run()
+
+	dir := paneTempDir(t, session)
+	managed := []string{"ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"}
+	probe := func(out string) []string {
+		return []string{"pwsh", "-NoProfile", "-NoLogo", "-Command",
+			"Set-Content -Encoding ascii -Path '" + out + "' -Value $env:ANTHROPIC_MODEL; " +
+				"Add-Content -Encoding ascii -Path '" + out + "' -Value \"[$env:ANTHROPIC_BASE_URL]\"; " +
+				"Start-Sleep 30"}
+	}
+
+	// Routed launch — creates the session, and used to poison it.
+	routedOut := filepath.Join(dir, "routed.txt")
+	if _, err := h.Launch(LaunchSpec{
+		SessionName: session, WindowName: "routed", Dir: dir,
+		Env: map[string]string{
+			"ANTHROPIC_MODEL":      "glm-5.3",
+			"ANTHROPIC_BASE_URL":   "http://localhost:65000",
+			"ANTHROPIC_AUTH_TOKEN": "sk-routed",
+		},
+		ClearEnv: managed, Command: probe(routedOut),
+	}); err != nil {
+		t.Fatalf("Launch routed: %v", err)
+	}
+
+	// Native launch — sets only the model, and must not inherit the proxy.
+	nativeOut := filepath.Join(dir, "native.txt")
+	if _, err := h.Launch(LaunchSpec{
+		SessionName: session, WindowName: "native", Dir: dir,
+		Env:      map[string]string{"ANTHROPIC_MODEL": "claude-opus-4-8"},
+		ClearEnv: managed, Command: probe(nativeOut),
+	}); err != nil {
+		t.Fatalf("Launch native: %v", err)
+	}
+
+	lines := readProbe(t, nativeOut, 2)
+	if lines[0] != "claude-opus-4-8" {
+		t.Errorf("native window model = %q, want claude-opus-4-8", lines[0])
+	}
+	if lines[1] != "[]" {
+		t.Errorf("native window inherited ANTHROPIC_BASE_URL = %s; the routed launch leaked into it", lines[1])
+	}
+
+	// The routed window still got its own environment.
+	routed := readProbe(t, routedOut, 2)
+	if routed[0] != "glm-5.3" {
+		t.Errorf("routed window model = %q, want glm-5.3", routed[0])
+	}
+	if routed[1] != "[http://localhost:65000]" {
+		t.Errorf("routed window base url = %s", routed[1])
+	}
+}
+
+// readProbe waits for a probe file to hold at least n lines and returns them
+// trimmed (panes write CRLF).
+func readProbe(t *testing.T, path string, n int) []string {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		b, err := os.ReadFile(path)
+		if err == nil {
+			lines := strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n")
+			if len(lines) >= n {
+				for j := range lines {
+					lines[j] = strings.TrimSpace(lines[j])
+				}
+				return lines
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("probe %s never reached %d lines", path, n)
+	return nil
+}

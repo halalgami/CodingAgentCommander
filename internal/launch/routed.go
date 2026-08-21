@@ -13,8 +13,8 @@ func RoutedEnv(m config.Model, port int, masterKey string) (map[string]string, e
 		return nil, fmt.Errorf("model %q is native anthropic; use Env, not RoutedEnv", m.ID)
 	}
 	return map[string]string{
-		"ANTHROPIC_BASE_URL":   fmt.Sprintf("http://localhost:%d", port),
-		"ANTHROPIC_AUTH_TOKEN": masterKey,
-		"ANTHROPIC_MODEL":      m.ID,
+		EnvBaseURL:   fmt.Sprintf("http://localhost:%d", port),
+		EnvAuthToken: masterKey,
+		EnvModel:     m.ID,
 	}, nil
 }
