@@ -497,8 +497,6 @@ func (c *captureHost) SendKeys(windowID, text string) error {
 	c.mu.Unlock()
 	return nil
 }
-func (c *captureHost) SetOption(string, string, string) error   { return nil }
-func (c *captureHost) GetOption(string, string) (string, error) { return "", nil }
 
 func TestStartSessionNative(t *testing.T) {
 	keyring.MockInit()
@@ -523,8 +521,11 @@ func TestStartSessionNative(t *testing.T) {
 	if spec.Env["ANTHROPIC_MODEL"] != "claude-opus-4-8" {
 		t.Errorf("env=%v", spec.Env)
 	}
-	if spec.ModelID != "claude-opus-4-8" {
-		t.Errorf("durable model marker not set: ModelID=%q", spec.ModelID)
+	// The model is recorded against the window id rather than stamped as a tmux
+	// option: psmux applies window options to every window, so the marker read
+	// back whatever was written last (see internal/winstate).
+	if rec, ok := a.windows.Get(info.WindowID); !ok || rec.Model != "claude-opus-4-8" {
+		t.Errorf("window state = %+v (found=%v), want model claude-opus-4-8", rec, ok)
 	}
 	if _, ok := a.sessions[info.WindowID]; !ok {
 		t.Error("not recorded")

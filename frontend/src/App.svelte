@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { EventsOn } from "../wailsjs/runtime/runtime.js";
-  import { app, loadAll, refresh, markFinished, reloadModels } from "./lib/stores.svelte.js";
+  import { app, loadAll, refresh, markFinished, reloadModels, toast } from "./lib/stores.svelte.js";
   import Sidebar from "./lib/components/Sidebar.svelte";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import Terminal from "./lib/Terminal.svelte";
@@ -27,6 +27,7 @@
     EventsOn("session:finished", (windowID) => markFinished(windowID));
     EventsOn("menu:about", () => (app.about = true));
     EventsOn("models:updated", () => reloadModels());
+    EventsOn("app:error", (msg) => toast(msg, "error"));
   } catch {}
 
   onMount(() => {

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -37,6 +36,7 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 	"github.com/halalgami/CodingAgentCommander/internal/transcripts"
+	"github.com/halalgami/CodingAgentCommander/internal/winstate"
 	"github.com/halalgami/CodingAgentCommander/internal/wsterm"
 	"github.com/halalgami/CodingAgentCommander/internal/zen"
 )
@@ -98,6 +98,11 @@ type App struct {
 	// configPath is where a.cfg was loaded from, and where mutations
 	// (AddModel/RemoveModel) are persisted back to.
 	configPath string
+	// windows remembers each tmux window's model and Remote Control flag. This
+	// was a pair of tmux user options until psmux turned out not to scope them
+	// per window — see internal/winstate. Never nil: NewApp gives it a
+	// memory-only store so a not-yet-started App is still usable.
+	windows *winstate.Store
 	// router is the lazily-started local LiteLLM proxy used for routed
 	// (non-anthropic) models. Guarded by routerMu.
 	router   *router.Controller
@@ -192,7 +197,8 @@ func (a *App) projectsRoot() string {
 
 // NewApp constructs the backend.
 func NewApp() *App {
-	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{}}
+	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{},
+		windows: winstate.Open("")}
 	a.emitter = wailsEmitter{a: a}
 	return a
 }
@@ -289,6 +295,21 @@ func (a *App) loadConfigFrom(path string) error {
 	return nil
 }
 
+// reportError surfaces a non-fatal failure to the user as a toast.
+//
+// Commander is a GUI binary with no console attached, so log output goes
+// nowhere anyone will read: a catalog merge that failed to persist looked
+// exactly like one that worked, and the picker just stayed stale. Emitting
+// means the one person who can act on it finds out.
+//
+// Safe before startup and in tests, where there is no context to emit on.
+func (a *App) reportError(msg string) {
+	if a.ctx == nil {
+		return
+	}
+	wruntime.EventsEmit(a.ctx, "app:error", msg)
+}
+
 // startup is the Wails OnStartup hook: load config and start the ws server.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
@@ -311,6 +332,7 @@ func (a *App) startup(ctx context.Context) {
 	a.router = router.NewController(0)
 	a.startWS()
 	_ = hookmgr.Install(a.settingsPath(), a.wsPort, a.wsToken)
+	a.windows = winstate.Open(a.winStatePath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
 }
 
@@ -336,9 +358,10 @@ func (a *App) refreshAnthropicModels() {
 	a.mu.Unlock()
 	if stale {
 		if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
-			// A catalog that cannot be persisted is not worth failing launch
-			// over; the picker still shows whatever the config already had.
-			log.Printf("anthropic catalog merge: %v", err)
+			// Not worth failing launch over — the picker still shows whatever
+			// the config already had — but the user has to be told, or a stale
+			// picker is indistinguishable from a current one.
+			a.reportError(fmt.Sprintf("model catalog could not be updated: %v", err))
 		}
 	}
 }
@@ -361,7 +384,7 @@ func (a *App) discoverAnthropicModels() {
 	}
 	found, err := anthropic.ListModels(a.ctx, key)
 	if err != nil {
-		log.Printf("anthropic discovery: %v", err)
+		a.reportError(fmt.Sprintf("could not check Anthropic for new models: %v", err))
 		return
 	}
 	models := make([]config.Model, 0, len(found))
@@ -374,7 +397,7 @@ func (a *App) discoverAnthropicModels() {
 	// Revision unchanged: discovery is not the built-in catalog, and stamping it
 	// here would suppress the next build's merge.
 	if err := a.mergeAnthropic(models, 0); err != nil {
-		log.Printf("anthropic discovery merge: %v", err)
+		a.reportError(fmt.Sprintf("discovered models could not be saved: %v", err))
 		return
 	}
 	if a.ctx != nil {
@@ -574,6 +597,12 @@ func (a *App) InstallPwsh() {
 		}
 		wruntime.EventsEmit(a.ctx, "pwsh-install:done")
 	}()
+}
+
+// winStatePath is where per-window state (model, Remote Control) is persisted.
+func (a *App) winStatePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "state", "commander", "windows.json")
 }
 
 // litellmConfigPath is where the generated LiteLLM config.yaml is written.
@@ -1068,10 +1097,14 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 		// launch sets only ANTHROPIC_MODEL, and would otherwise inherit the
 		// proxy vars a routed launch left on the session.
 		ClearEnv: launch.EnvKeys(),
-		ModelID:  m.ID,
 	})
 	if err != nil {
 		return SessionInfo{}, err
+	}
+	// A launch is authoritative for this window id, overwriting whatever an
+	// earlier window with the same id left behind.
+	if serr := a.windows.Set(w.ID, winstate.Record{Model: m.ID}); serr != nil {
+		a.reportError(fmt.Sprintf("could not record the model for %s: %v", name, serr))
 	}
 	a.mu.Lock()
 	a.sessions[w.ID] = &sessionRec{
@@ -1107,7 +1140,7 @@ func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (Session
 			rec.RemoteControl = true
 		}
 		a.mu.Unlock()
-		_ = a.host.SetOption(s.WindowID, "@commander_rc", "1")
+		_ = a.windows.Update(s.WindowID, func(r *winstate.Record) { r.RemoteControl = true })
 	}
 	if err == nil {
 		a.recordProjectOpen(folder, modelID) // remember this project for the history
@@ -1135,7 +1168,7 @@ func (a *App) EnableRemoteControl(windowID string) error {
 	if err := a.host.SendKeys(windowID, "/remote-control "+name); err != nil {
 		return err
 	}
-	_ = a.host.SetOption(windowID, "@commander_rc", "1") // best-effort durable marker
+	_ = a.windows.Update(windowID, func(r *winstate.Record) { r.RemoteControl = true })
 	a.mu.Lock()
 	rec.RemoteControl = true
 	a.mu.Unlock()
@@ -1161,6 +1194,16 @@ func (a *App) ListSessions() []SessionInfo {
 // label at launch). Add-only: never prunes, to avoid racing a just-launched
 // window that tmux hasn't listed yet.
 func (a *App) reconcile(ws []tmux.WindowState) {
+	// Forget windows that no longer exist. Ids are reused after a tmux server
+	// restart, so without this a brand-new @1 could inherit a dead window's
+	// model — and the file would grow for the life of the install.
+	live := make([]string, 0, len(ws))
+	for _, w := range ws {
+		live = append(live, w.ID)
+	}
+	if _, err := a.windows.Prune(live); err != nil {
+		a.reportError(fmt.Sprintf("could not prune window state: %v", err))
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, w := range ws {
@@ -1168,18 +1211,17 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 			continue
 		}
 		rec := &sessionRec{Name: w.Name, Cwd: w.Cwd, LaunchedAt: a.now(), Status: "active"}
-		// Prefer the durable @commander_model marker; fall back to the window
-		// name (== label at launch) only for windows from before markers existed.
+		known, _ := a.windows.Get(w.ID)
+		// Prefer what was recorded at launch; fall back to the window name
+		// (== label at launch) for windows launched before this file existed.
 		for _, m := range a.cfg.Models {
-			if m.ID == w.ModelID || (w.ModelID == "" && (m.Label == w.Name || m.ID == w.Name)) {
+			if m.ID == known.Model || (known.Model == "" && (m.Label == w.Name || m.ID == w.Name)) {
 				rec.Model = m.ID
 				rec.Provider = m.Provider
 				break
 			}
 		}
-		if v, _ := a.host.GetOption(w.ID, "@commander_rc"); v == "1" {
-			rec.RemoteControl = true
-		}
+		rec.RemoteControl = known.RemoteControl
 		a.sessions[w.ID] = rec
 	}
 }
@@ -1206,6 +1248,7 @@ func (a *App) KillSession(windowID string) error {
 		a.current = ""
 	}
 	a.mu.Unlock()
+	_ = a.windows.Delete(windowID)
 	return nil
 }
 
@@ -1382,7 +1425,7 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 			r.RemoteControl = true
 		}
 		a.mu.Unlock()
-		_ = a.host.SetOption(info.WindowID, "@commander_rc", "1")
+		_ = a.windows.Update(info.WindowID, func(r *winstate.Record) { r.RemoteControl = true })
 	}
 	return info, nil
 }

@@ -16,11 +16,6 @@ import (
 // flash a console. Use this instead of tmuxCmd(…) throughout.
 func tmuxCmd(args ...string) *exec.Cmd { return proc.Hide(exec.Command("tmux", args...)) }
 
-// modelOption is the tmux user option Commander stamps on each window so a
-// surviving window's model survives a rename or app restart (the window name is
-// user-editable and unreliable).
-const modelOption = "@commander_model"
-
 // LaunchSpec describes a session to create.
 type LaunchSpec struct {
 	SessionName string
@@ -34,16 +29,16 @@ type LaunchSpec struct {
 	// variable is not the same as clearing it.
 	ClearEnv []string
 	Command  []string
-	ModelID  string // stamped as @commander_model for durable reconciliation
 }
 
-// WindowState is a live tmux window.
+// WindowState is a live tmux window. What Commander knows about it beyond this
+// — the model, the Remote Control flag — is in internal/winstate, not in tmux
+// options: psmux does not scope those per window. See that package.
 type WindowState struct {
-	ID      string
-	Name    string
-	Active  bool
-	Cwd     string // pane_current_path — used to reconcile surviving windows
-	ModelID string // @commander_model — durable model marker (may be empty)
+	ID     string
+	Name   string
+	Active bool
+	Cwd    string // pane_current_path — used to reconcile surviving windows
 }
 
 // Host manages Claude Code sessions.
@@ -53,8 +48,6 @@ type Host interface {
 	Kill(session, windowID string) error
 	Rename(session, windowID, name string) error
 	SendKeys(windowID, text string) error
-	SetOption(windowID, name, value string) error
-	GetOption(windowID, name string) (string, error)
 }
 
 // ExecHost implements Host by shelling out to the real tmux binary.
@@ -129,11 +122,7 @@ func (h *ExecHost) Launch(spec LaunchSpec) (WindowState, error) {
 		return WindowState{}, fmt.Errorf("tmux launch: %w", err)
 	}
 	id := strings.TrimSpace(string(out))
-	if spec.ModelID != "" {
-		// Best-effort durable marker; a failure only degrades reconciliation.
-		_ = tmuxCmd("set-option", "-t", id, modelOption, spec.ModelID).Run()
-	}
-	return WindowState{ID: id, Name: spec.WindowName, Active: true, ModelID: spec.ModelID}, nil
+	return WindowState{ID: id, Name: spec.WindowName, Active: true}, nil
 }
 
 // envKeys returns the names in env, in no particular order.
@@ -169,7 +158,7 @@ func (h *ExecHost) clearEnv(session string, names []string) {
 // bare-PATH failure mode).
 func (h *ExecHost) List(session string) ([]WindowState, error) {
 	out, err := tmuxCmd("list-windows", "-t", session,
-		"-F", "#{window_id}\t#{window_name}\t#{window_active}\t#{pane_current_path}\t#{"+modelOption+"}").Output()
+		"-F", "#{window_id}\t#{window_name}\t#{window_active}\t#{pane_current_path}").Output()
 	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
@@ -188,16 +177,13 @@ func (h *ExecHost) List(session string) ([]WindowState, error) {
 		if line == "" {
 			continue
 		}
-		f := strings.SplitN(line, "\t", 5)
+		f := strings.SplitN(line, "\t", 4)
 		if len(f) < 3 {
 			continue
 		}
 		w := WindowState{ID: f[0], Name: f[1], Active: f[2] == "1"}
 		if len(f) >= 4 {
 			w.Cwd = f[3]
-		}
-		if len(f) == 5 {
-			w.ModelID = f[4]
 		}
 		ws = append(ws, w)
 	}
@@ -274,20 +260,3 @@ func (h *ExecHost) SendKeys(windowID, text string) error {
 	return tmuxCmd("send-keys", "-t", windowID, "Enter").Run()
 }
 
-// SetOption stamps a window-scoped tmux user option (durable across app restarts).
-func (h *ExecHost) SetOption(windowID, name, value string) error {
-	return tmuxCmd("set-option", "-w", "-t", windowID, name, value).Run()
-}
-
-// GetOption reads a window-scoped option; "" means unset. It expands the option
-// as a format variable via display-message rather than `show-options -wv`: the
-// former is portable across upstream tmux and the psmux (Windows) shim, whose
-// `show-options -wv` does not emit user options (@name). Both report an unset
-// option as an empty string.
-func (h *ExecHost) GetOption(windowID, name string) (string, error) {
-	out, err := tmuxCmd("display-message", "-p", "-t", windowID, "#{"+name+"}").Output()
-	if err != nil {
-		return "", nil // treat any lookup failure as unset
-	}
-	return strings.TrimSpace(string(out)), nil
-}

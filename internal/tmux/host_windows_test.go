@@ -108,35 +108,6 @@ func TestLaunchAppliesEnvAndDir(t *testing.T) {
 	}
 }
 
-// TestSetGetOptionRoundTrip guards the psmux compatibility fix: psmux's
-// `show-options -wv` does not emit @user-options, so GetOption reads them back
-// via `display-message` format expansion instead. Set then Get must round-trip.
-func TestSetGetOptionRoundTrip(t *testing.T) {
-	requireTmux(t)
-	h := NewExecHost()
-	session := "commander_test_opt"
-	_ = exec.Command("tmux", "kill-session", "-t", session).Run()
-
-	w, err := h.Launch(LaunchSpec{
-		SessionName: session, WindowName: "opt", Dir: paneTempDir(t, session),
-		Command: []string{"pwsh", "-NoProfile", "-NoLogo", "-Command", "Start-Sleep 30"},
-	})
-	if err != nil {
-		t.Fatalf("Launch: %v", err)
-	}
-
-	// Unset reads empty.
-	if v, _ := h.GetOption(w.ID, "@commander_rc"); v != "" {
-		t.Errorf("unset option should be empty, got %q", v)
-	}
-	if err := h.SetOption(w.ID, "@commander_rc", "1"); err != nil {
-		t.Fatalf("SetOption: %v", err)
-	}
-	if v, err := h.GetOption(w.ID, "@commander_rc"); err != nil || v != "1" {
-		t.Errorf("GetOption after set = %q err=%v, want %q", v, err, "1")
-	}
-}
-
 func TestRename(t *testing.T) {
 	requireTmux(t)
 	h := NewExecHost()
