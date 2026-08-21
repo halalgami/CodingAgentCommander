@@ -24,7 +24,7 @@ param(
     [ValidateSet('build', 'dev', 'test', 'vet', 'all', 'release')]
     [string]$Target = 'build',
 
-    [string]$Version = '0.11.8'
+    [string]$Version = '0.11.9'
 )
 
 $ErrorActionPreference = 'Stop'
