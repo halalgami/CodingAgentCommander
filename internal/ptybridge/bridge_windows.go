@@ -11,6 +11,7 @@ import (
 	"github.com/UserExistsError/conpty"
 
 	"github.com/halalgami/CodingAgentCommander/internal/proc"
+	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 )
 
 // Bridge is a Windows pseudo-console (ConPTY) running `tmux attach` against the
@@ -69,8 +70,17 @@ func (b *Bridge) Resize(rows, cols uint16) error {
 }
 
 // SelectWindow switches which tmux window this attached client shows.
+//
+// The id goes through tmux.WindowTarget first: psmux strips the "@" off a window
+// id and selects that *index* instead, so clicking a session card showed a
+// different session's window (or, when no window sat at that index, silently
+// nothing).
 func (b *Bridge) SelectWindow(windowID string) error {
-	return proc.Hide(exec.Command("tmux", "select-window", "-t", windowID)).Run()
+	target := tmux.WindowTarget(b.session, windowID)
+	if target == "" {
+		return fmt.Errorf("select-window: no window %s in session %s", windowID, b.session)
+	}
+	return proc.Hide(exec.Command("tmux", "select-window", "-t", target)).Run()
 }
 
 // Close detaches: closing the ConPTY terminates the attach client process.

@@ -11,6 +11,8 @@ import (
 	"os/exec"
 
 	"github.com/creack/pty"
+
+	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 )
 
 // Bridge is a pty attached to a tmux session. It is an io.ReadWriteCloser:
@@ -54,8 +56,16 @@ func (b *Bridge) Resize(rows, cols uint16) error {
 }
 
 // SelectWindow switches which tmux window this attached client shows.
+//
+// Targets session:index rather than the window id. Upstream tmux resolves ids
+// fine; psmux (Windows) does not, and one code path for both is worth more than
+// the id's stability here, since the target is resolved and used immediately.
 func (b *Bridge) SelectWindow(windowID string) error {
-	return exec.Command("tmux", "select-window", "-t", windowID).Run()
+	target := tmux.WindowTarget(b.session, windowID)
+	if target == "" {
+		return fmt.Errorf("select-window: no window %s in session %s", windowID, b.session)
+	}
+	return exec.Command("tmux", "select-window", "-t", target).Run()
 }
 
 // Close detaches: closes the pty and reaps the tmux attach client process.

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 )
 
 // Model is one selectable LLM in the catalog.
@@ -167,10 +169,20 @@ func NormalizeBedrockUpstream(upstream string) string {
 
 // Config is the resolved Commander configuration.
 type Config struct {
-	TmuxSession  string     `toml:"tmux_session"`
-	DefaultModel string     `toml:"default_model"`
-	Models       []Model    `toml:"models"`
-	Providers    []Provider `toml:"providers,omitempty"`
+	TmuxSession  string `toml:"tmux_session"`
+	DefaultModel string `toml:"default_model"`
+	// AnthropicCatalogRev is the anthropic.CatalogRev this config was last
+	// merged against. Absent (0) on configs written before catalog merging
+	// existed, which is what makes them pick it up on first launch.
+	//
+	// Declared before Models and Providers on purpose: the encoder emits fields
+	// in declaration order, and a bare key written after an array of tables
+	// belongs to that table in TOML, not to the document. Emitted last, this
+	// would decode into a Model and be lost — leaving the revision at 0 so every
+	// launch re-merged and rewrote the file, resurrecting deleted models.
+	AnthropicCatalogRev int        `toml:"anthropic_catalog_rev,omitempty"`
+	Models              []Model    `toml:"models"`
+	Providers           []Provider `toml:"providers,omitempty"`
 }
 
 // IsRouted reports whether this model must go through the local LiteLLM proxy.
@@ -187,16 +199,29 @@ func (c Config) Model(id string) (Model, bool) {
 }
 
 // Default is the first-run starter catalog: native Anthropic models only, so
-// the app is launchable with zero keys on a claude.ai subscription.
+// the app is launchable with zero keys on a claude.ai subscription. Built from
+// the anthropic package's catalog rather than a second hand-written list, which
+// is how the picker came to be two releases behind.
 func Default() Config {
 	return Config{
-		TmuxSession:  "commander",
-		DefaultModel: "claude-opus-4-8",
-		Models: []Model{
-			{ID: "claude-opus-4-8", Label: "Anthropic · Opus 4.8", Provider: ProviderAnthropic, InputPrice: 15, OutputPrice: 75},
-			{ID: "claude-sonnet-5", Label: "Anthropic · Sonnet 5", Provider: ProviderAnthropic, InputPrice: 3, OutputPrice: 15},
-		},
+		TmuxSession:         "commander",
+		DefaultModel:        anthropic.DefaultID,
+		Models:              AnthropicModels(),
+		AnthropicCatalogRev: anthropic.CatalogRev,
 	}
+}
+
+// AnthropicModels is the built-in native catalog as catalog entries.
+func AnthropicModels() []Model {
+	cat := anthropic.Catalog()
+	out := make([]Model, 0, len(cat))
+	for _, m := range cat {
+		out = append(out, Model{
+			ID: m.ID, Label: m.Label, Provider: ProviderAnthropic,
+			InputPrice: m.InputPrice, OutputPrice: m.OutputPrice,
+		})
+	}
+	return out
 }
 
 // Load reads and validates a TOML config file.

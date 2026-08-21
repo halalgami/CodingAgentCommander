@@ -3,7 +3,10 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 )
 
 func writeTemp(t *testing.T, body string) string {
@@ -394,5 +397,74 @@ key_env = "ZEN_KEY"
 	}
 	if kimi.Provider != ProviderOpencodeGo || kimi.Upstream != "openai/kimi-k2.7-code" {
 		t.Errorf("kimi model wrong after Load: %+v", kimi)
+	}
+}
+
+// The first-run catalog and the anthropic package must not drift apart: Default
+// used to carry its own hand-written list, which is how the picker ended up two
+// releases behind.
+func TestDefaultComesFromTheAnthropicCatalog(t *testing.T) {
+	c := Default()
+	if c.DefaultModel != anthropic.DefaultID {
+		t.Errorf("DefaultModel = %q, want %q", c.DefaultModel, anthropic.DefaultID)
+	}
+	if _, ok := c.Model(c.DefaultModel); !ok {
+		t.Errorf("default_model %q missing from the catalog; Load would reject this config", c.DefaultModel)
+	}
+	if c.AnthropicCatalogRev != anthropic.CatalogRev {
+		t.Errorf("AnthropicCatalogRev = %d, want %d; a fresh config would merge again on first launch",
+			c.AnthropicCatalogRev, anthropic.CatalogRev)
+	}
+	if len(c.Models) != len(anthropic.Catalog()) {
+		t.Errorf("Default has %d models, catalog has %d", len(c.Models), len(anthropic.Catalog()))
+	}
+	for _, m := range c.Models {
+		if m.Provider != ProviderAnthropic {
+			t.Errorf("%s provider = %q, want %q", m.ID, m.Provider, ProviderAnthropic)
+		}
+		if m.IsRouted() {
+			t.Errorf("%s is native but reports routed", m.ID)
+		}
+	}
+}
+
+// The catalog revision must survive a Save/Load round trip. It is a bare
+// top-level key sharing a document with arrays of tables, and TOML binds a bare
+// key to whatever table precedes it — emitted after [[models]] it would decode
+// into a Model and be lost, leaving the revision at 0 so every launch re-merged
+// and rewrote the file, resurrecting models the user deleted. The suite would
+// have stayed green: nothing else reads the field back off disk.
+func TestCatalogRevSurvivesSaveLoad(t *testing.T) {
+	c := Default()
+	c.Providers = []Provider{{Type: ProviderOpencodeGo, APIBase: ZenDefaultAPIBase}}
+	p := filepath.Join(t.TempDir(), "config.toml")
+	if err := Save(p, c); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got.AnthropicCatalogRev != c.AnthropicCatalogRev {
+		body, _ := os.ReadFile(p)
+		t.Fatalf("anthropic_catalog_rev = %d after round trip, want %d\n--- written ---\n%s",
+			got.AnthropicCatalogRev, c.AnthropicCatalogRev, body)
+	}
+	if len(got.Models) != len(c.Models) || len(got.Providers) != len(c.Providers) {
+		t.Errorf("round trip lost entries: %d models, %d providers", len(got.Models), len(got.Providers))
+	}
+	// The key must be emitted before the first array of tables, or the round trip
+	// above only passes by accident of ordering.
+	body, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	rev, table := strings.Index(text, "anthropic_catalog_rev"), strings.Index(text, "[[")
+	if rev == -1 {
+		t.Fatal("anthropic_catalog_rev not written at all")
+	}
+	if table != -1 && rev > table {
+		t.Errorf("anthropic_catalog_rev is emitted after the first table, so it belongs to that table:\n%s", text)
 	}
 }
