@@ -52,6 +52,17 @@ export async function refresh() {
   } catch { /* plain browser / backend gone */ }
 }
 
+// reloadModels refreshes just the picker. Discovery runs in the background at
+// launch, so this can land after the user has already opened the launch panel —
+// it must not reset selectedModel or re-run the dependency preflight.
+export async function reloadModels() {
+  try { app.models = await Config(); } catch { return; }
+  try { app.catalog = await Models(); } catch {}
+  if (app.models.length && !app.models.some((m) => m.id === app.selectedModel)) {
+    app.selectedModel = app.models[0].id;
+  }
+}
+
 export async function loadAll() {
   try {
     app.models = await Config();

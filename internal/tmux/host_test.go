@@ -94,7 +94,7 @@ func TestRename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Launch: %v", err)
 	}
-	if err := h.Rename(w.ID, "after"); err != nil {
+	if err := h.Rename(session, w.ID, "after"); err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
 	ws, _ := h.List(session)
@@ -185,4 +185,96 @@ func readProbe(t *testing.T, path string, n int) []string {
 	}
 	t.Fatalf("probe %s never reached %d lines", path, n)
 	return nil
+}
+
+// TestWindowTargetedCommandsHitTheRightWindow guards the fix for psmux's
+// window-id handling. psmux does not resolve ids as -t targets: select-window
+// strips the "@" and uses the rest as an *index*, kill-window resolved the id
+// against another session entirely (killing the wrong session's window), and
+// rename-window silently did nothing. Ids and indexes never line up — ids start
+// at @1 and are server-wide, indexes are per-session — so targeting one when you
+// meant the other lands on a different window or none.
+func TestWindowTargetedCommandsHitTheRightWindow(t *testing.T) {
+	requireTmux(t)
+	h := NewExecHost()
+	session := "commander_test_target"
+	_ = exec.Command("tmux", "kill-session", "-t", session).Run()
+	t.Cleanup(func() { _ = exec.Command("tmux", "kill-session", "-t", session).Run() })
+
+	dir := t.TempDir()
+	idle := []string{"sh", "-c", "sleep 60"}
+	var ids []string
+	for _, name := range []string{"first", "second", "third"} {
+		w, err := h.Launch(LaunchSpec{
+			SessionName: session, WindowName: name, Dir: dir, Command: idle,
+		})
+		if err != nil {
+			t.Fatalf("Launch %s: %v", name, err)
+		}
+		ids = append(ids, w.ID)
+	}
+
+	// Every id resolves, to a distinct target, and to something other than the
+	// bare id — otherwise the test could pass while still targeting ids.
+	seen := map[string]bool{}
+	for _, id := range ids {
+		target := WindowTarget(session, id)
+		if target == "" {
+			t.Fatalf("WindowTarget(%s) did not resolve", id)
+		}
+		if seen[target] {
+			t.Fatalf("WindowTarget(%s) = %q, already used by another window", id, target)
+		}
+		seen[target] = true
+		if target == id {
+			t.Errorf("WindowTarget(%s) returned the raw id; expected session:index", id)
+		}
+	}
+	if WindowTarget(session, "@99999") != "" {
+		t.Error("WindowTarget resolved an id that does not exist")
+	}
+
+	// Rename the third window by id: only that one may change.
+	if err := h.Rename(session, ids[2], "renamed"); err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	names := namesByID(t, h, session)
+	if names[ids[2]] != "renamed" {
+		t.Errorf("third window not renamed; got %q", names[ids[2]])
+	}
+	if names[ids[0]] != "first" || names[ids[1]] != "second" {
+		t.Errorf("rename hit the wrong window: %v", names)
+	}
+
+	// Kill the middle window by id: the other two must survive.
+	if err := h.Kill(session, ids[1]); err != nil {
+		t.Fatalf("Kill: %v", err)
+	}
+	names = namesByID(t, h, session)
+	if _, alive := names[ids[1]]; alive {
+		t.Errorf("Kill did not remove %s; windows = %v", ids[1], names)
+	}
+	if len(names) != 2 || names[ids[0]] != "first" || names[ids[2]] != "renamed" {
+		t.Errorf("Kill removed the wrong window; windows = %v", names)
+	}
+
+	// A window that has already gone is an error, not a silent no-op that
+	// could land on whatever now occupies that index.
+	if err := h.Kill(session, ids[1]); err == nil {
+		t.Error("Kill of a dead window should error rather than target something else")
+	}
+}
+
+// namesByID maps window id to name for a session.
+func namesByID(t *testing.T, h *ExecHost, session string) map[string]string {
+	t.Helper()
+	ws, err := h.List(session)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	out := map[string]string{}
+	for _, w := range ws {
+		out[w.ID] = w.Name
+	}
+	return out
 }

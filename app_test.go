@@ -10,6 +10,7 @@ import (
 
 	"github.com/zalando/go-keyring"
 
+	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 	"github.com/halalgami/CodingAgentCommander/internal/config"
 	"github.com/halalgami/CodingAgentCommander/internal/launch"
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
@@ -490,7 +491,7 @@ func (c *captureHost) Kill(_, id string) error {
 	c.mu.Unlock()
 	return nil
 }
-func (c *captureHost) Rename(string, string) error { return nil }
+func (c *captureHost) Rename(string, string, string) error { return nil }
 func (c *captureHost) SendKeys(windowID, text string) error {
 	c.mu.Lock()
 	c.sentKeys = append(c.sentKeys, windowID+"\x00"+text)
@@ -924,5 +925,86 @@ func TestStartSessionClearsEveryManagedEnvVar(t *testing.T) {
 		if !cleared[k] {
 			t.Errorf("%s not in ClearEnv; a routed launch could leave it behind", k)
 		}
+	}
+}
+
+// mergeAnthropic is the launch-time catalog refresh. It must add what is
+// missing, leave the user's edits alone, and stamp the revision so it does not
+// run again until the catalog itself changes.
+func TestMergeAnthropicIsAddOnly(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	dir := t.TempDir()
+	a.configPath = filepath.Join(dir, "config.toml")
+	// A config from an older build: one model, renamed and repriced by hand,
+	// and no catalog revision.
+	a.cfg = config.Config{
+		TmuxSession:  "commander",
+		DefaultModel: "claude-opus-4-8",
+		Models: []config.Model{
+			{ID: "claude-opus-4-8", Label: "MY OPUS", Provider: config.ProviderAnthropic, InputPrice: 1, OutputPrice: 2},
+		},
+	}
+
+	if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
+		t.Fatalf("mergeAnthropic: %v", err)
+	}
+	if a.cfg.AnthropicCatalogRev != anthropic.CatalogRev {
+		t.Errorf("revision not stamped: %d", a.cfg.AnthropicCatalogRev)
+	}
+	// The hand-edited entry survives untouched.
+	m, ok := a.cfg.Model("claude-opus-4-8")
+	if !ok || m.Label != "MY OPUS" || m.InputPrice != 1 {
+		t.Errorf("user edits clobbered: %+v", m)
+	}
+	// Everything else in the catalog is now present, exactly once.
+	counts := map[string]int{}
+	for _, x := range a.cfg.Models {
+		counts[x.ID]++
+	}
+	for _, want := range config.AnthropicModels() {
+		if counts[want.ID] != 1 {
+			t.Errorf("%s appears %d times, want 1", want.ID, counts[want.ID])
+		}
+	}
+	if _, ok := a.cfg.Model(anthropic.DefaultID); !ok {
+		t.Errorf("%s was not added", anthropic.DefaultID)
+	}
+
+	// Re-running changes nothing and rewrites nothing.
+	before := len(a.cfg.Models)
+	if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
+		t.Fatalf("second mergeAnthropic: %v", err)
+	}
+	if len(a.cfg.Models) != before {
+		t.Errorf("second merge changed the catalog: %d -> %d", before, len(a.cfg.Models))
+	}
+
+	// The merged config must survive a round trip through Load, which rejects a
+	// default_model that is not in the catalog.
+	if _, err := config.Load(a.configPath); err != nil {
+		t.Errorf("merged config does not load: %v", err)
+	}
+}
+
+// A deliberate deletion must not come back on every launch — only after the
+// catalog revision moves. refreshAnthropicModels is the gate.
+func TestRefreshSkipsMergeWhenRevisionIsCurrent(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv(anthropic.KeyEnv, "") // keep the background discovery pass offline
+	a := NewApp()
+	dir := t.TempDir()
+	a.configPath = filepath.Join(dir, "config.toml")
+	a.cfg = config.Config{
+		TmuxSession:  "commander",
+		DefaultModel: anthropic.DefaultID,
+		Models: []config.Model{
+			{ID: anthropic.DefaultID, Label: "Anthropic · Opus 5", Provider: config.ProviderAnthropic, InputPrice: 5, OutputPrice: 25},
+		},
+		AnthropicCatalogRev: anthropic.CatalogRev,
+	}
+	a.refreshAnthropicModels()
+	if len(a.cfg.Models) != 1 {
+		t.Errorf("models the user removed were re-added: %+v", a.cfg.Models)
 	}
 }

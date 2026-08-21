@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 )
 
 func writeTemp(t *testing.T, body string) string {
@@ -394,5 +396,33 @@ key_env = "ZEN_KEY"
 	}
 	if kimi.Provider != ProviderOpencodeGo || kimi.Upstream != "openai/kimi-k2.7-code" {
 		t.Errorf("kimi model wrong after Load: %+v", kimi)
+	}
+}
+
+// The first-run catalog and the anthropic package must not drift apart: Default
+// used to carry its own hand-written list, which is how the picker ended up two
+// releases behind.
+func TestDefaultComesFromTheAnthropicCatalog(t *testing.T) {
+	c := Default()
+	if c.DefaultModel != anthropic.DefaultID {
+		t.Errorf("DefaultModel = %q, want %q", c.DefaultModel, anthropic.DefaultID)
+	}
+	if _, ok := c.Model(c.DefaultModel); !ok {
+		t.Errorf("default_model %q missing from the catalog; Load would reject this config", c.DefaultModel)
+	}
+	if c.AnthropicCatalogRev != anthropic.CatalogRev {
+		t.Errorf("AnthropicCatalogRev = %d, want %d; a fresh config would merge again on first launch",
+			c.AnthropicCatalogRev, anthropic.CatalogRev)
+	}
+	if len(c.Models) != len(anthropic.Catalog()) {
+		t.Errorf("Default has %d models, catalog has %d", len(c.Models), len(anthropic.Catalog()))
+	}
+	for _, m := range c.Models {
+		if m.Provider != ProviderAnthropic {
+			t.Errorf("%s provider = %q, want %q", m.ID, m.Provider, ProviderAnthropic)
+		}
+		if m.IsRouted() {
+			t.Errorf("%s is native but reports routed", m.ID)
+		}
 	}
 }

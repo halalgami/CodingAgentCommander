@@ -51,7 +51,7 @@ type Host interface {
 	Launch(spec LaunchSpec) (WindowState, error)
 	List(session string) ([]WindowState, error)
 	Kill(session, windowID string) error
-	Rename(windowID, name string) error
+	Rename(session, windowID, name string) error
 	SendKeys(windowID, text string) error
 	SetOption(windowID, name, value string) error
 	GetOption(windowID, name string) (string, error)
@@ -204,18 +204,62 @@ func (h *ExecHost) List(session string) ([]WindowState, error) {
 	return ws, nil
 }
 
+// WindowTarget resolves a window id (@5) to a "session:index" target string.
+//
+// Window ids are the natural target on upstream tmux — they are stable while
+// indexes shift — but psmux, the Windows shim, does not resolve them, and does
+// so silently and inconsistently. Measured on psmux 3.3.7:
+//
+//   - select-window drops the "@" and treats the rest as a window *index*, so
+//     `-t @2` selected whichever window sat at index 2;
+//   - kill-window resolved the id against a *different session* that happened
+//     to have a window with that id, killing the wrong session's window;
+//   - rename-window silently did nothing;
+//   - send-keys and capture-pane, alone, resolved ids correctly.
+//
+// Indexes are understood by both, so every command that targets a window goes
+// through here. Indexes move when windows die, so this resolves immediately
+// before use and never caches. An unknown id yields "" — treat that as a window
+// that has already gone rather than falling back to the raw id, which is what
+// made a mis-resolved target destructive in the first place.
+func WindowTarget(session, windowID string) string {
+	if session == "" || windowID == "" {
+		return ""
+	}
+	out, err := tmuxCmd("list-windows", "-t", session,
+		"-F", "#{window_id}\t#{session_name}:#{window_index}").Output()
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		id, target, ok := strings.Cut(strings.TrimSpace(line), "\t")
+		if ok && id == windowID {
+			return target
+		}
+	}
+	return ""
+}
+
 // Kill removes a window by id.
 func (h *ExecHost) Kill(session, windowID string) error {
-	if err := tmuxCmd("kill-window", "-t", windowID).Run(); err != nil {
-		return fmt.Errorf("tmux kill-window %s: %w", windowID, err)
+	target := WindowTarget(session, windowID)
+	if target == "" {
+		return fmt.Errorf("tmux kill-window: no window %s in session %s", windowID, session)
+	}
+	if err := tmuxCmd("kill-window", "-t", target).Run(); err != nil {
+		return fmt.Errorf("tmux kill-window %s: %w", target, err)
 	}
 	return nil
 }
 
 // Rename changes a window's display name.
-func (h *ExecHost) Rename(windowID, name string) error {
-	if err := tmuxCmd("rename-window", "-t", windowID, name).Run(); err != nil {
-		return fmt.Errorf("tmux rename-window %s: %w", windowID, err)
+func (h *ExecHost) Rename(session, windowID, name string) error {
+	target := WindowTarget(session, windowID)
+	if target == "" {
+		return fmt.Errorf("tmux rename-window: no window %s in session %s", windowID, session)
+	}
+	if err := tmuxCmd("rename-window", "-t", target, name).Run(); err != nil {
+		return fmt.Errorf("tmux rename-window %s: %w", target, err)
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
 	"github.com/halalgami/CodingAgentCommander/internal/bedrock"
 	"github.com/halalgami/CodingAgentCommander/internal/config"
 	"github.com/halalgami/CodingAgentCommander/internal/deps"
@@ -293,6 +295,7 @@ func (a *App) startup(ctx context.Context) {
 		// Surface via an empty picker; the UI shows a config hint.
 		return
 	}
+	a.refreshAnthropicModels()
 	a.masterKey = randomHex(24)
 	a.wsToken = randomHex(24)
 	// Reap any litellm orphaned by a prior unclean exit before starting fresh.
@@ -301,6 +304,106 @@ func (a *App) startup(ctx context.Context) {
 	a.startWS()
 	_ = hookmgr.Install(a.settingsPath(), a.wsPort, a.wsToken)
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
+}
+
+// refreshAnthropicModels keeps the native side of the catalog current.
+//
+// Two passes, for two different kinds of staleness. The built-in catalog merges
+// synchronously — no network — so the picker is right before the frontend's
+// first Config() call, and an install carrying a config written by an older
+// build picks up this release's models without hand-editing TOML. Then, if an
+// API key is stored, discovery runs in the background for models released since
+// the build and emits models:updated so the picker reloads.
+//
+// Add-only in both passes: a model the user renamed or repriced keeps their
+// edits, and only ids absent from the catalog are appended. Deletions survive
+// too — the built-in pass is gated on anthropic.CatalogRev, so a model removed
+// on purpose only comes back after an upgrade that changed the list. Live
+// discovery has no such gate: it cannot tell "released since the build" from
+// "deleted by the user", and re-adding is the less surprising of the two.
+func (a *App) refreshAnthropicModels() {
+	a.mu.Lock()
+	stale := a.cfg.AnthropicCatalogRev < anthropic.CatalogRev
+	a.mu.Unlock()
+	if stale {
+		if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
+			// A catalog that cannot be persisted is not worth failing launch
+			// over; the picker still shows whatever the config already had.
+			log.Printf("anthropic catalog merge: %v", err)
+		}
+	}
+	go a.discoverAnthropicModels()
+}
+
+// discoverAnthropicModels merges any models the stored API key can see that the
+// build does not know about. Native sessions authenticate with the Claude Code
+// subscription's OAuth, so most installs have no key here and this is a no-op —
+// which is exactly why the built-in catalog exists.
+func (a *App) discoverAnthropicModels() {
+	key, _ := secrets.Get(anthropic.KeyEnv)
+	if key == "" {
+		key = os.Getenv(anthropic.KeyEnv)
+	}
+	if key == "" {
+		return
+	}
+	found, err := anthropic.ListModels(a.ctx, key)
+	if err != nil {
+		log.Printf("anthropic discovery: %v", err)
+		return
+	}
+	models := make([]config.Model, 0, len(found))
+	for _, m := range found {
+		models = append(models, config.Model{
+			ID: m.ID, Label: m.Label, Provider: config.ProviderAnthropic,
+			InputPrice: m.InputPrice, OutputPrice: m.OutputPrice,
+		})
+	}
+	// Revision unchanged: discovery is not the built-in catalog, and stamping it
+	// here would suppress the next build's merge.
+	if err := a.mergeAnthropic(models, 0); err != nil {
+		log.Printf("anthropic discovery merge: %v", err)
+		return
+	}
+	if a.ctx != nil {
+		wruntime.EventsEmit(a.ctx, "models:updated")
+	}
+}
+
+// mergeAnthropic appends the models whose ids are not already in the catalog and
+// persists before committing, matching every other catalog mutation. A rev of 0
+// leaves AnthropicCatalogRev alone. Returns nil when there is nothing to do.
+func (a *App) mergeAnthropic(models []config.Model, rev int) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	have := make(map[string]bool, len(a.cfg.Models))
+	for _, m := range a.cfg.Models {
+		have[m.ID] = true
+	}
+	next := a.cfg
+	next.Models = append([]config.Model{}, a.cfg.Models...)
+	added := 0
+	for _, m := range models {
+		if have[m.ID] {
+			continue
+		}
+		have[m.ID] = true
+		next.Models = append(next.Models, m)
+		added++
+	}
+	if rev > next.AnthropicCatalogRev {
+		next.AnthropicCatalogRev = rev
+	} else if added == 0 {
+		return nil
+	}
+	if a.configPath == "" {
+		return nil // no config on disk yet (tests)
+	}
+	if err := config.Save(a.configPath, next); err != nil {
+		return err
+	}
+	a.cfg = next // commit only after successful persist
+	return nil
 }
 
 // reconcileWindows lists the live tmux windows (helper so startup reconciles
@@ -1090,7 +1193,7 @@ func (a *App) KillSession(windowID string) error {
 
 // RenameSession renames a session's tmux window and registry name.
 func (a *App) RenameSession(windowID, name string) error {
-	if err := a.host.Rename(windowID, name); err != nil {
+	if err := a.host.Rename(a.cfg.TmuxSession, windowID, name); err != nil {
 		return err
 	}
 	a.mu.Lock()
@@ -1247,7 +1350,7 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	}
 	// Preserve the user's display name.
 	if oldName != "" {
-		_ = a.host.Rename(info.WindowID, oldName)
+		_ = a.host.Rename(a.cfg.TmuxSession, info.WindowID, oldName)
 		a.mu.Lock()
 		if r := a.sessions[info.WindowID]; r != nil {
 			r.Name = oldName
