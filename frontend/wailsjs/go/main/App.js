@@ -18,6 +18,10 @@ export function Config() {
   return window['go']['main']['App']['Config']();
 }
 
+export function DependencyStatus() {
+  return window['go']['main']['App']['DependencyStatus']();
+}
+
 export function DiscoverBedrockModels(arg1) {
   return window['go']['main']['App']['DiscoverBedrockModels'](arg1);
 }
@@ -40,6 +44,10 @@ export function ImportProjects(arg1) {
 
 export function InstallLitellmRuntime() {
   return window['go']['main']['App']['InstallLitellmRuntime']();
+}
+
+export function InstallPwsh() {
+  return window['go']['main']['App']['InstallPwsh']();
 }
 
 export function KeyStatus() {

@@ -25,6 +25,39 @@ export namespace bedrock {
 
 }
 
+export namespace deps {
+	
+	export class Tool {
+	    name: string;
+	    label: string;
+	    found: boolean;
+	    path: string;
+	    version: string;
+	    managed: boolean;
+	    canInstall: boolean;
+	    required: boolean;
+	    hint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Tool(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.label = source["label"];
+	        this.found = source["found"];
+	        this.path = source["path"];
+	        this.version = source["version"];
+	        this.managed = source["managed"];
+	        this.canInstall = source["canInstall"];
+	        this.required = source["required"];
+	        this.hint = source["hint"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class BuildInfo {
@@ -94,6 +127,7 @@ export namespace main {
 	    label: string;
 	    routed: boolean;
 	    ready: boolean;
+	    default: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelInfo(source);
@@ -105,6 +139,7 @@ export namespace main {
 	        this.label = source["label"];
 	        this.routed = source["routed"];
 	        this.ready = source["ready"];
+	        this.default = source["default"];
 	    }
 	}
 	export class ModelInput {
