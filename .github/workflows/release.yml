@@ -80,7 +80,16 @@ jobs:
       - name: Test
         run: ./build.ps1 test
 
+      # Public repo only. GitHub refuses to persist an attestation for a
+      # user-owned PRIVATE repository ("Feature not available…"), and because
+      # this step runs before Publish, its failure took the whole release with
+      # it — a private v* tag built the exe and then published nothing.
+      #
+      # Provenance is what a public downloader verifies a binary against, so it
+      # stays mandatory where it matters. A private build is for its own author,
+      # who already knows where it came from.
       - name: Attest build provenance
+        if: github.repository == 'halalgami/CodingAgentCommander'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: build/bin/commander-gui.exe
