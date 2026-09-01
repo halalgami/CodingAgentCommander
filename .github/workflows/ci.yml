@@ -68,6 +68,14 @@ jobs:
             throw "exe is $mb MB, expected >20 MB with psmux embedded - was '-tags bundled' dropped?"
           }
 
+      # Pure-JS unit tests (node:test). These ran nowhere before: package.json
+      # had no test script and this workflow was Go-only, so the suite was
+      # dead weight in the tree. Placed after Build because that step is what
+      # installs frontend/node_modules.
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm test
+
       - name: Vet
         run: ./build.ps1 vet
 
@@ -77,3 +85,20 @@ jobs:
       # else, including the dependency resolution in internal/deps.
       - name: Test
         run: ./build.ps1 test
+
+  # The leak tripwire. The full export gate needs a darwin toolchain and a
+  # frontend build; this runs the part that catches leaks — snapshot, strip,
+  # overlay, grep — on a cheap runner, on every PR. Four real leaks reached
+  # main in one session while this ran nowhere but a local shell.
+  export-tripwire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The script archives HEAD, so a shallow single-commit checkout is
+          # enough — but git archive needs the commit itself, not a blobless
+          # tree.
+          fetch-depth: 1
+
+      - name: Export tripwire
+        run: ./scripts/export-public.sh --tripwire-only "${RUNNER_TEMP}/pubexport"

@@ -20,6 +20,7 @@
   import BootIntro, { bootOnFirstRun } from "./lib/components/BootIntro.svelte";
   import { initTheme, xtermTheme } from "./lib/theme/theme.svelte.js";
   import { initPrefs, prefs, setPref } from "./lib/prefs.svelte.js";
+  import { openPaneCount } from "./lib/termbus.js";
 
   // Guarded: window.runtime doesn't exist in a plain browser (Playwright);
   // without this the mount aborts (the B1 blank-window bug).
@@ -36,6 +37,14 @@
     initPrefs();
     loadAll();
     window.__prefs = prefs; // exposed so the built-preview smoke can toggle prefs
+    window.__app = app;     // ditto: the smokes seed sessions/config with no bindings
+    // Leak-assertion seam: openPaneCount() is termbus's own proof that every
+    // openPane() got its matching close(). Terminal.svelte lives inside
+    // {#key app.sessionKey}, so it is destroyed and recreated on every session
+    // switch — this is the only way a Playwright spec can see that teardown
+    // actually ran across real mount/destroy cycles, not just in termbus's
+    // own unit test.
+    window.__termbus = { openPaneCount };
     const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   });
@@ -49,6 +58,14 @@
 <div class="shell">
   <header class="titlebar" data-testid="titlebar" style="--wails-draggable: drag">
     <span class="wordmark" data-testid="wordmark">COMMANDER</span>
+    <nav class="nav" data-testid="titlebar-nav">
+      <button data-testid="open-history" onclick={() => (app.drawer = "history")}>History</button>
+      <button data-testid="open-about" onclick={() => (app.about = true)}>About</button>
+      <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
+      <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
+      <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>
+      <button data-testid="open-settings" onclick={() => (app.drawer = "settings")}>Settings</button>
+    </nav>
   </header>
   <div class="content">
     <Sidebar />
@@ -99,13 +116,27 @@
   .titlebar {
     height: var(--titlebar-h); flex: none; display: flex; align-items: center;
     background: var(--surface-1); border-bottom: 1px solid var(--border-0);
-    padding-left: 84px; /* traffic-light inset */
+    padding-left: 84px;              /* traffic-light inset — never remove */
+    padding-right: var(--sp-2);
     user-select: none;
   }
   .wordmark {
     font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.28em;
     color: var(--text-1);
   }
+  /* margin-left:auto right-aligns the nav at ANY window width, so it can never
+     collide with the 84px inset above. */
+  .nav { margin-left: auto; display: flex; gap: 2px; }
+  /* The titlebar is a Wails drag region. A control inside a drag region does not
+     receive clicks until it opts out, and the failure is silent — the button
+     simply drags the window instead of firing. */
+  .nav button {
+    --wails-draggable: no-drag;
+    background: none; border: 0; color: var(--text-1); cursor: pointer;
+    font-size: var(--fs-1); padding: 4px 8px; border-radius: var(--r-1);
+    white-space: nowrap;
+  }
+  .nav button:hover { color: var(--text-0); background: var(--surface-2); }
   .content { flex: 1; display: flex; min-height: 0; }
   .divider {
     width: 4px; cursor: col-resize; flex: none;

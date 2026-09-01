@@ -18,6 +18,8 @@ export function DependencyStatus():Promise<Array<deps.Tool>>;
 
 export function DiscoverBedrockModels(arg1:string):Promise<Array<bedrock.Model>>;
 
+export function DiscoverOllamaModels():Promise<Array<main.OllamaModel>>;
+
 export function DiscoverZenModels():Promise<Array<zen.Model>>;
 
 export function EnableRemoteControl(arg1:string):Promise<void>;

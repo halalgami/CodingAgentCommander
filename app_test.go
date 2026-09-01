@@ -1030,3 +1030,98 @@ func TestConfigMarksTheDefaultModel(t *testing.T) {
 		t.Errorf("Config marked %v as default, want exactly [%s]", marked, a.cfg.DefaultModel)
 	}
 }
+
+func TestAddProviderOllamaDefaultsAPIBase(t *testing.T) {
+	a := newProviderTestApp(t)
+	if err := a.AddProvider(config.ProviderOllama, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := a.cfg.ProviderByType(config.ProviderOllama)
+	if !ok {
+		t.Fatal("provider not defined")
+	}
+	if p.APIBase != config.OllamaDefaultAPIBase {
+		t.Errorf("APIBase = %q, want %q", p.APIBase, config.OllamaDefaultAPIBase)
+	}
+}
+
+func TestListProvidersOllamaActiveAndPrefill(t *testing.T) {
+	a := newProviderTestApp(t)
+	// Undefined: the row still shows the endpoint it would use.
+	var undef ProviderInfo
+	for _, p := range a.ListProviders() {
+		if p.Type == config.ProviderOllama {
+			undef = p
+		}
+	}
+	if undef.Type == "" {
+		t.Fatal("ollama-cloud missing from ListProviders")
+	}
+	if undef.APIBase != config.OllamaDefaultAPIBase {
+		t.Errorf("undefined APIBase = %q, want prefill %q", undef.APIBase, config.OllamaDefaultAPIBase)
+	}
+	if undef.Active {
+		t.Error("undefined provider must not be active")
+	}
+}
+
+func TestAddModelOllamaDerivesID(t *testing.T) {
+	a := newProviderTestApp(t)
+	if err := a.AddProvider(config.ProviderOllama, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	// The drawer's manual-add path mangles dots and colons; whatever it sends,
+	// the backend derives the canonical ID from the upstream.
+	err := a.AddModel(ModelInput{
+		ID: "gpt-oss-120b", Label: "Ollama · gpt-oss:120b",
+		Provider: config.ProviderOllama, Upstream: "gpt-oss:120b",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok := a.cfg.Model("ollama-gpt-oss:120b")
+	if !ok {
+		t.Fatalf("model not stored under the derived id; catalog = %+v", a.cfg.Models)
+	}
+	if m.Upstream != "ollama_chat/gpt-oss:120b" {
+		t.Errorf("upstream = %q, want ollama_chat/gpt-oss:120b", m.Upstream)
+	}
+	if m.APIBase != "" || m.KeyEnv != "" || m.Region != "" {
+		t.Errorf("provider-supplied fields must be cleared, got %+v", m)
+	}
+}
+
+func TestAddModelOllamaRequiresProvider(t *testing.T) {
+	a := newProviderTestApp(t)
+	err := a.AddModel(ModelInput{ID: "x", Provider: config.ProviderOllama, Upstream: "glm-5.3"})
+	if err == nil {
+		t.Fatal("adding an ollama model with no provider defined must error")
+	}
+}
+
+func TestDiscoverOllamaModelsRequiresProvider(t *testing.T) {
+	a := newProviderTestApp(t)
+	if _, err := a.DiscoverOllamaModels(); err == nil {
+		t.Fatal("discovery with no provider defined must error")
+	}
+}
+
+func TestSessionStatBandsOllamaByContext(t *testing.T) {
+	a := newProviderTestApp(t)
+	a.cfg.Models = append(a.cfg.Models, config.Model{
+		ID: "ollama-glm-5.3", Provider: config.ProviderOllama,
+		Upstream: "ollama_chat/glm-5.3",
+	})
+	m, ok := a.modelByID("ollama-glm-5.3")
+	if !ok {
+		t.Fatal("model not found")
+	}
+	// Routed, but subscription-billed: the meter must not be a dollar band, or
+	// it reads permanently green at $0.00.
+	if !m.BandByContext() {
+		t.Error("ollama must band by context")
+	}
+	if !m.Unpriced() {
+		t.Error("ollama model must report unpriced")
+	}
+}

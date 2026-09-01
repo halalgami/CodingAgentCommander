@@ -170,6 +170,22 @@ export namespace main {
 	        this.outputPrice = source["outputPrice"];
 	    }
 	}
+	export class OllamaModel {
+	    id: string;
+	    label: string;
+	    upstream: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OllamaModel(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.upstream = source["upstream"];
+	    }
+	}
 	export class UsageWindow {
 	    key: string;
 	    label: string;
@@ -309,6 +325,7 @@ export namespace main {
 	export class SessionStats {
 	    contextTokens: number;
 	    estCostPerTurn: number;
+	    unpriced: boolean;
 	    band: string;
 	    turns: number;
 	    model: string;
@@ -326,6 +343,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.contextTokens = source["contextTokens"];
 	        this.estCostPerTurn = source["estCostPerTurn"];
+	        this.unpriced = source["unpriced"];
 	        this.band = source["band"];
 	        this.turns = source["turns"];
 	        this.model = source["model"];

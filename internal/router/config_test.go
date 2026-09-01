@@ -163,3 +163,51 @@ func TestHookSource(t *testing.T) {
 		t.Errorf("HookFile = %q", HookFile)
 	}
 }
+
+func TestGenerateConfigOllama(t *testing.T) {
+	models := []config.Model{
+		{
+			ID: "ollama-glm-5.3", Provider: config.ProviderOllama,
+			Upstream: "ollama_chat/glm-5.3",
+			APIBase:  config.OllamaDefaultAPIBase, KeyEnv: config.OllamaKeyEnv,
+		},
+	}
+	out, err := GenerateConfig(models, "sk-master", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+
+	// The upstream must survive verbatim: litellmModel rewrites "openai/" to
+	// "hosted_vllm/", and an Ollama entry caught by that rule would 404.
+	if !strings.Contains(got, "model: ollama_chat/glm-5.3") {
+		t.Errorf("upstream rewritten or missing:\n%s", got)
+	}
+	if !strings.Contains(got, "api_base: https://ollama.com") {
+		t.Errorf("api_base missing or suffixed:\n%s", got)
+	}
+	// Keys are referenced, never inlined.
+	if !strings.Contains(got, "api_key: os.environ/OLLAMA_API_KEY") {
+		t.Errorf("api_key must be an os.environ ref:\n%s", got)
+	}
+	// Without this, Ollama thinks by default on every turn: the strip hook pops
+	// reasoning_effort, which is the only thing that would otherwise set `think`.
+	if !strings.Contains(got, "think: false") {
+		t.Errorf("think: false missing -- thinking silently defaults ON:\n%s", got)
+	}
+}
+
+func TestGenerateConfigThinkOnlyForOllama(t *testing.T) {
+	models := []config.Model{
+		{ID: "glm", Provider: config.ProviderOpencodeGo, Upstream: "openai/glm-5.2",
+			APIBase: config.ZenDefaultAPIBase, KeyEnv: config.ZenKeyEnv},
+		{ID: "br", Provider: config.ProviderBedrock, Upstream: "bedrock/us.anthropic.claude-sonnet-5", Region: "us-east-1"},
+	}
+	out, err := GenerateConfig(models, "sk-master", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "think:") {
+		t.Errorf("think must not appear for non-ollama providers:\n%s", out)
+	}
+}

@@ -36,24 +36,37 @@ const (
 // ProviderOpencodeGo is the OpenCode Zen/Go gateway (OpenAI-compatible, routed).
 const ProviderOpencodeGo = "opencode-go"
 
+// ProviderOllama is Ollama Cloud (routed through LiteLLM's ollama_chat provider).
+const ProviderOllama = "ollama-cloud"
+
 // Type-level credential constants for definable providers. The key itself
 // lives in the OS keychain under this ref; only endpoint/region metadata is
 // stored in TOML.
 const (
 	ZenKeyEnv         = "ZEN_KEY"
 	ZenDefaultAPIBase = "https://opencode.ai/zen/go/v1"
+
+	OllamaKeyEnv = "OLLAMA_API_KEY"
+	// OllamaDefaultAPIBase is the BARE ORIGIN on purpose. LiteLLM's ollama_chat
+	// provider builds "{api_base}/api/chat", so a "/v1" or "/api" suffix here
+	// yields https://ollama.com/v1/api/chat — a 404 at the first turn.
+	OllamaDefaultAPIBase = "https://ollama.com"
+	// OllamaUpstreamPrefix is LiteLLM's provider prefix. Not "ollama/": that
+	// provider's validate_environment is a stub that never sends the bearer
+	// token, so it cannot reach the cloud host at all.
+	OllamaUpstreamPrefix = "ollama_chat/"
 )
 
 // Provider is a user-defined upstream a model can route through. Anthropic is
 // built-in (subscription OAuth) and never appears here.
 type Provider struct {
-	Type    string `toml:"type"`               // ProviderOpencodeGo | ProviderBedrock
+	Type    string `toml:"type"`               // ProviderOpencodeGo | ProviderBedrock | ProviderOllama
 	APIBase string `toml:"api_base,omitempty"` // opencode-go endpoint
 	Region  string `toml:"region,omitempty"`   // bedrock default region
 }
 
 // DefinableProviderTypes are the provider types a user may add.
-var DefinableProviderTypes = []string{ProviderOpencodeGo, ProviderBedrock}
+var DefinableProviderTypes = []string{ProviderOpencodeGo, ProviderBedrock, ProviderOllama}
 
 // ProviderByType returns the defined provider entry of the given type.
 func (c Config) ProviderByType(t string) (Provider, bool) {
@@ -108,6 +121,18 @@ func (c Config) ResolveModel(m Model) Model {
 		if p, ok := c.ProviderByType(ProviderBedrock); ok && m.Region == "" {
 			m.Region = p.Region
 		}
+	case ProviderOllama:
+		if m.APIBase == "" {
+			if p, ok := c.ProviderByType(ProviderOllama); ok {
+				m.APIBase = p.APIBase
+			}
+		}
+		if m.APIBase == "" {
+			m.APIBase = OllamaDefaultAPIBase
+		}
+		if m.KeyEnv == "" {
+			m.KeyEnv = OllamaKeyEnv
+		}
 	}
 	return m
 }
@@ -157,6 +182,24 @@ func (m Model) PreservesThinking() bool {
 	return m.Provider == ProviderBedrock && strings.Contains(m.Upstream, "anthropic")
 }
 
+// BandByContext reports whether a session's meter should show context fullness
+// rather than dollars per turn.
+//
+// True for providers that bill by subscription, where per-turn cost is not the
+// scarce resource: native Anthropic (Claude Code's own subscription) and Ollama
+// Cloud (a monthly plan with 5-hour and weekly session limits, and no published
+// per-token rate). The name describes which meter to draw rather than asserting
+// a billing model the code cannot know — an Anthropic user with an API key does
+// pay per token.
+func (m Model) BandByContext() bool {
+	return m.Provider == ProviderAnthropic || m.Provider == ProviderOllama
+}
+
+// Unpriced reports that the catalog carries no rate for this model, so no dollar
+// figure can honestly be shown. Discovery adds models at price 0 whenever the
+// upstream does not report pricing.
+func (m Model) Unpriced() bool { return m.InputPrice == 0 && m.OutputPrice == 0 }
+
 // NormalizeBedrockUpstream prepends the "bedrock/" LiteLLM provider prefix if the
 // user omitted it, so "us.anthropic.claude-..." and "bedrock/us.anthropic..."
 // both work.
@@ -165,6 +208,30 @@ func NormalizeBedrockUpstream(upstream string) string {
 		return "bedrock/" + upstream
 	}
 	return upstream
+}
+
+// NormalizeOllamaUpstream prepends the "ollama_chat/" LiteLLM provider prefix if
+// the user omitted it, so "glm-5.3" and "ollama_chat/glm-5.3" both work.
+func NormalizeOllamaUpstream(upstream string) string {
+	if upstream != "" && !strings.HasPrefix(upstream, OllamaUpstreamPrefix) {
+		return OllamaUpstreamPrefix + upstream
+	}
+	return upstream
+}
+
+// OllamaCatalogID derives the catalog ID for an Ollama upstream: "ollama-" plus
+// the model name, colons and dots preserved.
+//
+// The prefix exists because catalog IDs must be unique and Ollama and OpenCode
+// Zen both serve models named glm-5.2. It is a hyphen rather than a slash
+// because the ID is used both as ANTHROPIC_MODEL and as LiteLLM's model_name,
+// where a slash parses as a provider prefix.
+//
+// This is the single source of truth: the Models drawer derives IDs by mangling
+// dots and colons to hyphens, which would mint a second catalog row for a model
+// added manually rather than discovered. AddModel calls this instead.
+func OllamaCatalogID(upstream string) string {
+	return "ollama-" + strings.TrimPrefix(upstream, OllamaUpstreamPrefix)
 }
 
 // Config is the resolved Commander configuration.

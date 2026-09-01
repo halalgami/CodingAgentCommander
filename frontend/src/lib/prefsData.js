@@ -9,6 +9,17 @@ const OLD_KEY = "commander.prefs.v1";
 export const DEFAULTS = Object.freeze({
   fontSize: 13, scrollback: 5000, maxCols: 0,
   uiScale: 100, sidebarW: 300, rcAutoEnable: false,
+  // Sidebar region presentation. Deliberately generic names: this file has a
+  // public-override copy and both must carry identical DEFAULTS, so a
+  // feature-named key would trip the export's content grep on the public copy.
+  ambientMotion: true, scanlines: false, noticeSeconds: 6,
+  // Height in px of the sidebar's lower band. 0 = size it from the column, the
+  // behaviour before it was adjustable. A fixed height matters because the band
+  // crops its content to fit, so a flexible one re-crops on every window
+  // resize. Generic name: this file has a public-override copy and both must
+  // carry identical DEFAULTS, so a feature-named key would trip the export's
+  // content grep on the public copy.
+  dockH: 0,
 });
 
 export function loadPrefs(storage = globalThis.localStorage) {

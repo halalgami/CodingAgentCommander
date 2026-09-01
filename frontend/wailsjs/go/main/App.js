@@ -26,6 +26,10 @@ export function DiscoverBedrockModels(arg1) {
   return window['go']['main']['App']['DiscoverBedrockModels'](arg1);
 }
 
+export function DiscoverOllamaModels() {
+  return window['go']['main']['App']['DiscoverOllamaModels']();
+}
+
 export function DiscoverZenModels() {
   return window['go']['main']['App']['DiscoverZenModels']();
 }

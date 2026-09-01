@@ -7,14 +7,25 @@
   let provErrors = $state({});
   let regionInput = $state("us-east-1");
 
-  // key envs belonging to each provider type, in KeyStatus order
-  const envsFor = (type) =>
-    type === "opencode-go" ? ["ZEN_KEY"] : ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"];
+  // key envs belonging to each provider type, in KeyStatus order. A MAP, not a
+  // ternary: the previous binary form sent every non-Zen provider down the AWS
+  // branch, which rendered zero key inputs for anything new.
+  const ENVS = {
+    "opencode-go": ["ZEN_KEY"],
+    bedrock: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"],
+    "ollama-cloud": ["OLLAMA_API_KEY"],
+  };
+  const envsFor = (type) => ENVS[type] ?? [];
+
+  // Ollama's listing endpoint is anonymous, so a stored key has never been
+  // exercised. Say "key stored" rather than claiming the provider is active.
+  const statusText = (p) =>
+    p.active ? (p.type === "ollama-cloud" ? "● key stored" : "● active") : p.defined ? "○ key missing" : "○ undefined";
   const keyInfo = (env) => app.keys.find((k) => k.env === env);
 
   async function define(p) {
     provErrors[p.type] = "";
-    try { await addProvider(p.type, p.type === "opencode-go" ? p.apiBase : "", regionInput); }
+    try { await addProvider(p.type, p.type === "bedrock" ? "" : p.apiBase, regionInput); }
     catch (e) { provErrors[p.type] = "" + e; }
   }
   async function undefine(p) {
@@ -38,9 +49,7 @@
     <section class="ptype" data-testid="provider-{p.type}">
       <header>
         <span class="name">{providerLabel(p.type)}</span>
-        <span class="status" class:set={p.active}>
-          {p.active ? "● active" : p.defined ? "○ key missing" : "○ undefined"}
-        </span>
+        <span class="status" class:set={p.active}>{statusText(p)}</span>
       </header>
       {#if !p.defined}
         {#if p.type === "bedrock"}

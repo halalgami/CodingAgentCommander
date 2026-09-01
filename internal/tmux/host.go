@@ -259,4 +259,3 @@ func (h *ExecHost) SendKeys(windowID, text string) error {
 	}
 	return tmuxCmd("send-keys", "-t", windowID, "Enter").Run()
 }
-

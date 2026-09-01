@@ -21,6 +21,30 @@
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
+
+  // A reactive update (e.g. a button toggling to a different branch) can destroy
+  // the focused element; the browser then parks focus on <body>, which the
+  // element-scoped handler above never sees, and Escape stops closing the drawer.
+  //
+  // This listens at the window instead of pulling focus back. Reclaiming focus
+  // was tried and is WRONG: a real mouse click blurs the old element before it
+  // focuses the new one, so a reclaim fires in that gap and steals focus from
+  // the input being clicked — every drawer input becomes untypable, and no
+  // fill()-based test catches it because fill() doesn't blur first.
+  //
+  // Scoped by the same signal, read rather than written: act only when focus
+  // sits on <body>. If anything else holds focus — the palette, a modal,
+  // another overlay — that thing owns Escape.
+  $effect(() => {
+    function onWindowKey(e) {
+      if (e.key !== "Escape") return;
+      if (document.activeElement && document.activeElement !== document.body) return;
+      e.preventDefault();
+      onclose();
+    }
+    window.addEventListener("keydown", onWindowKey, true);
+    return () => window.removeEventListener("keydown", onWindowKey, true);
+  });
 </script>
 
 <div class="backdrop" onclick={onclose} aria-hidden="true"></div>

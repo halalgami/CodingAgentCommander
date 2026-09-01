@@ -30,6 +30,7 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/deps"
 	"github.com/halalgami/CodingAgentCommander/internal/hookmgr"
 	"github.com/halalgami/CodingAgentCommander/internal/launch"
+	"github.com/halalgami/CodingAgentCommander/internal/ollama"
 	"github.com/halalgami/CodingAgentCommander/internal/pricing"
 	"github.com/halalgami/CodingAgentCommander/internal/ptybridge"
 	"github.com/halalgami/CodingAgentCommander/internal/router"
@@ -170,20 +171,31 @@ type sessionRec struct {
 	LaunchedAt                              time.Time
 	ClaudeSessionID, TranscriptPath, Status string
 	RemoteControl                           bool
+	// AckMs is the ms-epoch the user last SELECTED (acknowledged) this
+	// session. It is display-only and deliberately independent of Status: the
+	// Stop hook fires on every assistant turn, so Status stays "finished" for
+	// the rest of the process's life, and SelectSession must never rewrite it
+	// (see its doc comment).
+	AckMs int64
 }
 
 // SessionStats is the per-session card data.
 type SessionStats struct {
 	ContextTokens  int     `json:"contextTokens"`
 	EstCostPerTurn float64 `json:"estCostPerTurn"`
-	Band           string  `json:"band"`
-	Turns          int     `json:"turns"`
-	Model          string  `json:"model"`
-	Provider       string  `json:"provider"`
-	UptimeSeconds  int     `json:"uptimeSeconds"`
-	Status         string  `json:"status"`
-	RemoteControl  bool    `json:"remoteControl"`
-	Cwd            string  `json:"cwd"`
+	// Unpriced means the catalog carries no rate, so the card must show no
+	// dollar figure. An explicit flag rather than an EstCostPerTurn == 0 check
+	// in the frontend, which would also blank a genuinely free first turn on a
+	// priced model.
+	Unpriced      bool   `json:"unpriced"`
+	Band          string `json:"band"`
+	Turns         int    `json:"turns"`
+	Model         string `json:"model"`
+	Provider      string `json:"provider"`
+	UptimeSeconds int    `json:"uptimeSeconds"`
+	Status        string `json:"status"`
+	RemoteControl bool   `json:"remoteControl"`
+	Cwd           string `json:"cwd"`
 }
 
 // now is a tiny seam so tests don't depend on wall clock.
@@ -302,12 +314,14 @@ func (a *App) loadConfigFrom(path string) error {
 // exactly like one that worked, and the picker just stayed stale. Emitting
 // means the one person who can act on it finds out.
 //
-// Safe before startup and in tests, where there is no context to emit on.
+// Safe before startup and in tests, where there is no context to emit on:
+// wailsEmitter.Emit is already nil-ctx guarded (app.go:169-173), and routing
+// through the seam makes the failure paths assertable.
 func (a *App) reportError(msg string) {
-	if a.ctx == nil {
+	if a.emitter == nil {
 		return
 	}
-	wruntime.EventsEmit(a.ctx, "app:error", msg)
+	a.emitter.Emit("app:error", msg)
 }
 
 // startup is the Wails OnStartup hook: load config and start the ws server.
@@ -674,6 +688,11 @@ func hashConfig(yaml []byte, env []string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// mediaHandler is the asset server's fallback handler: wails calls it for any
+// GET the embedded assets answer with os.ErrNotExist. This build registers no
+// media of its own, so every such request is a 404.
+func (a *App) mediaHandler() http.Handler { return http.NotFoundHandler() }
+
 func (a *App) startWS() {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -765,10 +784,10 @@ type KeyInfo struct {
 
 // ProviderInfo describes one definable provider type for the admin panel.
 type ProviderInfo struct {
-	Type     string `json:"type"`     // "opencode-go" | "bedrock"
+	Type     string `json:"type"`     // "opencode-go" | "bedrock" | "ollama-cloud"
 	Defined  bool   `json:"defined"`  // [[providers]] entry exists
 	Active   bool   `json:"active"`   // defined && required keys set
-	APIBase  string `json:"apiBase"`  // zen (default prefilled when undefined)
+	APIBase  string `json:"apiBase"`  // zen or Ollama (default prefilled when undefined)
 	Region   string `json:"region"`   // bedrock
 	ModelCnt int    `json:"modelCnt"` // catalog models of this type (for remove confirm)
 }
@@ -793,6 +812,8 @@ func (a *App) KeyStatus() []KeyInfo {
 			add(config.AWSAccessKeyEnv, false)
 			add(config.AWSSecretKeyEnv, false)
 			add(config.AWSSessionTokenEnv, true)
+		case config.ProviderOllama:
+			add(config.OllamaKeyEnv, false)
 		}
 	}
 	return out
@@ -819,6 +840,53 @@ func (a *App) DiscoverZenModels() ([]zen.Model, error) {
 	}
 	key, _ := secrets.Get(config.ZenKeyEnv)
 	return zen.ListModels(a.ctx, p.APIBase, key)
+}
+
+// OllamaModel is one discovered Ollama Cloud model. It carries the catalog ID
+// and upstream already computed, so the drawer adds them verbatim rather than
+// deriving either — its own derivation mangles dots and colons.
+type OllamaModel struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Upstream string `json:"upstream"`
+}
+
+// DiscoverOllamaModels lists the models Ollama Cloud currently serves, and
+// checks the stored key while it is there.
+//
+// The listing itself is anonymous, so it would succeed with no key at all. That
+// is why the key check is bolted on here rather than trusted from the listing:
+// discovery is the moment the other providers surface a bad key (Zen 401s,
+// Bedrock fails signing), and without it Ollama's first sign of a wrong or
+// revoked key would be a 401 from the proxy mid-turn, in a session the user has
+// already opened.
+func (a *App) DiscoverOllamaModels() ([]OllamaModel, error) {
+	a.mu.Lock()
+	p, ok := a.cfg.ProviderByType(config.ProviderOllama)
+	a.mu.Unlock()
+	if !ok {
+		return nil, fmt.Errorf("define the Ollama Cloud provider first")
+	}
+	base := p.APIBase
+	if base == "" {
+		base = config.OllamaDefaultAPIBase
+	}
+	found, err := ollama.ListModels(a.ctx, base)
+	if err != nil {
+		return nil, err
+	}
+	// Read the key outside a.mu: secrets.Get hits the keychain and can block on
+	// a macOS unlock prompt, and a.mu gates the whole app.
+	key, _ := secrets.Get(config.OllamaKeyEnv)
+	if err := ollama.VerifyKey(a.ctx, base, key); err != nil {
+		return nil, fmt.Errorf("%s was rejected by %s — the model list is public, but launching needs a valid key", config.OllamaKeyEnv, base)
+	}
+	out := make([]OllamaModel, 0, len(found))
+	for _, m := range found {
+		up := config.NormalizeOllamaUpstream(m.ID)
+		out = append(out, OllamaModel{ID: config.OllamaCatalogID(up), Label: m.Label, Upstream: up})
+	}
+	return out, nil
 }
 
 // SetKey stores a provider API key in the keychain.
@@ -891,14 +959,25 @@ func (a *App) ListProviders() []ProviderInfo {
 	for _, t := range config.DefinableProviderTypes {
 		p, defined := byType[t]
 		info := ProviderInfo{Type: t, Defined: defined, APIBase: p.APIBase, Region: p.Region, ModelCnt: modelCnt[t]}
-		if !defined && t == config.ProviderOpencodeGo {
-			info.APIBase = config.ZenDefaultAPIBase
+		if !defined {
+			switch t {
+			case config.ProviderOpencodeGo:
+				info.APIBase = config.ZenDefaultAPIBase
+			case config.ProviderOllama:
+				info.APIBase = config.OllamaDefaultAPIBase
+			}
 		}
 		switch t {
 		case config.ProviderOpencodeGo:
 			info.Active = defined && keySet(config.ZenKeyEnv)
 		case config.ProviderBedrock:
 			info.Active = defined && keySet(config.AWSAccessKeyEnv) && keySet(config.AWSSecretKeyEnv)
+		case config.ProviderOllama:
+			// Key PRESENCE only: Ollama's listing endpoint is anonymous, so
+			// nothing here has ever exercised the key. The drawer says "key
+			// stored" rather than "active" for this provider so the difference
+			// is not hidden.
+			info.Active = defined && keySet(config.OllamaKeyEnv)
 		}
 		out = append(out, info)
 	}
@@ -928,6 +1007,11 @@ func (a *App) AddProvider(ptype, apiBase, region string) error {
 		p.Region = strings.TrimSpace(region)
 		if p.Region == "" {
 			p.Region = "us-east-1"
+		}
+	case config.ProviderOllama:
+		p.APIBase = strings.TrimSpace(apiBase)
+		if p.APIBase == "" {
+			p.APIBase = config.OllamaDefaultAPIBase
 		}
 	}
 	next := a.cfg
@@ -1000,10 +1084,11 @@ func (a *App) AddModel(in ModelInput) error {
 		if _, ok := a.providerDefined(config.ProviderBedrock); !ok {
 			return fmt.Errorf("define the Bedrock provider in Providers first")
 		}
+		in.Upstream = strings.TrimSpace(in.Upstream)
 		if in.Upstream == "" {
 			return fmt.Errorf("bedrock models require upstream (bedrock/<model-id>)")
 		}
-		in.Upstream = config.NormalizeBedrockUpstream(strings.TrimSpace(in.Upstream))
+		in.Upstream = config.NormalizeBedrockUpstream(in.Upstream)
 		in.APIBase, in.KeyEnv = "", "" // region kept: per-model, from discovery or form
 	case config.ProviderOpencodeGo:
 		if _, ok := a.providerDefined(config.ProviderOpencodeGo); !ok {
@@ -1012,6 +1097,20 @@ func (a *App) AddModel(in ModelInput) error {
 		if in.Upstream == "" {
 			return fmt.Errorf("routed models require upstream")
 		}
+		in.APIBase, in.KeyEnv, in.Region = "", "", "" // provider supplies these
+	case config.ProviderOllama:
+		if _, ok := a.providerDefined(config.ProviderOllama); !ok {
+			return fmt.Errorf("define the Ollama Cloud provider in Providers first")
+		}
+		in.Upstream = strings.TrimSpace(in.Upstream)
+		if in.Upstream == "" {
+			return fmt.Errorf("ollama models require upstream (the model name, e.g. glm-5.3)")
+		}
+		in.Upstream = config.NormalizeOllamaUpstream(in.Upstream)
+		// The ID is DERIVED, never taken from the form: the drawer's manual-add
+		// path mangles dots and colons, so the same model added two ways would
+		// otherwise land as two catalog rows pointing at one upstream.
+		in.ID = config.OllamaCatalogID(in.Upstream)
 		in.APIBase, in.KeyEnv, in.Region = "", "", "" // provider supplies these
 	default:
 		return fmt.Errorf("unknown provider %q", in.Provider)
@@ -1120,12 +1219,16 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (SessionInfo, error) {
 	m, ok := a.modelByID(modelID)
 	if !ok {
-		return SessionInfo{}, fmt.Errorf("unknown model %q", modelID)
+		err := fmt.Errorf("unknown model %q", modelID)
+		a.reportError(err.Error())
+		return SessionInfo{}, err
 	}
 	var extra []string
 	if remoteControl {
 		if m.IsRouted() {
-			return SessionInfo{}, fmt.Errorf("remote control needs a native Anthropic session")
+			err := fmt.Errorf("remote control needs a native Anthropic session")
+			a.reportError(err.Error())
+			return SessionInfo{}, err
 		}
 		name := m.Label
 		if name == "" {
@@ -1134,7 +1237,11 @@ func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (Session
 		extra = []string{"--remote-control", name}
 	}
 	s, err := a.startSession(folder, m, extra)
-	if err == nil && remoteControl {
+	if err != nil {
+		a.reportError(fmt.Sprintf("could not launch %s: %v", filepath.Base(folder), err))
+		return s, err
+	}
+	if remoteControl {
 		a.mu.Lock()
 		if rec := a.sessions[s.WindowID]; rec != nil {
 			rec.RemoteControl = true
@@ -1142,10 +1249,10 @@ func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (Session
 		a.mu.Unlock()
 		_ = a.windows.Update(s.WindowID, func(r *winstate.Record) { r.RemoteControl = true })
 	}
-	if err == nil {
-		a.recordProjectOpen(folder, modelID) // remember this project for the history
-	}
-	return s, err
+	// err is guaranteed nil here: the only earlier assignment to it returns
+	// on failure above, so an `if err == nil` guard here would always be true.
+	a.recordProjectOpen(folder, modelID) // remember this project for the history
+	return s, nil
 }
 
 // EnableRemoteControl types /remote-control into a native session so it can be
@@ -1227,11 +1334,17 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 }
 
 // SelectSession changes which session the single pane shows.
+//
+// It deliberately does NOT touch the session's Status. Status is "active" from
+// launch until the Stop hook — it means "not yet finished", not "doing
+// something" — so writing "active" here silently un-finished any session the
+// user clicked on. The deck already clears its own finished flag in
+// stores.svelte.js select().
 func (a *App) SelectSession(windowID string) error {
 	a.mu.Lock()
 	a.current = windowID
 	if r := a.sessions[windowID]; r != nil {
-		r.Status = "active"
+		r.AckMs = a.now().UnixMilli()
 	}
 	a.mu.Unlock()
 	return nil
@@ -1294,13 +1407,18 @@ func (a *App) SessionStats(windowID string) SessionStats {
 	}
 	if m, ok := a.modelByID(model); ok {
 		st.EstCostPerTurn = pricing.TurnInputCost(st.ContextTokens, m)
-		// Routed sessions spend real per-token money — band by cost. Native
-		// subscription sessions don't, so cost-red is noise; band by how full
-		// the context window is instead.
-		if m.IsRouted() {
-			st.Band = pricing.Band(st.EstCostPerTurn)
-		} else {
+		st.Unpriced = m.Unpriced()
+		// Pay-per-token sessions spend real money — band by cost. Subscription
+		// sessions don't, so cost-red is noise; band by how full the context
+		// window is instead. Ollama Cloud is routed AND subscription-billed,
+		// which is why this is no longer an IsRouted() check. An unpriced model
+		// (e.g. Zen/Bedrock cards, which always carry a $0 rate) has no
+		// meaningful dollar band either — Band(0) would always read green — so
+		// context fullness is the only real signal there too.
+		if m.BandByContext() || m.Unpriced() {
 			st.Band = pricing.ContextBand(st.ContextTokens)
+		} else {
+			st.Band = pricing.Band(st.EstCostPerTurn)
 		}
 	}
 	return st
@@ -1348,7 +1466,9 @@ func (a *App) PickFolder() (string, error) {
 func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	m, ok := a.modelByID(newModelID)
 	if !ok {
-		return SessionInfo{}, fmt.Errorf("unknown model %q", newModelID)
+		err := fmt.Errorf("unknown model %q", newModelID)
+		a.reportError(err.Error())
+		return SessionInfo{}, err
 	}
 	a.mu.Lock()
 	old := a.sessions[windowID]
@@ -1365,9 +1485,12 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	// Pre-flight (before killing): routed models need a key + a healthy router.
 	if m.IsRouted() {
 		if ok, ref := modelReady(m); !ok {
-			return SessionInfo{}, fmt.Errorf("model %q needs key: set %s in Providers", m.ID, ref)
+			err := fmt.Errorf("model %q needs key: set %s in Providers", m.ID, ref)
+			a.reportError(err.Error())
+			return SessionInfo{}, err
 		}
 		if err := a.ensureRouter(); err != nil {
+			a.reportError(fmt.Sprintf("could not start the model router: %v", err))
 			return SessionInfo{}, err
 		}
 	}
@@ -1407,7 +1530,9 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	info, err := a.startSession(cwd, m, extra)
 	if err != nil {
 		// The old window is already gone, but the conversation is safe on disk.
-		return SessionInfo{}, fmt.Errorf("swap relaunch failed (conversation preserved — relaunch %q to resume): %w", cwd, err)
+		werr := fmt.Errorf("swap relaunch failed (conversation preserved — relaunch %q to resume): %w", cwd, err)
+		a.reportError(werr.Error())
+		return SessionInfo{}, werr
 	}
 	// Preserve the user's display name.
 	if oldName != "" {

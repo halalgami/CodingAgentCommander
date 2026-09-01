@@ -65,11 +65,11 @@ func perUserToolDirs() []string {
 	home, _ := os.UserHomeDir()
 	local := os.Getenv("LOCALAPPDATA")
 	return []string{
-		filepath.Join(home, "scoop", "shims"),                    // scoop (psmux, tools)
-		filepath.Join(home, ".local", "bin"),                     // claude, pip --user scripts
-		filepath.Join(local, "Microsoft", "WinGet", "Links"),      // winget shims
-		filepath.Join(local, "Microsoft", "WindowsApps"),          // MSIX aliases (pwsh installs here)
-		filepath.Join(local, "Programs", "PowerShell", "7"),       // pwsh, per-user MSI
+		filepath.Join(home, "scoop", "shims"),                       // scoop (psmux, tools)
+		filepath.Join(home, ".local", "bin"),                        // claude, pip --user scripts
+		filepath.Join(local, "Microsoft", "WinGet", "Links"),        // winget shims
+		filepath.Join(local, "Microsoft", "WindowsApps"),            // MSIX aliases (pwsh installs here)
+		filepath.Join(local, "Programs", "PowerShell", "7"),         // pwsh, per-user MSI
 		filepath.Join(os.Getenv("ProgramFiles"), "PowerShell", "7"), // pwsh, machine MSI
 		filepath.Join(os.Getenv("ProgramData"), "chocolatey", "bin"),
 	}

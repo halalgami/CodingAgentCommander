@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/wailsapp/wails/v2 v2.13.0
 	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/image v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

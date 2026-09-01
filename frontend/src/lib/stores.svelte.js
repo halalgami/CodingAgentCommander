@@ -5,7 +5,7 @@ import {
   Config, LaunchSession, ListSessions, SelectSession, PickFolder,
   KillSession, RenameSession, SessionStats, KeyStatus, SetKey, ClearKey,
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
-  DiscoverZenModels, ListProviders, AddProvider, RemoveProvider,
+  DiscoverZenModels, DiscoverOllamaModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
   GetBuildInfo, LitellmRuntimeStatus, InstallLitellmRuntime,
   DependencyStatus, InstallPwsh,
@@ -13,6 +13,10 @@ import {
 import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime.js";
 import { migrateHistoryOnce } from "./history.js";
 import { prefs } from "./prefs.svelte.js";
+import { forget } from "./termbus.js";
+
+// How long a latched app-level error stays attributed to a session.
+export const ERROR_TTL_MS = 30000;
 
 export const app = $state({
   models: [], catalog: [], keys: [], providers: [],
@@ -23,6 +27,9 @@ export const app = $state({
   about: false,            // About modal open?
   paletteOpen: false,
   launchError: "",
+  // Latched app:error timestamp, attributed to whichever session is selected
+  // when it fires (and cleared once ERROR_TTL_MS has passed — see refresh()).
+  errorMs: 0,
   // LiteLLM first-run installer. null = closed; object = open, driving
   // LitellmRuntimeModal: { python, canInstall, running, log[], error, done }.
   litellmInstall: null,
@@ -50,6 +57,9 @@ export async function refresh() {
     app.sessions = await ListSessions();
     for (const s of app.sessions) app.stats[s.windowID] = await SessionStats(s.windowID);
   } catch { /* plain browser / backend gone */ }
+  // The latch has no timer of its own; refresh() runs on a 5s poll (App.svelte)
+  // and is what actually clears an expired error out of reactive state.
+  if (app.errorMs && Date.now() - app.errorMs >= ERROR_TTL_MS) app.errorMs = 0;
 }
 
 // preferredModel is config's default_model, falling back to the first entry.
@@ -79,6 +89,9 @@ export async function loadAll() {
   try { app.keys = await KeyStatus(); } catch {}
   try { app.catalog = await Models(); } catch {}
   try { app.providers = await ListProviders(); } catch {}
+  // Latch the most recent app:error. App.svelte already toasts the same event;
+  // this is an independent subscription so App.svelte's delta stays at zero.
+  try { EventsOn("app:error", () => { app.errorMs = Date.now(); }); } catch {}
   try { await migrateHistoryOnce(); } catch {}
   await checkDependencies();
   await refresh();
@@ -234,6 +247,7 @@ export async function killSession(windowID) {
   try {
     await KillSession(windowID);
     delete app.stats[windowID];
+    forget(windowID);
     if (app.sessionKey.split(":")[0] === windowID) app.sessionKey = "";
     await refresh();
   } catch (e) { toast("" + e, "error"); }
@@ -278,7 +292,7 @@ export async function clearKey(env) {
   app.providers = await ListProviders();
 }
 export function providerLabel(type) {
-  return { "opencode-go": "OpenCode Zen/Go", bedrock: "AWS Bedrock" }[type] ?? type;
+  return { "opencode-go": "OpenCode Zen/Go", bedrock: "AWS Bedrock", "ollama-cloud": "Ollama Cloud" }[type] ?? type;
 }
 export async function addProvider(type, apiBase = "", region = "") {
   await AddProvider(type, apiBase, region);
@@ -294,6 +308,9 @@ export async function removeProvider(type) {
 }
 export async function discoverZen() {
   return await DiscoverZenModels();
+}
+export async function discoverOllama() {
+  return await DiscoverOllamaModels();
 }
 export async function addModel(model) {
   await AddModel(model);

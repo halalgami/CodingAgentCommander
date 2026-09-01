@@ -32,6 +32,10 @@ type llmParams struct {
 	AWSSecretAccessKey string `yaml:"aws_secret_access_key,omitempty"`
 	AWSSessionToken    string `yaml:"aws_session_token,omitempty"`
 	AWSRegionName      string `yaml:"aws_region_name,omitempty"`
+	// Think disables Ollama's reasoning mode. A POINTER because false is the
+	// meaningful value: a plain bool with omitempty would be dropped, which is
+	// exactly the failure this field exists to prevent.
+	Think *bool `yaml:"think,omitempty"`
 }
 
 // Options carries runtime-dependent bits GenerateConfig can't derive from the
@@ -155,6 +159,16 @@ func GenerateConfig(models []config.Model, masterKey string, opts Options) ([]by
 		} else {
 			p.APIBase = m.APIBase
 			p.APIKey = "os.environ/" + m.KeyEnv
+			if m.Provider == config.ProviderOllama {
+				// Ollama enables thinking by default, and LiteLLM's ollama_chat
+				// only sends a `think` field when reasoning_effort is present —
+				// which the strip_thinking hook pops. So the ONLY way to keep
+				// thinking off is to state it here, in litellm_params, where the
+				// pre-call hook cannot reach it. Removing this line silently
+				// doubles token spend against a 5-hour session limit.
+				off := false
+				p.Think = &off
+			}
 		}
 		cfg.ModelList = append(cfg.ModelList, llmEntry{ModelName: m.ID, Params: p})
 	}

@@ -77,6 +77,7 @@ func Status() RuntimeStatus {
 //   - above maxPythonMinor: not yet supported by litellm — e.g. on 3.14 the proxy
 //     CLI's `from proxy_server import ...` raises ModuleNotFoundError and the
 //     proxy never boots.
+//
 // So a first-run install must build against a Python inside [min, max], not just
 // "the newest one found". Bump maxPythonMinor as litellm validates new releases.
 const (

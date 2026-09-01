@@ -30,7 +30,7 @@ else
   TESTFLAGS ?=
 endif
 
-VERSION ?= 0.11.9
+VERSION ?= 0.12.0
 COMMIT ?= $(shell git rev-parse --short HEAD)
 LDFLAGS := -X main.appVersion=$(VERSION) -X main.appCommit=$(COMMIT) -X main.appBuildDate=$(BUILD_DATE)
 
@@ -46,7 +46,7 @@ $(error '$(MAKECMDGOALS)' packages a macOS .app and only runs on macOS. On Windo
 endif
 endif
 
-.PHONY: build dev test vet dist release install
+.PHONY: build dev test vet check dist release install
 
 build:
 	$(WAILS) build -ldflags "$(LDFLAGS)"
@@ -59,6 +59,20 @@ test:
 
 vet:
 	go vet ./...
+
+# Everything, including the browser specs. CI deliberately does NOT run
+# Playwright: the runner is Windows and would have to install browsers on every
+# job, for specs that are a developer feedback loop rather than a release gate.
+# So this is the pre-merge check to run locally.
+#
+# It matters more than a normal smoke run: two of those specs are the SOLE
+# verification of correctness invariants rather than UI behaviour — that
+# toggling optional sidebar content causes no pty resize or xterm change, and
+# that the terminal's activity registration does not leak across session
+# switches. Neither has any other coverage.
+check: vet test
+	cd frontend && npm test
+	cd frontend && npx playwright test
 
 # Tier-(b) distribution (docs/BUNDLING_MACOS.md): ad-hoc build -> DMG.
 # Recipients right-click -> Open once (unsigned) or `xattr -cr` the app.

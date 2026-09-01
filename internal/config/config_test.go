@@ -468,3 +468,100 @@ func TestCatalogRevSurvivesSaveLoad(t *testing.T) {
 		t.Errorf("anthropic_catalog_rev is emitted after the first table, so it belongs to that table:\n%s", text)
 	}
 }
+
+func TestOllamaUpstreamAndID(t *testing.T) {
+	cases := []struct{ in, upstream, id string }{
+		{"glm-5.3", "ollama_chat/glm-5.3", "ollama-glm-5.3"},
+		{"gpt-oss:120b", "ollama_chat/gpt-oss:120b", "ollama-gpt-oss:120b"},
+		// Already-prefixed input is left alone, so normalizing twice is safe.
+		{"ollama_chat/glm-5.3", "ollama_chat/glm-5.3", "ollama-glm-5.3"},
+	}
+	for _, c := range cases {
+		up := NormalizeOllamaUpstream(c.in)
+		if up != c.upstream {
+			t.Errorf("NormalizeOllamaUpstream(%q) = %q, want %q", c.in, up, c.upstream)
+		}
+		if got := OllamaCatalogID(up); got != c.id {
+			t.Errorf("OllamaCatalogID(%q) = %q, want %q", up, got, c.id)
+		}
+	}
+	if got := NormalizeOllamaUpstream(""); got != "" {
+		t.Errorf("empty upstream must stay empty, got %q", got)
+	}
+}
+
+func TestResolveModelOllama(t *testing.T) {
+	c := Config{Providers: []Provider{{Type: ProviderOllama, APIBase: OllamaDefaultAPIBase}}}
+	m := c.ResolveModel(Model{ID: "ollama-glm-5.3", Provider: ProviderOllama, Upstream: "ollama_chat/glm-5.3"})
+	if m.APIBase != OllamaDefaultAPIBase {
+		t.Errorf("APIBase = %q, want %q", m.APIBase, OllamaDefaultAPIBase)
+	}
+	if m.KeyEnv != OllamaKeyEnv {
+		t.Errorf("KeyEnv = %q, want %q", m.KeyEnv, OllamaKeyEnv)
+	}
+	if got := m.CredEnvs(); len(got) != 1 || got[0] != OllamaKeyEnv {
+		t.Errorf("CredEnvs = %v, want [%s]", got, OllamaKeyEnv)
+	}
+	// Thinking is stripped for Ollama: only Bedrock Claude preserves it.
+	if m.PreservesThinking() {
+		t.Error("Ollama must not preserve thinking")
+	}
+}
+
+func TestResolveModelOllamaFallsBackToDefaultBase(t *testing.T) {
+	// A provider entry written before the base was defaulted, or hand-edited
+	// empty, must still resolve to a usable endpoint.
+	c := Config{Providers: []Provider{{Type: ProviderOllama}}}
+	m := c.ResolveModel(Model{ID: "ollama-glm-5.3", Provider: ProviderOllama})
+	if m.APIBase != OllamaDefaultAPIBase {
+		t.Errorf("APIBase = %q, want %q", m.APIBase, OllamaDefaultAPIBase)
+	}
+}
+
+func TestBandByContextAndUnpriced(t *testing.T) {
+	native := Model{Provider: ProviderAnthropic, InputPrice: 5, OutputPrice: 25}
+	oll := Model{Provider: ProviderOllama}
+	zen := Model{Provider: ProviderOpencodeGo, InputPrice: 1, OutputPrice: 2}
+
+	if !native.BandByContext() || !oll.BandByContext() {
+		t.Error("anthropic and ollama band by context")
+	}
+	if zen.BandByContext() {
+		t.Error("zen bands by cost")
+	}
+	if native.Unpriced() {
+		t.Error("priced anthropic model is not unpriced")
+	}
+	if !oll.Unpriced() {
+		t.Error("ollama discovery adds models at price 0")
+	}
+}
+
+func TestLoadAcceptsOllamaProvider(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	body := `
+default_model = "ollama-glm-5.3"
+
+[[models]]
+id = "ollama-glm-5.3"
+label = "Ollama · glm-5.3"
+provider = "ollama-cloud"
+upstream = "ollama_chat/glm-5.3"
+
+[[providers]]
+type = "ollama-cloud"
+api_base = "https://ollama.com"
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	p, ok := c.ProviderByType(ProviderOllama)
+	if !ok || p.APIBase != "https://ollama.com" {
+		t.Fatalf("provider = %+v, %v", p, ok)
+	}
+}

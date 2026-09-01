@@ -1,6 +1,6 @@
 <script>
   import Drawer from "./Drawer.svelte";
-  import { app, addModel, removeModel, discoverBedrock, discoverZen, providerLabel } from "../stores.svelte.js";
+  import { app, addModel, removeModel, discoverBedrock, discoverZen, discoverOllama, providerLabel } from "../stores.svelte.js";
 
   // per-section state, keyed by provider type
   let disc = $state({});        // type -> [{id,label,upstream?,region?}]
@@ -32,6 +32,11 @@
       if (p.type === "bedrock") {
         disc[p.type] = await discoverBedrock(p.region);
         if (!disc[p.type].length) secErr[p.type] = "No invokable tool-capable models found (enable model access in the AWS console).";
+      } else if (p.type === "ollama-cloud") {
+        // The backend already computed id and upstream — deriving them here
+        // would mangle the colons in tags like gpt-oss:120b.
+        disc[p.type] = await discoverOllama();
+        if (!disc[p.type].length) secErr[p.type] = "No models returned.";
       } else {
         disc[p.type] = (await discoverZen()).map((m) => ({ ...m, upstream: "openai/" + m.id }));
         if (!disc[p.type].length) secErr[p.type] = "No models returned.";
@@ -59,11 +64,31 @@
     if (!up) return;
     const id = up.replace(/^(openai|bedrock)\//, "").replace(/[.:\/ ]/g, "-").toLowerCase();
     try {
-      await addModel({ id, label: id, provider: p.type,
+      await addModel({
+        id,
+        // For ollama-cloud, match the label discovery would have produced
+        // (Ollama · <typed name>) — otherwise the same model gets two
+        // different labels depending on which path added it, since `id`
+        // here is a locally mangled string, not the canonical catalog id.
+        label: p.type === "ollama-cloud" ? "Ollama · " + up : id,
+        provider: p.type,
         upstream: p.type === "opencode-go" && !up.includes("/") ? "openai/" + up : up,
+        // For ollama-cloud the backend overwrites `id` with the canonical
+        // derivation, so the mangled local `id` above is inert there.
         apiBase: "", keyEnv: "", region: "", inputPrice: 0, outputPrice: 0 });
       manual[p.type] = "";
     } catch (e) { secErr[p.type] = "" + e; }
+  }
+
+  function allDiscovered(p) {
+    const list = disc[p.type] || [];
+    return list.length > 0 && list.every((m) => discSel[p.type]?.[m.id]);
+  }
+
+  function toggleAllDiscovered(p, checked) {
+    const sel = {};
+    for (const m of disc[p.type] || []) sel[m.id] = checked;
+    discSel[p.type] = sel;
   }
 </script>
 
@@ -92,12 +117,18 @@
     <section data-testid="models-section-{p.type}">
       <h3>{providerLabel(p.type)}</h3>
       <div class="form">
-        <button data-testid="discover-{p.type === 'bedrock' ? 'bedrock' : 'zen'}"
+        <button data-testid="discover-{p.type}"
           disabled={discBusy[p.type]} onclick={() => discover(p)}>
           {discBusy[p.type] ? "Discovering…" : "Discover models"}
         </button>
         {#if disc[p.type]?.length}
           <div class="disclist">
+            <label class="discrow select-all">
+              <input type="checkbox" data-testid="discover-select-all-{p.type}"
+                checked={allDiscovered(p)}
+                onchange={(e) => toggleAllDiscovered(p, e.currentTarget.checked)} />
+              <span>Select all</span>
+            </label>
             {#each disc[p.type] as m (m.id)}
               <label class="discrow" class:anthropic={m.anthropic}>
                 <input type="checkbox" bind:checked={discSel[p.type][m.id]} />
@@ -110,7 +141,11 @@
         <details>
           <summary class="dim">Add manually</summary>
           <input data-testid="manual-upstream-{p.type}"
-            placeholder={p.type === "bedrock" ? "bedrock/us.anthropic.claude-…" : "model id e.g. glm-5.2"}
+            placeholder={p.type === "bedrock"
+              ? "bedrock/us.anthropic.claude-…"
+              : p.type === "ollama-cloud"
+                ? "model name e.g. glm-5.3"
+                : "model id e.g. glm-5.2"}
             bind:value={manual[p.type]}
             onkeydown={(e) => e.key === "Enter" && addManual(p)} />
         </details>
@@ -158,6 +193,7 @@
   }
   .discrow { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-0); color: var(--text-1); cursor: pointer; }
   .discrow.anthropic span { color: var(--accent); }
+  .discrow.select-all { padding-bottom: var(--sp-1); margin-bottom: 2px; border-bottom: 1px solid var(--border-0); font-weight: 600; }
   .err { color: var(--crit); font-size: var(--fs-1); margin: 0; }
   .dim { color: var(--text-2); font-size: var(--fs-0); margin: 0; }
 </style>

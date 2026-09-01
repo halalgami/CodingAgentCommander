@@ -51,6 +51,10 @@ func main() {
 		Menu:   appMenu,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+			// Fallback for GETs the embedded assets do not have: serves the
+			// user's own media files over the app's own origin, so there is no
+			// CORS question and no loopback port for the page to discover.
+			Handler: app.mediaHandler(),
 		},
 		BackgroundColour: &options.RGBA{R: 20, G: 17, B: 13, A: 1}, // matches --surface-0
 		Mac: &mac.Options{

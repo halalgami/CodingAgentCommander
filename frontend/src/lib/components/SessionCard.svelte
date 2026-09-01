@@ -1,5 +1,8 @@
 <script>
-  let { session, stat, isActive = false, isFinished, models, onselect, onrename, onkill, onswap, onrc } = $props();
+  let {
+    session, stat, isActive = false, isFinished, isErrored = false,
+    models, onselect, onrename, onkill, onswap, onrc,
+  } = $props();
   const native = $derived(stat?.provider === "anthropic");
 
   let renaming = $state(false);
@@ -26,10 +29,11 @@
   const folder = $derived(stat?.cwd ? (stat.cwd.split("/").filter(Boolean).pop() ?? "") : "");
 </script>
 
-<li class="card" class:active={isActive} class:finished={isFinished} data-testid="session-card"
-  aria-current={isActive ? "true" : undefined}>
+<li class="card" class:active={isActive} class:finished={isFinished} class:errored={isErrored}
+  data-testid="session-card" aria-current={isActive ? "true" : undefined}>
   <div class="row">
-    <span class="led" class:running class:done={isFinished} aria-hidden="true"></span>
+    <span class="led" class:running class:done={isFinished} class:error={isErrored}
+      title={isErrored ? "Errored" : undefined} aria-hidden="true"></span>
     {#if renaming}
       <input
         class="rename" data-testid="rename-input" bind:value={renameVal}
@@ -63,7 +67,7 @@
     </div>
     <div class="telemetry">
       <span class="mono">{Math.round(stat.contextTokens / 1000)}k</span>
-      <span class="mono">${stat.estCostPerTurn.toFixed(2)}/turn</span>
+      {#if !stat.unpriced}<span class="mono">${stat.estCostPerTurn.toFixed(2)}/turn</span>{/if}
       <span class="detail mono">{stat.turns}t · {Math.floor(stat.uptimeSeconds / 60)}m</span>
       {#if stat.remoteControl}<span class="rc" title="Remote control enabled">📱</span>{/if}
     </div>
@@ -99,6 +103,11 @@
   }
   /* Finished = persistent surface tint + solid LED (readable across a room). */
   .card.finished { background: var(--accent-faint); border-color: var(--accent-dim); }
+  /* Errored outranks finished: a session can be both (it errored after a
+     prior finish), and "something went wrong" is the more urgent fact. Same
+     idiom as .finished — a persistent tint, not a transient toast — because
+     the toast that reported it is long gone by the time anyone looks here. */
+  .card.errored { background: oklch(30% 0.05 25); border-color: var(--crit); }
 
   .row { display: flex; align-items: center; gap: var(--sp-2); }
   .led {
@@ -107,6 +116,7 @@
   }
   .led.running { background: var(--ok); animation: pulse 2.4s ease-in-out infinite; }
   .led.done { background: var(--accent); }
+  .led.error { background: var(--crit); animation: none; }
   @keyframes pulse { 50% { opacity: 0.35; } }
   @media (prefers-reduced-motion: reduce) { .led.running { animation: none; } }
 
