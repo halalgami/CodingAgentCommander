@@ -75,3 +75,43 @@ func TestOverrideStoreCarriesProviderLabels(t *testing.T) {
 		}
 	}
 }
+
+// sharedAppSvelteMounts are markers that must exist in BOTH copies of
+// App.svelte. Same failure mode as sharedBindings: the export replaces the
+// file wholesale, so a component mounted only in the private copy yields a
+// mirror where the feature is unreachable — and no gate notices, because an
+// absence compiles and greps clean.
+var sharedAppSvelteMounts = []string{
+	`{#if app.drawer === "docview"}<DocViewer />{/if}`,
+	`import DocViewer from "./lib/components/DocViewer.svelte";`,
+	// The doc-viewer Playwright spec SURVIVES the export and drives the viewer
+	// through this seam, so a mirror missing it has a failing test suite rather
+	// than a missing feature. Same class as the mounts above.
+	`window.__openDoc = openDoc;`,
+	// The index drawer (Task 11): its own mount, its own import, and the same
+	// class of window seam the spec drives it through.
+	`{#if app.drawer === "docs"}<DocsDrawer />{/if}`,
+	`import DocsDrawer from "./lib/components/DocsDrawer.svelte";`,
+	`window.__openDocsList = openDocsList;`,
+}
+
+func TestOverrideAppSvelteCarriesSharedMounts(t *testing.T) {
+	skipIfExported(t)
+	rel := filepath.Join("frontend", "src", "App.svelte")
+	priv, err := os.ReadFile(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	over, err := os.ReadFile(filepath.Join(overrideDir, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range sharedAppSvelteMounts {
+		if !strings.Contains(string(priv), marker) {
+			t.Errorf("%s is missing %q", rel, marker)
+		}
+		if !strings.Contains(string(over), marker) {
+			t.Errorf("%s/%s is missing %q -- the export would ship a mirror without it", overrideDir, rel, marker)
+		}
+	}
+}

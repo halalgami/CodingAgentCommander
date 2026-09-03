@@ -38,15 +38,21 @@ export function KillSession(arg1:string):Promise<void>;
 
 export function LaunchSession(arg1:string,arg2:string,arg3:boolean):Promise<main.SessionInfo>;
 
+export function ListProjectDocs(arg1:string):Promise<main.DocListing>;
+
 export function ListProjects():Promise<Array<main.ProjectView>>;
 
 export function ListProviders():Promise<Array<main.ProviderInfo>>;
+
+export function ListSessionDocs(arg1:string):Promise<main.DocListing>;
 
 export function ListSessions():Promise<Array<main.SessionInfo>>;
 
 export function LitellmRuntimeStatus():Promise<router.RuntimeStatus>;
 
 export function Models():Promise<Array<main.ModelDetail>>;
+
+export function OpenProjectDoc(arg1:string,arg2:string):Promise<void>;
 
 export function PickFolder():Promise<string>;
 
@@ -63,6 +69,8 @@ export function RemoveProvider(arg1:string):Promise<void>;
 export function RenameProject(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<void>;
+
+export function RenderProjectDoc(arg1:string,arg2:string):Promise<main.DocRender>;
 
 export function SelectSession(arg1:string):Promise<void>;
 

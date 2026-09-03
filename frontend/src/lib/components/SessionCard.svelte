@@ -1,4 +1,6 @@
 <script>
+  import { openDocsList } from "../docview.svelte.js";
+
   let {
     session, stat, isActive = false, isFinished, isErrored = false,
     models, onselect, onrename, onkill, onswap, onrc,
@@ -46,6 +48,11 @@
       </button>
     {/if}
     <span class="actions">
+      <button
+        class="icon" data-testid="docs-open-{session.windowID}"
+        title="Documents in this project"
+        onclick={() => openDocsList(stat?.cwd ?? "", session.windowID, true)}
+      >📄</button>
       {#if stat && !stat.remoteControl}
         <button class="icon" data-testid="rc-button" disabled={!native}
           title={native ? "Enable remote control (phone handoff)" : "Remote control needs a native Anthropic session"}

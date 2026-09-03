@@ -1,7 +1,11 @@
 <script>
+  import { untrack } from "svelte";
   import { app, select, swapSession, enableRemoteControl, askLaunch } from "../stores.svelte.js";
   import { listProjects } from "../history.js";
   import { fuzzyFilter } from "../fuzzy.js";
+  import { listProjectDocs } from "../projectdocs.js";
+  import { openDoc } from "../docview.svelte.js";
+  import { pickDocRoot, docPaletteItems } from "../docs.js";
 
   let query = $state("");
   let hi = $state(0);
@@ -31,7 +35,42 @@
     }
   });
 
+  let docRoot = $state("");
+  let docList = $state({ entries: [], truncated: false });
+  let docNow = $state(0);
+  let lastListedRoot = "";
+  $effect(() => {
+    // Depend on exactly two things: the palette opening, and history arriving
+    // (which supplies the fallback root). Everything else is read inside
+    // untrack, because app.stats is reassigned by the 5s session poll —
+    // tracking it would spawn a `git ls-files` every five seconds for as long
+    // as the palette stayed open.
+    const open = app.paletteOpen;
+    const histCount = histItems.length;
+    if (!open) { lastListedRoot = ""; return; }
+    untrack(() => {
+      void histCount;
+      const wid = app.sessionKey ? app.sessionKey.split(":")[0] : "";
+      const root = pickDocRoot(app.stats[wid]?.cwd ?? "", histItems);
+      docRoot = root;
+      if (!root || root === lastListedRoot) return;
+      lastListedRoot = root;
+      docNow = Math.floor(Date.now() / 1000);
+      listProjectDocs(root)
+        .then((l) => { docList = l; })
+        .catch(() => { docList = { entries: [], truncated: false }; });
+    });
+  });
+
+  // Reads `query` now (it didn't before): an empty query surfaces only the
+  // 3 most-recent documents ahead of the config rows so ⌘K actually
+  // advertises that documents exist, while a non-empty query still offers
+  // every document, last, for fuzzy scoring to rank. That means this whole
+  // array is rebuilt on every keystroke rather than once per palette open —
+  // acceptable, since it is a small array (sessions + history + a handful of
+  // config/doc rows), not a hot loop.
   const actions = $derived.by(() => {
+    const hasQuery = !!query;
     const items = [];
     for (const s of app.sessions) {
       items.push({ label: `Go: ${s.name}`, hint: "session", run: () => select(s.windowID) });
@@ -53,10 +92,21 @@
         items.push({ label: "Hand off to phone", hint: "remote", run: () => enableRemoteControl(wid) });
       }
     }
+    const docItems = docPaletteItems(docList, docNow).map((d) => ({
+      label: d.label, hint: d.hint, run: () => openDoc(docRoot, d.rel),
+    }));
+    // Empty query: docs would otherwise never survive the top-12 render cap
+    // behind enough sessions/history rows, so a few go in early — still after
+    // every session/history/model row (those stay reachable first), but
+    // ahead of the config rows below rather than behind all of them.
+    if (!hasQuery) items.push(...docItems.slice(0, 3));
     items.push({ label: "Settings", hint: "config", run: () => (app.drawer = "settings") });
     items.push({ label: "Providers", hint: "config", run: () => (app.drawer = "providers") });
     items.push({ label: "Models", hint: "config", run: () => (app.drawer = "models") });
     items.push({ label: "About", hint: "app", run: () => (app.about = true) });
+    // Non-empty query: every doc is offered, still last so it cannot evict a
+    // command, and fuzzy scoring alone decides whether it survives the slice.
+    if (hasQuery) items.push(...docItems);
     return items;
   });
 
@@ -91,6 +141,11 @@
         </li>
       {/each}
       {#if !results.length}<li class="none">No matches</li>{/if}
+      {#if docList.truncated}
+        <li class="none" data-testid="palette-docs-truncated">
+          Some documents are not listed — narrow the project or open it externally
+        </li>
+      {/if}
     </ul>
   </div>
 {/if}

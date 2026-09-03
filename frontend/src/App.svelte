@@ -11,6 +11,9 @@
   import SettingsDrawer from "./lib/components/SettingsDrawer.svelte";
   import UsageDrawer from "./lib/components/UsageDrawer.svelte";
   import HistoryDrawer from "./lib/components/HistoryDrawer.svelte";
+  import DocViewer from "./lib/components/DocViewer.svelte";
+  import DocsDrawer from "./lib/components/DocsDrawer.svelte";
+  import { openDoc, openDocsList } from "./lib/docview.svelte.js";
   import LaunchConfirmModal from "./lib/components/LaunchConfirmModal.svelte";
   import AboutModal from "./lib/components/AboutModal.svelte";
   import LitellmRuntimeModal from "./lib/components/LitellmRuntimeModal.svelte";
@@ -45,6 +48,11 @@
     // actually ran across real mount/destroy cycles, not just in termbus's
     // own unit test.
     window.__termbus = { openPaneCount };
+    // Same seam again: a dynamic import() of a .svelte.js module does not
+    // resolve against the vite preview build (the module is bundled), so a
+    // Playwright spec opens a document through this instead.
+    window.__openDoc = openDoc;
+    window.__openDocsList = openDocsList;
     const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   });
@@ -58,6 +66,9 @@
 <div class="shell">
   <header class="titlebar" data-testid="titlebar" style="--wails-draggable: drag">
     <span class="wordmark" data-testid="wordmark">COMMANDER</span>
+    <button class="palette-hint" data-testid="open-palette" onclick={() => (app.paletteOpen = true)}>
+      <span>Search or jump…</span><kbd>⌘K</kbd>
+    </button>
     <nav class="nav" data-testid="titlebar-nav">
       <button data-testid="open-history" onclick={() => (app.drawer = "history")}>History</button>
       <button data-testid="open-about" onclick={() => (app.about = true)}>About</button>
@@ -101,6 +112,8 @@
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
   {#if app.drawer === "usage"}<UsageDrawer />{/if}
   {#if app.drawer === "history"}<HistoryDrawer />{/if}
+  {#if app.drawer === "docview"}<DocViewer />{/if}
+  {#if app.drawer === "docs"}<DocsDrawer />{/if}
   <CommandPalette />
   <LaunchConfirmModal />
   <AboutModal />
@@ -137,6 +150,17 @@
     white-space: nowrap;
   }
   .nav button:hover { color: var(--text-0); background: var(--surface-2); }
+  .palette-hint {
+    --wails-draggable: no-drag;
+    margin-left: var(--sp-4); display: flex; align-items: center; gap: var(--sp-2);
+    background: var(--surface-2); border: 1px solid var(--border-0); border-radius: var(--r-2);
+    color: var(--text-2); cursor: pointer; padding: 3px 10px; font-size: var(--fs-1);
+  }
+  .palette-hint:hover { color: var(--text-0); border-color: var(--accent-dim); }
+  .palette-hint kbd {
+    font-family: var(--font-mono); font-size: var(--fs-0); color: var(--text-1);
+    background: var(--surface-3); border-radius: var(--r-1); padding: 0 4px;
+  }
   .content { flex: 1; display: flex; min-height: 0; }
   .divider {
     width: 4px; cursor: col-resize; flex: none;

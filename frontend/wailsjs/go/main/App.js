@@ -66,12 +66,20 @@ export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
 }
 
+export function ListProjectDocs(arg1) {
+  return window['go']['main']['App']['ListProjectDocs'](arg1);
+}
+
 export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
 }
 
 export function ListProviders() {
   return window['go']['main']['App']['ListProviders']();
+}
+
+export function ListSessionDocs(arg1) {
+  return window['go']['main']['App']['ListSessionDocs'](arg1);
 }
 
 export function ListSessions() {
@@ -84,6 +92,10 @@ export function LitellmRuntimeStatus() {
 
 export function Models() {
   return window['go']['main']['App']['Models']();
+}
+
+export function OpenProjectDoc(arg1, arg2) {
+  return window['go']['main']['App']['OpenProjectDoc'](arg1, arg2);
 }
 
 export function PickFolder() {
@@ -116,6 +128,10 @@ export function RenameProject(arg1, arg2) {
 
 export function RenameSession(arg1, arg2) {
   return window['go']['main']['App']['RenameSession'](arg1, arg2);
+}
+
+export function RenderProjectDoc(arg1, arg2) {
+  return window['go']['main']['App']['RenderProjectDoc'](arg1, arg2);
 }
 
 export function SelectSession(arg1) {

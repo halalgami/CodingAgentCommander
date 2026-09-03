@@ -1,5 +1,5 @@
 <script>
-  let { title, testid, onclose, children } = $props();
+  let { title, testid, onclose, wide = false, children } = $props();
   let root = $state(null);
 
   // Focus scoping per spec: ESC lives on the drawer element, never window;
@@ -49,7 +49,7 @@
 
 <div class="backdrop" onclick={onclose} aria-hidden="true"></div>
 <div
-  class="drawer" data-testid={testid} bind:this={root} {onkeydown}
+  class="drawer" class:wide={wide} data-testid={testid} bind:this={root} {onkeydown}
   role="dialog" aria-modal="true" aria-label={title} tabindex="-1"
 >
   <header>
@@ -73,6 +73,9 @@
     animation: slide var(--t-med) var(--ease-out);
     outline: none;
   }
+  /* Opt-in only. The default 380px is what every other drawer relies on; a
+     document full of tables is the one thing that needs more. */
+  .drawer.wide { width: min(720px, 90vw); }
   @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
   header {
     display: flex; align-items: center; justify-content: space-between;
