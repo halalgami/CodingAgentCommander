@@ -115,3 +115,35 @@ func TestOverrideAppSvelteCarriesSharedMounts(t *testing.T) {
 		}
 	}
 }
+
+// The public CI cannot run the export tripwire: the export deliberately does
+// not publish its own tooling (export-public.sh deletes itself on the way
+// out), so a ci.yml carrying that job fails on every commit to the mirror. It
+// did exactly that for four consecutive syncs before the override existed.
+//
+// Both halves are asserted, because either one alone rots quietly: the private
+// file must KEEP the job (it is the leak guard) and the override must NOT have
+// it (it cannot work there).
+func TestOverrideCIDropsTheExportTripwire(t *testing.T) {
+	skipIfExported(t)
+	rel := filepath.Join(".github", "workflows", "ci.yml")
+	priv, err := os.ReadFile(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	over, err := os.ReadFile(filepath.Join(overrideDir, rel))
+	if err != nil {
+		t.Fatalf("no public ci.yml override: %v -- the mirror's CI will run a job whose script the export deletes", err)
+	}
+	if !strings.Contains(string(priv), "export-tripwire") {
+		t.Error("the private ci.yml no longer runs the export tripwire, which is the leak guard")
+	}
+	if strings.Contains(string(over), "export-tripwire") ||
+		strings.Contains(string(over), "export-public.sh") {
+		t.Error("the public ci.yml override references the export tooling, which is not published")
+	}
+	// A job must survive, or the override is a CI file that tests nothing.
+	if !strings.Contains(string(over), "runs-on:") {
+		t.Error("the public ci.yml override has no jobs left")
+	}
+}

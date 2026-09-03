@@ -86,19 +86,10 @@ jobs:
       - name: Test
         run: ./build.ps1 test
 
-  # The leak tripwire. The full export gate needs a darwin toolchain and a
-  # frontend build; this runs the part that catches leaks — snapshot, strip,
-  # overlay, grep — on a cheap runner, on every PR. Four real leaks reached
-  # main in one session while this ran nowhere but a local shell.
-  export-tripwire:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # The script archives HEAD, so a shallow single-commit checkout is
-          # enough — but git archive needs the commit itself, not a blobless
-          # tree.
-          fetch-depth: 1
-
-      - name: Export tripwire
-        run: ./scripts/export-public.sh --tripwire-only "${RUNNER_TEMP}/pubexport"
+# NOTE for anyone comparing this with the upstream repository: the private tree
+# also runs an "export tripwire" job here, which re-runs the script that
+# produces THIS repository and greps the result for anything that should not
+# have been published. That job cannot exist here, because the export
+# deliberately does not publish its own tooling — the script deletes itself on
+# the way out. It ran red on four consecutive syncs before this override
+# existed, which is the sort of thing an override mechanism is for.
