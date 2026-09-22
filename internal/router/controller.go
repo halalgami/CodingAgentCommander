@@ -86,7 +86,28 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-// Start launches `litellm --config <ConfigPath> --port <Port>`.
+// litellmArgs builds the proxy's argv. Split out from Start so the bind address
+// is assertable without spawning anything.
+//
+// --host is the load-bearing one. litellm's own default is 0.0.0.0
+// (proxy_cli.py: `@click.option("--host", default="0.0.0.0")`), so omitting it
+// publishes the proxy to every interface — and with it the Bedrock, Zen and
+// Ollama credentials it holds, behind one bearer token, on whatever café or
+// office Wi-Fi the laptop is on. /health/liveliness answers unauthenticated, so
+// a port sweep finds it.
+//
+// The care taken in freePort() to pick the number on 127.0.0.1 was decorative
+// without this, and Health()'s localhost probe meant the wider binding never
+// showed up in normal use.
+func litellmArgs(configPath string, port int) []string {
+	return []string{
+		"--config", configPath,
+		"--host", "127.0.0.1",
+		"--port", fmt.Sprintf("%d", port),
+	}
+}
+
+// Start launches `litellm --config <ConfigPath> --host 127.0.0.1 --port <Port>`.
 func (c *Controller) Start() error {
 	if c.Port == 0 {
 		p, err := freePort()
@@ -101,7 +122,7 @@ func (c *Controller) Start() error {
 	}
 	// proc.Hide suppresses a console window on Windows (no-op elsewhere); stdout
 	// and stderr are still redirected below, so litellm's logs stay visible.
-	cmd := proc.Hide(exec.Command(bin, "--config", c.ConfigPath, "--port", fmt.Sprintf("%d", c.Port)))
+	cmd := proc.Hide(exec.Command(bin, litellmArgs(c.ConfigPath, c.Port)...))
 	cmd.Env = pythonEnv(c.Env...)
 	// Run from the config dir so the strip_thinking callback module (written
 	// alongside the yaml) is importable by litellm.

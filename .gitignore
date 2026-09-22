@@ -3,6 +3,16 @@
 *.test
 .DS_Store
 
+# The delegate CLI, built with `go build -o ~/.local/bin/delegate ./cmd/delegate`.
+# A build into the repo root was committed once (4511c93, 9.6 MB) — the same
+# mistake the psmux note below exists to prevent, and worse: a Go binary embeds
+# the absolute source paths it was built from, so that one carried the author's
+# home directory, and export-public.sh ships tracked files verbatim via
+# `git archive HEAD`. The companion grep tripwire does not catch it (BSD grep
+# skips the over-long lines a binary is made of), so nothing would have stopped
+# it reaching the public mirror.
+/delegate
+
 # Wails GUI build output
 /build/bin/
 frontend/dist/

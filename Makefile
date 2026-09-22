@@ -30,7 +30,7 @@ else
   TESTFLAGS ?=
 endif
 
-VERSION ?= 0.12.1
+VERSION ?= 0.12.2
 COMMIT ?= $(shell git rev-parse --short HEAD)
 LDFLAGS := -X main.appVersion=$(VERSION) -X main.appCommit=$(COMMIT) -X main.appBuildDate=$(BUILD_DATE)
 
@@ -60,6 +60,16 @@ test:
 vet:
 	go vet ./...
 
+# Cross-compile gate. Neither target ships today, but both compile files nothing
+# else does, so without this they rot unnoticed: notify_other.go and
+# projectdocs_open_other.go (the xdg-open opener) were compiled by NOTHING until
+# `GOOS=linux` first passed on 2026-09-04, and notify_windows.go only ever gets
+# exercised here on a mac. Compile only — no tests, since the stub-driven
+# delegate tests are POSIX-only by design.
+crosscompile:
+	GOOS=linux go build ./...
+	GOOS=windows go build ./...
+
 # Everything, including the browser specs. CI deliberately does NOT run
 # Playwright: the runner is Windows and would have to install browsers on every
 # job, for specs that are a developer feedback loop rather than a release gate.
@@ -70,7 +80,7 @@ vet:
 # toggling optional sidebar content causes no pty resize or xterm change, and
 # that the terminal's activity registration does not leak across session
 # switches. Neither has any other coverage.
-check: vet test
+check: vet crosscompile test
 	cd frontend && npm test
 	cd frontend && npx playwright test
 

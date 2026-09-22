@@ -59,8 +59,11 @@ func rels(l DocListing) []string {
 	return out
 }
 
-// listed is local on purpose: app.go's `contains` lives in a file the export
-// replaces wholesale, and packgen's helpers live in files the export DELETES.
+// listed is local on purpose: app.go's `contains` and packgen's helpers both
+// live in files the export now PUBLISHES verbatim (no override, no delete),
+// so nothing stops projectdocs_test.go from calling them directly anymore.
+// It stays local anyway, to keep this file's tests independent of packgen
+// internals it has no other reason to depend on.
 func listed(list []string, want string) bool {
 	for _, s := range list {
 		if s == want {
@@ -319,5 +322,43 @@ func TestListProjectDocsErrorsOnABadRoot(t *testing.T) {
 				t.Fatalf("%q was accepted as a project root", tc.root)
 			}
 		})
+	}
+}
+
+// git reads the config of whatever repository cmd.Dir points at, and
+// core.fsmonitor names a program git EXECUTES before listing anything. cmd.Dir
+// is the project root, so a folder handed to the user (zip, tarball, shared
+// drive — `git clone` never carries config) can run code the moment the palette
+// lists its documents. This drives the real git binary against a real hostile
+// config: if the -c overrides are dropped, the marker file appears.
+func TestListProjectDocsDoesNotRunRepoSuppliedGitPrograms(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "PWNED")
+	writeDoc(t, filepath.Join(root, "README.md"), "# hi\n")
+
+	if out, err := exec.Command("git", "-C", root, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	hook := filepath.Join(root, ".git", "pwn.sh")
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\ntouch "+marker+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(root, ".git", "config")
+	b, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, append(b, []byte("[core]\n\tfsmonitor = "+hook+"\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := gitListDocs(root); err != nil {
+		t.Fatalf("git listing failed outright: %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("a repo-supplied program ran: core.fsmonitor from the scanned repo's own config was honoured")
 	}
 }

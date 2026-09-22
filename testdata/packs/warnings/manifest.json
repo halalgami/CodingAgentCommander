@@ -1,0 +1,21 @@
+{
+  "schema": 1.5,
+  "name": "Fixture Warnings",
+  "alpha": false,
+  "colourway": "warm",
+  "slots": {
+    "idle": [
+      { "id": "hash-me", "file": "idle.png", "rarity": 0, "tint": "#fff" },
+      { "id": "gone", "file": "missing.png" },
+      { "id": "not-an-image", "file": "notes.txt" },
+      { "id": "loud", "file": "idle.png", "rarity": 0.9 },
+      { "id": "nightly", "file": "idle.png", "when": "lateNight" },
+      { "id": "weekendly", "file": "idle.png", "when": "weekend" },
+      { "id": "unreachable", "file": "idle.png", "when": "longIdle" },
+      { "id": "no-such-cond", "file": "idle.png", "when": "fullMoon" },
+      { "id": "odd-mood", "file": "idle.png", "mood": "smug" }
+    ],
+    "bg_idle": [ { "id": "bg-egg", "file": "idle.png", "when": "century" } ],
+    "dancing": [ { "id": "nope", "file": "idle.png" } ]
+  }
+}

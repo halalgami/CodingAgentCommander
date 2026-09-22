@@ -10,6 +10,10 @@
   let { sessionKey = "", theme = null } = $props();
   let el, term, fit, ws, ro, closePane;
   let debounce;
+  // connectGen invalidates an in-flight connect() whose awaits have not settled;
+  // destroyed covers the same race across teardown. See connect().
+  let connectGen = 0;
+  let destroyed = false;
 
   // Claude Code centers its content in wide terminals; the column cap keeps it
   // readable. Cap is a pref (0 = unlimited).
@@ -40,8 +44,16 @@
 
   async function connect() {
     if (ws) { ws.close(); ws = null; }
+    // This component lives inside {#key app.sessionKey}, so switching session
+    // destroys and recreates it — and these two awaits are bridge round-trips.
+    // Switch faster than they resolve and onDestroy runs while ws is still null:
+    // nothing to close, and the socket opened below would then write into a
+    // disposed xterm on every frame. Stamp the generation before awaiting and
+    // check it after; a stale connect closes its own socket and wires nothing.
+    const gen = ++connectGen;
     const port = await WSPort();
     const token = await WSToken();
+    if (gen !== connectGen || destroyed) return;
     ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}`);
     ws.binaryType = "arraybuffer";
     let attachedAt = 0;
@@ -119,6 +131,8 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
+    connectGen++; // orphan any connect() still waiting on WSPort/WSToken
     closePane?.();
     closePane = null;
     if (ro) ro.disconnect();

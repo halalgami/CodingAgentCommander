@@ -3,6 +3,9 @@
   import { EventsOn } from "../wailsjs/runtime/runtime.js";
   import { app, loadAll, refresh, markFinished, reloadModels, toast } from "./lib/stores.svelte.js";
   import Sidebar from "./lib/components/Sidebar.svelte";
+  import SidebarCompanion from "./lib/companion/SidebarCompanion.svelte";
+  import PackGenPanel from "./lib/companion/PackGenPanel.svelte";
+  import { initPackGen, gen } from "./lib/companion/packgen.svelte.js";
   import EmptyState from "./lib/components/EmptyState.svelte";
   import Terminal from "./lib/Terminal.svelte";
   import Toast from "./lib/components/Toast.svelte";
@@ -36,6 +39,10 @@
 
   onMount(() => {
     bootOnFirstRun();
+    // Subscribed at start, not when the panel opens: a run continues while
+    // the panel is closed, so its state has to be current the moment it
+    // reopens.
+    initPackGen();
     initTheme();
     initPrefs();
     loadAll();
@@ -48,6 +55,9 @@
     // actually ran across real mount/destroy cycles, not just in termbus's
     // own unit test.
     window.__termbus = { openPaneCount };
+    // Same seam as __app: the wizard's state is Go-fed at runtime, so a
+    // Playwright spec has no other way to drive its phases.
+    window.__packgen = gen;
     // Same seam again: a dynamic import() of a .svelte.js module does not
     // resolve against the vite preview build (the module is bundled), so a
     // Playwright spec opens a document through this instead.
@@ -79,7 +89,20 @@
     </nav>
   </header>
   <div class="content">
-    <Sidebar />
+    <Sidebar>
+      {#snippet dock()}
+        {#if app.companionCfg.kind === "panel"}
+          <svelte:boundary onerror={(e) => console.error("companion render failed", e)}>
+            <SidebarCompanion />
+            {#snippet failed()}
+              <!-- Swallowed, not rethrown: a broken figure must never take the
+                   deck with it. Nothing renders, the sidebar keeps its layout. -->
+              <div></div>
+            {/snippet}
+          </svelte:boundary>
+        {/if}
+      {/snippet}
+    </Sidebar>
     <div
       class="divider" data-testid="sidebar-divider"
       onpointerdown={(e) => {
@@ -119,9 +142,12 @@
   <AboutModal />
   <LitellmRuntimeModal />
   <DependenciesModal />
+  <PackGenPanel />
   <Hotkeys />
   <Toast />
   <BootIntro />
+  <!-- The companion now lives in a native desktop overlay window (see
+       overlay_darwin.go), not in the deck. -->
 </div>
 
 <style>

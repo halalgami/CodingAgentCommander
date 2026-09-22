@@ -123,13 +123,62 @@ type App struct {
 	// mtime, so the 5s stats poll doesn't re-parse unchanged transcripts.
 	statCache map[string]statEntry
 	statMu    sync.Mutex
+	// testCompanion, when non-nil, short-circuits companionSnapshot with a
+	// fixed value so unit tests don't depend on live session/tmux state.
+	testCompanion *CompanionState
+	// finishSeq increments once per session finish (handleNotify); lastFinished
+	// is that session's Name. Both feed companionState so the overlay can name
+	// the just-finished session in a speech bubble. Guarded by mu.
+	finishSeq    int
+	lastFinished string
+	// companion is the persisted desktop-companion configuration (enabled,
+	// size, opacity, jiggle, model path). Guarded by companionMu.
+	companion   CompanionConfig
+	companionMu sync.Mutex
+	// packPaths maps a media id to the absolute file path it serves, rebuilt
+	// on every pack load. The media handler resolves ONLY through this map, so
+	// a request path can never reach the filesystem. Guarded by packMu.
+	packPaths map[string]string
+	packMu    sync.Mutex
+	// packGenPreviews is the same kind of map for a pack still being generated,
+	// so the wizard can show art before it is saved. Kept separate from
+	// packPaths, not merged into it, because LoadCompanionPack REPLACES
+	// packPaths wholesale — merging would make previews vanish the moment
+	// anything reloaded the live pack. Guarded by packMu, since both maps feed
+	// the same handler.
+	packGenPreviews map[string]string
+	// packLibrary is the id map for THUMBNAILS of packs the user is browsing
+	// but has not selected. Separate again, and for the same reason: packPaths
+	// is replaced wholesale on every load, so the library's pictures would
+	// vanish the moment any pack was chosen. Guarded by packMu.
+	packLibrary map[string]string
+	// packGen is the single in-flight-or-unsaved generation run, and packGenMu
+	// is the claim on that slot. A run holds the slot until its art is saved or
+	// explicitly discarded: everything in a staging folder was paid for, so a
+	// new run waits rather than clearing it. See packgen_run.go.
+	packGen   *packGenRun
+	packGenMu sync.Mutex
 	// historyMu guards projects.json reads/writes (project-open history).
 	historyMu sync.Mutex
+	// freshInstall is true for the whole process's life iff config.toml did
+	// not exist when startup() ran — see detectFreshInstall. Set once, before
+	// any concurrent reader can exist, and read thereafter under mu inside
+	// companionSnapshot alongside finishSeq/lastFinished.
+	freshInstall bool
 }
 
-// statEntry is a cached transcript parse, valid while the file's mtime is mod.
+// statEntry is a cached transcript parse. mod is the file's mtime when the
+// parse was taken; prog is how far into the file that parse got.
+//
+// The mtime alone was the whole cache, and it could not hit for the sessions
+// that matter: an ACTIVE session rewrites its transcript continuously, so the
+// mtime differs on every 5s poll and a multi-MB file was re-parsed in full each
+// tick. The cache worked only for sessions doing nothing. prog is what fixes
+// that — transcripts are append-only, so a changed mtime means "read the tail",
+// not "read it all again".
 type statEntry struct {
 	mod        int64
+	prog       transcripts.Progress
 	ctx, turns int
 }
 
@@ -171,11 +220,23 @@ type sessionRec struct {
 	LaunchedAt                              time.Time
 	ClaudeSessionID, TranscriptPath, Status string
 	RemoteControl                           bool
+	// StatusSinceMs is the ms-epoch of the last Status TRANSITION, not the
+	// session start: a session launched 61 minutes ago that has been idle for
+	// 59 of them is not a marathon (§6.2). LastFinishMs and ErrorMs are
+	// per-session, so a background session finishing cannot drag the selected
+	// figure into "done" (§2.2 defect 10).
+	StatusSinceMs int64
+	LastFinishMs  int64
+	ErrorMs       int64
 	// AckMs is the ms-epoch the user last SELECTED (acknowledged) this
 	// session. It is display-only and deliberately independent of Status: the
 	// Stop hook fires on every assistant turn, so Status stays "finished" for
 	// the rest of the process's life, and SelectSession must never rewrite it
-	// (see its doc comment).
+	// (see its doc comment). legacyOverlayState instead compares AckMs against
+	// LastFinishMs so looking at a finished session clears the overlay's
+	// Awaiting reaction without touching session state — and a session that
+	// finishes AGAIN after being acknowledged (bumping LastFinishMs past
+	// AckMs) reasserts Awaiting rather than being muted forever.
 	AckMs int64
 }
 
@@ -240,6 +301,11 @@ func (a *App) handleNotify(body []byte) {
 		rec.TranscriptPath = p.TranscriptPath
 	}
 	rec.Status = "finished"
+	nowMs := a.now().UnixMilli()
+	rec.StatusSinceMs = nowMs
+	rec.LastFinishMs = nowMs
+	a.finishSeq++
+	a.lastFinished = rec.Name
 	focused := a.current == id
 	name := rec.Name
 	a.mu.Unlock()
@@ -248,6 +314,7 @@ func (a *App) handleNotify(body []byte) {
 	if !focused {
 		_ = a.notifier.Notify("Commander", "Claude finished in "+name)
 	}
+	a.pushCompanion() // overlay reacts (wave) to the finish
 }
 
 // settingsPath is ~/.claude/settings.json, where Claude Code hooks live.
@@ -259,6 +326,7 @@ func (a *App) settingsPath() string {
 // shutdown is the Wails OnShutdown hook: remove Commander's Stop hook, stop the
 // router, and clean up the generated router files so nothing lingers on disk.
 func (a *App) shutdown(ctx context.Context) {
+	overlayCloseFn()
 	_ = hookmgr.Remove(a.settingsPath())
 	if a.wsListener != nil {
 		_ = a.wsListener.Close() // stop the local http server (was leaked before)
@@ -285,6 +353,19 @@ func configPath() string {
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "commander", "config.toml")
+}
+
+// detectFreshInstall reports whether path did not exist at the moment of the
+// call — the signal for "this is the very first run". It must be checked
+// BEFORE loadConfigFrom, which creates a default config.toml as a side
+// effect of the file being missing (see loadConfigFrom's doc comment); calling
+// it after would always observe the file loadConfigFrom just wrote and report
+// false. A pure path->bool function so the "once, then never again for this
+// path" property is unit-testable without going through startup()'s network
+// and tmux side effects.
+func detectFreshInstall(path string) bool {
+	_, err := os.Stat(path)
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // loadConfigFrom loads the catalog. A missing file is first-run, not an
@@ -331,6 +412,10 @@ func (a *App) startup(ctx context.Context) {
 	// pip-user, and /etc/paths.d locations visible so tmux/claude/litellm
 	// resolve the same as from a terminal.
 	launch.AugmentPATH()
+	// Must run before loadConfigFrom, which creates config.toml when absent.
+	a.mu.Lock()
+	a.freshInstall = detectFreshInstall(configPath())
+	a.mu.Unlock()
 	if err := a.loadConfigFrom(configPath()); err != nil {
 		// Surface via an empty picker; the UI shows a config hint.
 		return
@@ -348,6 +433,7 @@ func (a *App) startup(ctx context.Context) {
 	_ = hookmgr.Install(a.settingsPath(), a.wsPort, a.wsToken)
 	a.windows = winstate.Open(a.winStatePath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
+	a.initCompanion()                 // load config, reconcile the overlay with its kind, push state
 }
 
 // refreshAnthropicModels keeps the native side of the catalog current.
@@ -538,16 +624,38 @@ func credsPresent(m config.Model, have map[string]bool) bool {
 	return true
 }
 
-// modelReady reports whether every credential the model needs is in the
-// keychain; on the first missing one it returns that ref for the error message.
-func modelReady(m config.Model) (bool, string) {
+// credOK reports whether one keychain ref is set, memoizing into cache.
+//
+// go-keyring's darwin backend SPAWNS /usr/bin/security for every read (~10ms).
+// Models share refs heavily — a dozen Zen models all name ZEN_KEY — so without
+// a cache a single sweep pays that per model rather than per credential, and on
+// a locked keychain each spawn can prompt.
+func credOK(ref string, cache map[string]bool) bool {
+	if v, ok := cache[ref]; ok {
+		return v
+	}
+	v, err := secrets.Get(ref)
+	ok := err == nil && v != ""
+	cache[ref] = ok
+	return ok
+}
+
+// modelReadyWith is modelReady over a shared lookup cache, for callers checking
+// many models at once. The cache is per-sweep, never long-lived: a stale answer
+// here would claim a model is ready after its key was deleted.
+func modelReadyWith(m config.Model, cache map[string]bool) (bool, string) {
 	for _, ref := range m.CredEnvs() {
-		v, err := secrets.Get(ref)
-		if err != nil || v == "" {
+		if !credOK(ref, cache) {
 			return false, ref
 		}
 	}
 	return true, ""
+}
+
+// modelReady reports whether every credential the model needs is in the
+// keychain; on the first missing one it returns that ref for the error message.
+func modelReady(m config.Model) (bool, string) {
+	return modelReadyWith(m, map[string]bool{})
 }
 
 // LitellmRuntimeStatus reports whether the LiteLLM proxy runtime is resolvable
@@ -688,10 +796,34 @@ func hashConfig(yaml []byte, env []string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// GetCompanionConfig returns the current companion configuration for the
+// frontend's settings panel.
+func (a *App) GetCompanionConfig() CompanionConfig {
+	a.companionMu.Lock()
+	defer a.companionMu.Unlock()
+	return a.companion
+}
+
+// saveAndSyncCompanion mutates the in-memory companion config under lock,
+// clamps it, and persists it to disk.
+func (a *App) saveAndSyncCompanion(mut func(*CompanionConfig)) error {
+	a.companionMu.Lock()
+	mut(&a.companion)
+	a.companion = a.companion.clamped()
+	c := a.companion
+	a.companionMu.Unlock()
+	return saveCompanionConfig(c)
+}
+
 // mediaHandler is the asset server's fallback handler: wails calls it for any
-// GET the embedded assets answer with os.ErrNotExist. This build registers no
-// media of its own, so every such request is a 404.
-func (a *App) mediaHandler() http.Handler { return http.NotFoundHandler() }
+// GET the embedded assets answer with os.ErrNotExist. It serves user-supplied
+// media files from disk, addressed by ids this process registered itself —
+// never by a path taken from the request.
+//
+// Unexported deliberately: main.go is in this package and can call it, while
+// an exported method would be bound into TypeScript and force the generator to
+// render http.Handler.
+func (a *App) mediaHandler() http.Handler { return a.packMediaHandler() }
 
 func (a *App) startWS() {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -701,6 +833,7 @@ func (a *App) startWS() {
 	a.wsPort = ln.Addr().(*net.TCPAddr).Port
 	a.wsListener = ln
 	mux := http.NewServeMux()
+	overlayRoutesFn(a, mux)
 	mux.HandleFunc("/ws", wsterm.Handler(a.wsToken, func() (*ptybridge.Bridge, error) {
 		a.mu.Lock()
 		cur := a.current
@@ -765,8 +898,12 @@ func (a *App) Config() []ModelInfo {
 	def := a.cfg.DefaultModel
 	a.mu.Unlock()
 	out := []ModelInfo{}
+	// One cache for the whole sweep: this runs on load and after EVERY model or
+	// provider mutation in the admin drawer, and each uncached ref is a
+	// /usr/bin/security spawn.
+	creds := map[string]bool{}
 	for _, m := range a.snapshotModels() {
-		ready, _ := modelReady(m)
+		ready, _ := modelReadyWith(m, creds)
 		out = append(out, ModelInfo{
 			ID: m.ID, Label: m.Label, Routed: m.IsRouted(), Ready: ready,
 			Default: m.ID == def,
@@ -1208,6 +1345,7 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 	a.mu.Lock()
 	a.sessions[w.ID] = &sessionRec{
 		Name: name, Cwd: folder, Model: m.ID, Provider: m.Provider, LaunchedAt: a.now(), Status: "active",
+		StatusSinceMs: a.now().UnixMilli(),
 	}
 	a.current = w.ID
 	a.mu.Unlock()
@@ -1252,6 +1390,7 @@ func (a *App) LaunchSession(folder, modelID string, remoteControl bool) (Session
 	// err is guaranteed nil here: the only earlier assignment to it returns
 	// on failure above, so an `if err == nil` guard here would always be true.
 	a.recordProjectOpen(folder, modelID) // remember this project for the history
+	a.pushCompanion()                    // overlay reacts to a new running session
 	return s, nil
 }
 
@@ -1317,7 +1456,8 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 		if _, ok := a.sessions[w.ID]; ok {
 			continue
 		}
-		rec := &sessionRec{Name: w.Name, Cwd: w.Cwd, LaunchedAt: a.now(), Status: "active"}
+		rec := &sessionRec{Name: w.Name, Cwd: w.Cwd, LaunchedAt: a.now(), Status: "active",
+			StatusSinceMs: a.now().UnixMilli()}
 		known, _ := a.windows.Get(w.ID)
 		// Prefer what was recorded at launch; fall back to the window name
 		// (== label at launch) for windows launched before this file existed.
@@ -1338,7 +1478,8 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 // It deliberately does NOT touch the session's Status. Status is "active" from
 // launch until the Stop hook — it means "not yet finished", not "doing
 // something" — so writing "active" here silently un-finished any session the
-// user clicked on. The deck already clears its own finished flag in
+// user clicked on, destroying the only record downstream consumers have
+// (§2.2 defect 9). The deck already clears its own finished flag in
 // stores.svelte.js select().
 func (a *App) SelectSession(windowID string) error {
 	a.mu.Lock()
@@ -1362,6 +1503,7 @@ func (a *App) KillSession(windowID string) error {
 	}
 	a.mu.Unlock()
 	_ = a.windows.Delete(windowID)
+	a.pushCompanion()
 	return nil
 }
 
@@ -1424,9 +1566,17 @@ func (a *App) SessionStats(windowID string) SessionStats {
 	return st
 }
 
-// transcriptStats returns a transcript's context tokens and turn count, reusing
-// a cached parse while the file's mtime is unchanged. The stats poll hits every
-// session every 5s, so this avoids re-parsing multi-MB transcripts each tick.
+// transcriptStats returns a transcript's context tokens and turn count.
+//
+// Unchanged mtime returns the cached numbers outright. A CHANGED mtime resumes
+// from where the last parse stopped rather than starting over: the stats poll
+// hits every session every 5s, and the sessions whose mtime keeps changing are
+// exactly the ones the user is watching, so "re-parse on change" meant the
+// active session paid full price forever. Measured on the largest transcript
+// here, that is ~36ms/19MB per tick against ~23µs/456B.
+//
+// transcripts.Scan handles the case where resuming is unsafe (a file that
+// shrank was rewritten, not appended to) by rescanning from zero.
 func (a *App) transcriptStats(path string) (int, int) {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -1434,21 +1584,29 @@ func (a *App) transcriptStats(path string) (int, int) {
 	}
 	mod := fi.ModTime().UnixNano()
 	a.statMu.Lock()
-	if e, ok := a.statCache[path]; ok && e.mod == mod {
-		a.statMu.Unlock()
+	e, ok := a.statCache[path]
+	a.statMu.Unlock()
+	if ok && e.mod == mod {
 		return e.ctx, e.turns
 	}
-	a.statMu.Unlock()
 
-	ctx, _ := transcripts.ContextTokens(path)
-	turns, _ := transcripts.TurnCount(path)
+	prev := transcripts.Progress{}
+	if ok {
+		prev = e.prog
+	}
+	// Never hold statMu across the read: this is file I/O on the poll path, and
+	// a lock held across it would serialize every session behind the slowest.
+	prog, err := transcripts.Scan(path, prev)
+	if err != nil {
+		return e.ctx, e.turns // keep the last good answer rather than showing zeros
+	}
 	a.statMu.Lock()
 	if a.statCache == nil {
 		a.statCache = map[string]statEntry{}
 	}
-	a.statCache[path] = statEntry{mod: mod, ctx: ctx, turns: turns}
+	a.statCache[path] = statEntry{mod: mod, prog: prog, ctx: prog.Ctx, turns: prog.Turns}
 	a.statMu.Unlock()
-	return ctx, turns
+	return prog.Ctx, prog.Turns
 }
 
 // PickFolder opens a native directory picker and returns the chosen absolute

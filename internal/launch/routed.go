@@ -16,5 +16,8 @@ func RoutedEnv(m config.Model, port int, masterKey string) (map[string]string, e
 		EnvBaseURL:   fmt.Sprintf("http://localhost:%d", port),
 		EnvAuthToken: masterKey,
 		EnvModel:     m.ID,
+		// Bound Claude Code's retry ladder: unbounded, a rejected key or an
+		// upstream 500 stalls the session for ~250s with no output.
+		EnvMaxRetries: RoutedMaxRetries,
 	}, nil
 }

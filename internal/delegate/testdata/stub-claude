@@ -1,0 +1,47 @@
+#!/bin/bash
+# Scripted `claude -p` stand-in. STUB_MODE picks the behaviour. No network.
+case "${STUB_MODE:-ok}" in
+ok)
+  cat <<'JSON'
+{"type":"result","subtype":"success","is_error":false,"num_turns":5,"duration_ms":16400,
+ "usage":{"input_tokens":15424,"output_tokens":650},"permission_denials":[],
+ "total_cost_usd":0.078675,
+ "result":"{\"status\":\"ok\",\"answer\":\"found it\",\"citations\":[{\"file\":\"a.go\",\"line\":1,\"quote\":\"package main\"}]}"}
+JSON
+  ;;
+apierror)
+  # A hard API failure still reports subtype "success" — never key on subtype.
+  echo '{"type":"result","subtype":"success","is_error":true,"api_error_status":500,"num_turns":1,"duration_ms":900,"usage":{"input_tokens":0,"output_tokens":0},"result":"API Error: 500"}'
+  exit 1
+  ;;
+apierrordenials)
+  # Same as apierror, but the worker also tried a write before the transport
+  # failed: permission_denials must survive the infra-failure path too.
+  echo '{"type":"result","subtype":"success","is_error":true,"api_error_status":500,"num_turns":1,"duration_ms":900,"usage":{"input_tokens":0,"output_tokens":0},"permission_denials":[{"tool_name":"Bash"},{"tool_name":"Edit"}],"result":"API Error: 500"}'
+  exit 1
+  ;;
+badjson)
+  echo '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"duration_ms":500,"usage":{"input_tokens":10,"output_tokens":5},"result":"I could not format that, sorry."}'
+  ;;
+garbled)
+  # Not JSON at all, and the process failed: missing binary, dead proxy, wrong
+  # PATH all land here.
+  echo 'claude: command not found' >&2
+  echo 'not json'
+  exit 1
+  ;;
+garbled0)
+  # Not JSON at all, but the process exited clean: the worker ran and wrote
+  # nonsense rather than the transport failing.
+  echo 'not json'
+  ;;
+denials)
+  echo '{"type":"result","subtype":"success","is_error":false,"num_turns":3,"duration_ms":700,"usage":{"input_tokens":10,"output_tokens":5},"permission_denials":[{"tool_name":"Bash"},{"tool_name":"Edit"}],"result":"{\"status\":\"no_findings\",\"answer\":\"nothing\",\"citations\":[]}"}'
+  ;;
+hang)
+  # Spawn a child, then sleep: proves the whole group dies, not just us.
+  sleep 300 &
+  echo $! > "${STUB_CHILD_PIDFILE:-/dev/null}"
+  sleep 300
+  ;;
+esac

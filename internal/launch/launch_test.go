@@ -78,3 +78,33 @@ func TestEnvKeysCoversEverythingSet(t *testing.T) {
 		}
 	}
 }
+
+// A rejected key cost a measured 244s and an upstream 500 a measured 249s
+// before surfacing, because Claude Code — not LiteLLM — retries with an
+// unbounded backoff ladder (9+ requests over 111s and still climbing against a
+// constant 500). Bounding it turns a four-minute silent stall into a few
+// seconds. Routed sessions only: native Anthropic benefits from retrying a
+// genuine overload, and it is not the path that stalls.
+func TestRoutedEnvBoundsTheRetryLadder(t *testing.T) {
+	routed, err := RoutedEnv(config.Model{ID: "gpt-5.5", Provider: "zen"}, 4000, "sk-master")
+	if err != nil {
+		t.Fatalf("RoutedEnv: %v", err)
+	}
+	if got := routed[EnvMaxRetries]; got != RoutedMaxRetries {
+		t.Errorf("%s = %q, want %q: an unbounded ladder is a 4-minute stall", EnvMaxRetries, got, RoutedMaxRetries)
+	}
+	// Not zero: a routed interactive session should survive one transient
+	// upstream blip rather than failing the user's turn on it. Workers use 0
+	// (internal/delegate) because a delegated task should fail fast and report.
+	if RoutedMaxRetries == "0" {
+		t.Error("0 would fail an interactive turn on any transient blip; delegate workers use 0, sessions should not")
+	}
+
+	native, err := Env(config.Model{ID: "claude-opus-4-8", Provider: "anthropic"})
+	if err != nil {
+		t.Fatalf("Env: %v", err)
+	}
+	if _, ok := native[EnvMaxRetries]; ok {
+		t.Errorf("native must not bound retries: an Anthropic overload is worth retrying")
+	}
+}

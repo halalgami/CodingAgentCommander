@@ -10,16 +10,44 @@ export function AddProvider(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddProvider'](arg1, arg2, arg3);
 }
 
+export function BrowseCompanionPack() {
+  return window['go']['main']['App']['BrowseCompanionPack']();
+}
+
+export function CancelPackGen() {
+  return window['go']['main']['App']['CancelPackGen']();
+}
+
+export function ClearCompanionPack() {
+  return window['go']['main']['App']['ClearCompanionPack']();
+}
+
+export function ClearImagegenKey(arg1) {
+  return window['go']['main']['App']['ClearImagegenKey'](arg1);
+}
+
 export function ClearKey(arg1) {
   return window['go']['main']['App']['ClearKey'](arg1);
+}
+
+export function CompanionState() {
+  return window['go']['main']['App']['CompanionState']();
 }
 
 export function Config() {
   return window['go']['main']['App']['Config']();
 }
 
+export function DeleteCompanionPack(arg1) {
+  return window['go']['main']['App']['DeleteCompanionPack'](arg1);
+}
+
 export function DependencyStatus() {
   return window['go']['main']['App']['DependencyStatus']();
+}
+
+export function DiscardPackGen() {
+  return window['go']['main']['App']['DiscardPackGen']();
 }
 
 export function DiscoverBedrockModels(arg1) {
@@ -38,12 +66,32 @@ export function EnableRemoteControl(arg1) {
   return window['go']['main']['App']['EnableRemoteControl'](arg1);
 }
 
+export function ExportCompanionPack() {
+  return window['go']['main']['App']['ExportCompanionPack']();
+}
+
 export function GetBuildInfo() {
   return window['go']['main']['App']['GetBuildInfo']();
 }
 
+export function GetCompanionConfig() {
+  return window['go']['main']['App']['GetCompanionConfig']();
+}
+
+export function GetCompanionKind() {
+  return window['go']['main']['App']['GetCompanionKind']();
+}
+
+export function ImportCompanionPack() {
+  return window['go']['main']['App']['ImportCompanionPack']();
+}
+
 export function ImportProjects(arg1) {
   return window['go']['main']['App']['ImportProjects'](arg1);
+}
+
+export function InspectPackGenBase(arg1) {
+  return window['go']['main']['App']['InspectPackGenBase'](arg1);
 }
 
 export function InstallLitellmRuntime() {
@@ -64,6 +112,10 @@ export function KillSession(arg1) {
 
 export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
+}
+
+export function ListCompanionPacks() {
+  return window['go']['main']['App']['ListCompanionPacks']();
 }
 
 export function ListProjectDocs(arg1) {
@@ -90,6 +142,10 @@ export function LitellmRuntimeStatus() {
   return window['go']['main']['App']['LitellmRuntimeStatus']();
 }
 
+export function LoadCompanionPack() {
+  return window['go']['main']['App']['LoadCompanionPack']();
+}
+
 export function Models() {
   return window['go']['main']['App']['Models']();
 }
@@ -98,8 +154,40 @@ export function OpenProjectDoc(arg1, arg2) {
   return window['go']['main']['App']['OpenProjectDoc'](arg1, arg2);
 }
 
+export function PackGenConditions() {
+  return window['go']['main']['App']['PackGenConditions']();
+}
+
+export function PackGenEstimate(arg1, arg2) {
+  return window['go']['main']['App']['PackGenEstimate'](arg1, arg2);
+}
+
+export function PackGenProviders() {
+  return window['go']['main']['App']['PackGenProviders']();
+}
+
+export function PackGenSlots() {
+  return window['go']['main']['App']['PackGenSlots']();
+}
+
+export function PackGenStatus() {
+  return window['go']['main']['App']['PackGenStatus']();
+}
+
+export function PackGenStyles() {
+  return window['go']['main']['App']['PackGenStyles']();
+}
+
+export function PickCompanionPack() {
+  return window['go']['main']['App']['PickCompanionPack']();
+}
+
 export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
+}
+
+export function PickPackGenBase() {
+  return window['go']['main']['App']['PickPackGenBase']();
 }
 
 export function PinProject(arg1, arg2) {
@@ -134,6 +222,14 @@ export function RenderProjectDoc(arg1, arg2) {
   return window['go']['main']['App']['RenderProjectDoc'](arg1, arg2);
 }
 
+export function SavePackGen() {
+  return window['go']['main']['App']['SavePackGen']();
+}
+
+export function SelectCompanionPack(arg1) {
+  return window['go']['main']['App']['SelectCompanionPack'](arg1);
+}
+
 export function SelectSession(arg1) {
   return window['go']['main']['App']['SelectSession'](arg1);
 }
@@ -142,8 +238,24 @@ export function SessionStats(arg1) {
   return window['go']['main']['App']['SessionStats'](arg1);
 }
 
+export function SetCompanionKind(arg1) {
+  return window['go']['main']['App']['SetCompanionKind'](arg1);
+}
+
+export function SetImagegenKey(arg1, arg2) {
+  return window['go']['main']['App']['SetImagegenKey'](arg1, arg2);
+}
+
 export function SetKey(arg1, arg2) {
   return window['go']['main']['App']['SetKey'](arg1, arg2);
+}
+
+export function SetPackVariantFocus(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SetPackVariantFocus'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function StartPackGen(arg1) {
+  return window['go']['main']['App']['StartPackGen'](arg1);
 }
 
 export function SwapModel(arg1, arg2) {

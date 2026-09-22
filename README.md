@@ -188,6 +188,29 @@ Models drawer grows it from there. Prefer curating by hand? Copy
 4. **⌘K** — command palette. **⌘= / ⌘- / ⌘0** — terminal font size.
    (On Windows: **Ctrl** in place of **⌘**.)
 
+## Sidebar companion
+
+A small static-image figure can live in the sidebar, beneath the session
+list. It reacts to the state of your selected session — running, just
+finished, finished and waiting on you, errored, idle, or bored (no input for
+a while) — so status is readable at a glance without focusing the terminal.
+**It ships off by default on every platform**; turning it on requires art,
+since Commander doesn't draw anything on its own.
+
+**Pointing it at art.** Settings → Companion → **Sidebar companion**, then
+**Choose folder…** and pick a *pack* — a folder containing a `manifest.json`
+plus portrait images. Packs live in `~/.config/commander/packs/` (or beside
+whatever `COMMANDER_CONFIG` points at — see First run above), never inside
+this repo. The format is documented in `docs/companion-pack-format.md`.
+
+**Generating a pack.** A wizard can generate a pack's artwork for you by
+calling **fal.ai**. No API key ships with the binary, and nothing contacts
+fal.ai until you paste in a key of your own. That key is held in the OS
+credential store — the same place provider keys live (see above) — and is
+never written to the repo or to any config file on disk. **Generating
+artwork spends your own money at fal.ai's prices**; Commander does not front
+or subsidize it, so check fal.ai's pricing before generating a full pack.
+
 ## Development
 
 ```bash

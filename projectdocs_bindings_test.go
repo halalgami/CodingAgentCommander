@@ -10,9 +10,13 @@ import (
 	"time"
 )
 
-// docWireKeys is LOCAL. The shared wireKeys lives in packgen_wire_test.go,
-// which the export deletes by glob — calling it from a surviving file leaves
-// the exported tree uncompilable, and the export's own `go test` gate fails.
+// docWireKeys is LOCAL and duplicates the shared wireKeys in
+// packgen_wire_test.go. That file is no longer deleted by the export — it is
+// published now — so the original reason for the duplication (a surviving
+// file calling into one the export removes, leaving the exported tree
+// uncompilable) no longer applies. The duplication has not been re-justified
+// or removed; it is just here, unreviewed. Do not remove it as part of an
+// unrelated change.
 func docWireKeys(t *testing.T, v any) []string {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -261,5 +265,62 @@ func TestListSessionDocsErrorsOnAnUnknownSession(t *testing.T) {
 	}
 	if _, err := NewApp().ListSessionDocs(""); err == nil {
 		t.Fatal("an empty window id was accepted")
+	}
+}
+
+// A repo can hand the user a program and let the app's own copy walk them into
+// running it: the viewer refuses an oversized or binary file with "open it
+// externally instead", classifyDocLink offers ANY relative path as a document
+// regardless of extension, and LaunchServices executes a .command. The escape
+// hatch is the last place that can say no, so it has to.
+func TestOpenProjectDocRefusesPrograms(t *testing.T) {
+	root, _ := docFixture(t)
+	// Executable bit set, extension that macOS runs through Terminal.
+	writeDoc(t, filepath.Join(root, "setup.command"), "#!/bin/sh\necho pwned\n")
+	if err := os.Chmod(filepath.Join(root, "setup.command"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Extension alone: mode 644, but LaunchServices does not consult the mode.
+	writeDoc(t, filepath.Join(root, "install.bat"), "echo pwned\n")
+	// Exec bit alone: an extension nothing special, but marked runnable.
+	writeDoc(t, filepath.Join(root, "notes.md"), "# hi\n")
+	if err := os.Chmod(filepath.Join(root, "notes.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var opened []string
+	restore := docOpener
+	docOpener = func(path string) error { opened = append(opened, path); return nil }
+	t.Cleanup(func() { docOpener = restore })
+
+	for _, rel := range []string{"setup.command", "install.bat", "notes.md"} {
+		if err := NewApp().OpenProjectDoc(root, rel); err == nil {
+			t.Errorf("handed %s to the OS", rel)
+		}
+	}
+	if len(opened) != 0 {
+		t.Fatalf("spawned an opener for a program: %v", opened)
+	}
+}
+
+// The guard must not eat the formats the escape hatch exists for. A PDF is not
+// a program however the repo sets its mode bits.
+func TestOpenProjectDocStillOpensDocuments(t *testing.T) {
+	root, _ := docFixture(t)
+	writeDoc(t, filepath.Join(root, "report.pdf"), "%PDF-1.4\n")
+	writeDoc(t, filepath.Join(root, "sheet.xlsx"), "PK\x03\x04")
+
+	var opened []string
+	restore := docOpener
+	docOpener = func(path string) error { opened = append(opened, path); return nil }
+	t.Cleanup(func() { docOpener = restore })
+
+	for _, rel := range []string{"report.pdf", "sheet.xlsx", "logo.bin"} {
+		if err := NewApp().OpenProjectDoc(root, rel); err != nil {
+			t.Errorf("%s: %v", rel, err)
+		}
+	}
+	if len(opened) != 3 {
+		t.Fatalf("opener got %v", opened)
 	}
 }

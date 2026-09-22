@@ -20,6 +20,8 @@ export const DEFAULTS = Object.freeze({
   // carry identical DEFAULTS, so a feature-named key would trip the export's
   // content grep on the public copy.
   dockH: 0,
+  // Companion config is Go-owned (companion.json), not a UI pref — see
+  // CompanionConfig / GetCompanionConfig.
 });
 
 export function loadPrefs(storage = globalThis.localStorage) {

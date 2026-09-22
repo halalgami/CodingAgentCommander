@@ -118,3 +118,23 @@ func TestLitellmBinFindsInstalled(t *testing.T) {
 	}
 	t.Logf("resolved litellm at %s", p)
 }
+
+// litellm's own --host default is 0.0.0.0, so the flag being ABSENT is the
+// vulnerability: the proxy and every upstream credential it holds become
+// reachable from the whole LAN, gated only by the bearer token. freePort()
+// picks the number on 127.0.0.1, which reads as loopback-scoped and is not.
+func TestLitellmArgsBindLoopbackOnly(t *testing.T) {
+	args := litellmArgs("/tmp/litellm.yaml", 54321)
+	var host string
+	for i, a := range args {
+		if a == "--host" && i+1 < len(args) {
+			host = args[i+1]
+		}
+	}
+	if host == "" {
+		t.Fatal("no --host: litellm defaults to 0.0.0.0 and publishes the proxy to the LAN")
+	}
+	if host != "127.0.0.1" {
+		t.Fatalf("--host %q: the proxy must not leave loopback", host)
+	}
+}

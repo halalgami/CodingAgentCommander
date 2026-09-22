@@ -137,7 +137,16 @@
      bottom and its own scrollbar would never appear. */
   .sessions {
     flex: 0 1 auto; min-height: 0; overflow-y: auto;
-    margin: 0; padding: 0;
+    /* margin-bottom: auto pins the band to the column's BOTTOM edge. Nothing
+       here grows once dockH is set (the list is grow-0 by design above, and the
+       inline dockH sets flex-grow: 0), so in a short column the leftover space
+       used to collect BELOW the dock and the band floated mid-column. That also
+       broke the drag: startResize measures from the band's own bottom edge, so
+       shrinking the band moved that edge up and the next pointermove subtracted
+       from a smaller number — the band raced upward away from the cursor
+       instead of handing the space to the list. With a full list there is no
+       free space and auto resolves to 0, so the crowded case is unchanged. */
+    margin: 0 0 auto; padding: 0;
   }
   /* flex: 1 0 40% — take the remainder, and never shrink below 40% of the
      sidebar height however many sessions exist. That is the cap §4.1 asks for,

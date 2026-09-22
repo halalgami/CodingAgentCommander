@@ -1,7 +1,8 @@
 <script>
   import Drawer from "./Drawer.svelte";
   import Select from "./Select.svelte";
-  import { app } from "../stores.svelte.js";
+  import { openPackGen } from "../companion/packgen.svelte.js";
+  import { app, companionSetKind, companionPickPack, companionClearPack } from "../stores.svelte.js";
   import { theme, applyAccent, resetAccent } from "../theme/theme.svelte.js";
   import { prefs, setPref } from "../prefs.svelte.js";
   import { replayIntro } from "./BootIntro.svelte";
@@ -59,6 +60,80 @@
     <span class="dim">native Anthropic sessions only</span>
   </label>
 
+  <h3>Companion</h3>
+  <!-- Mutually exclusive, and the exclusivity is enforced in Go at
+       overlay-creation time: a frontend-only check would allow two pollers
+       to exist during the transition (spec §6.1). -->
+  <div class="radios" role="radiogroup" aria-label="Companion kind">
+    <label class="check">
+      <input type="radio" name="companion-kind" data-testid="companion-kind-panel"
+        checked={app.companionCfg.kind === "panel"}
+        onchange={() => companionSetKind("panel")} />
+      Sidebar companion <span class="dim">image pack, below the session list</span>
+    </label>
+    <label class="check">
+      <input type="radio" name="companion-kind" data-testid="companion-kind-off"
+        checked={app.companionCfg.kind === "off"}
+        onchange={() => companionSetKind("off")} />
+      Off
+    </label>
+  </div>
+
+  {#if app.companionCfg.kind === "panel"}
+    <label class="row">Pack
+      <span class="dim mono">
+        {app.companionPack?.name || (app.companionCfg.packPath
+          ? app.companionCfg.packPath.split("/").pop()
+          : "none")}
+      </span>
+    </label>
+    <div class="row">
+      <!-- Generating opens a NON-MODAL panel, so this drawer closing does not
+           interrupt anything: the run lives in Go. -->
+      <button class="primary" data-testid="companion-create-pack"
+        onclick={() => { app.drawer = null; openPackGen(); }}>
+        Create a pack…
+      </button>
+      <button class="ghost" data-testid="companion-pick-pack" onclick={() => companionPickPack()}>
+        Choose folder…
+      </button>
+      <button class="ghost" data-testid="companion-clear-pack" onclick={() => companionClearPack()}>
+        Clear
+      </button>
+    </div>
+    {#if app.companionWarnings.length}
+      <!-- Go returns {pack, warnings[]} and never fails the app; the list lives
+           in Go so it survives this drawer being closed at load time (§5.10). -->
+      <ul class="warnings" data-testid="companion-warnings">
+        {#each app.companionWarnings as w, i (i)}<li>{w}</li>{/each}
+      </ul>
+    {/if}
+    <p class="dim">
+      A pack is a folder with a <span class="mono">manifest.json</span> and portrait
+      images, in <span class="mono">Commander/packs/</span>. Format:
+      <span class="mono">docs/companion-pack-format.md</span>
+    </p>
+  {/if}
+
+  <label class="check">
+    <input type="checkbox" data-testid="ambient-motion-toggle" checked={prefs.ambientMotion}
+      onchange={(e) => setPref("ambientMotion", e.target.checked)} />
+    Ambient motion
+    <span class="dim">off leaves transition-only motion</span>
+  </label>
+  <label>
+    Notice dwell <span class="mono">{prefs.noticeSeconds.toFixed(1)}s</span>
+    <input type="range" min="2" max="15" step="0.5" value={prefs.noticeSeconds}
+      data-testid="notice-seconds"
+      oninput={(e) => setPref("noticeSeconds", Number(e.target.value))} />
+  </label>
+  <label class="check">
+    <input type="checkbox" data-testid="scanlines-toggle" checked={prefs.scanlines}
+      onchange={(e) => setPref("scanlines", e.target.checked)} />
+    Scanlines
+    <span class="dim">off by default</span>
+  </label>
+
   <footer>
     <p class="dim">Commander — Claude Code fleet control</p>
     <button class="ghost" data-testid="replay-intro" onclick={() => { app.drawer = null; replayIntro(); }}>
@@ -77,6 +152,12 @@
   label { display: block; margin-bottom: var(--sp-3); font-size: var(--fs-1); color: var(--text-1); }
   .row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
   .check { display: flex; align-items: center; gap: var(--sp-2); }
+  .radios { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+  .radios .check { margin-bottom: 0; }
+  .warnings {
+    margin: 0 0 var(--sp-3); padding-left: var(--sp-4);
+    color: var(--warn); font-size: var(--fs-0); line-height: 1.5;
+  }
   .mono { font-family: var(--font-mono); color: var(--text-0); }
   input[type="range"] { width: 100%; margin-top: var(--sp-2); accent-color: var(--accent); }
   button {
@@ -90,4 +171,6 @@
   }
   .dim { color: var(--text-2); font-size: var(--fs-0); margin: 0; }
   .ghost { background: none; border: 0; color: var(--text-1); }
+  .primary { background: var(--accent); color: var(--surface-0); border-color: var(--accent); }
+  .primary:hover { background: var(--accent); filter: brightness(1.08); }
 </style>

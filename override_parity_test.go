@@ -7,48 +7,29 @@ import (
 	"testing"
 )
 
-// sharedBindings are methods that must exist in BOTH the private app.go and the
-// override copy. The export replaces app.go wholesale, so a binding added only
-// to the private file yields a mirror without the feature — and neither export
-// gate notices: the grep gate looks for leaked strings, and the build gate
-// compiles happily because the absence is additive.
-//
-// This is a curated list rather than a full set comparison: the override
-// legitimately omits methods that the export strips, and enumerating those here
-// would put their vocabulary into a file that survives the export.
-var sharedBindings = []string{
-	"func (a *App) DiscoverOllamaModels()",
-	"func (a *App) DiscoverZenModels()",
-	"func (a *App) ListProviders()",
-	"func (a *App) AddProvider(",
-	"func (a *App) AddModel(",
-	"func (a *App) KeyStatus()",
+// overrideDir holds the copies this test compares against. The export deletes
+// it — the tooling is not published — so in the exported tree there is nothing
+// to compare and the invariant is vacuous.
+const overrideDir = "scripts/_public-overrides"
+
+// skipIfExported distinguishes "this is the published tree" from "the file is
+// missing", which are the same os.Stat error but opposite meanings. Skipping on
+// the absence of the whole directory is safe; skipping on a missing FILE would
+// hide exactly the drift this test exists to catch.
+func skipIfExported(t *testing.T) {
+	t.Helper()
+	if _, err := os.Stat(overrideDir); os.IsNotExist(err) {
+		t.Skip("running inside the exported tree, where the override copies are not published")
+	}
 }
 
-func TestOverrideCarriesSharedBindings(t *testing.T) {
-	// Skip on the absence of the override DIRECTORY, not a file: in the exported
-	// tree the directory is gone, and a missing file there would mean something
-	// different (a deleted override) than it does here.
-	if _, err := os.Stat(overrideDir); os.IsNotExist(err) {
-		t.Skip("no override directory: this is an exported tree")
-	}
-	priv, err := os.ReadFile("app.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	over, err := os.ReadFile(filepath.Join(overrideDir, "app.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, sig := range sharedBindings {
-		if !strings.Contains(string(priv), sig) {
-			t.Errorf("app.go is missing %q", sig)
-		}
-		if !strings.Contains(string(over), sig) {
-			t.Errorf("%s/app.go is missing %q -- the export would ship a mirror without it", overrideDir, sig)
-		}
-	}
-}
+// app.go, app_test.go, App.svelte and prefsData.js were overridden until the
+// sidebar companion was published (spec 2026-09-07 §7): the overrides existed
+// only to cut companion code out of shared files. That code has since been
+// lifted into overlay-only files the export deletes wholesale, so these four
+// carry nothing private and are published verbatim — no override, and the
+// parity tests that guarded them were deleted with them. Four fewer files that
+// can silently drift.
 
 // providerLabelParity guards the same drift in the store the export also
 // overlays: a provider added to one label map and not the other renders as a
@@ -72,46 +53,6 @@ func TestOverrideStoreCarriesProviderLabels(t *testing.T) {
 		}
 		if !strings.Contains(string(over), ptype) {
 			t.Errorf("%s/%s is missing provider label %q", overrideDir, rel, ptype)
-		}
-	}
-}
-
-// sharedAppSvelteMounts are markers that must exist in BOTH copies of
-// App.svelte. Same failure mode as sharedBindings: the export replaces the
-// file wholesale, so a component mounted only in the private copy yields a
-// mirror where the feature is unreachable — and no gate notices, because an
-// absence compiles and greps clean.
-var sharedAppSvelteMounts = []string{
-	`{#if app.drawer === "docview"}<DocViewer />{/if}`,
-	`import DocViewer from "./lib/components/DocViewer.svelte";`,
-	// The doc-viewer Playwright spec SURVIVES the export and drives the viewer
-	// through this seam, so a mirror missing it has a failing test suite rather
-	// than a missing feature. Same class as the mounts above.
-	`window.__openDoc = openDoc;`,
-	// The index drawer (Task 11): its own mount, its own import, and the same
-	// class of window seam the spec drives it through.
-	`{#if app.drawer === "docs"}<DocsDrawer />{/if}`,
-	`import DocsDrawer from "./lib/components/DocsDrawer.svelte";`,
-	`window.__openDocsList = openDocsList;`,
-}
-
-func TestOverrideAppSvelteCarriesSharedMounts(t *testing.T) {
-	skipIfExported(t)
-	rel := filepath.Join("frontend", "src", "App.svelte")
-	priv, err := os.ReadFile(rel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	over, err := os.ReadFile(filepath.Join(overrideDir, rel))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, marker := range sharedAppSvelteMounts {
-		if !strings.Contains(string(priv), marker) {
-			t.Errorf("%s is missing %q", rel, marker)
-		}
-		if !strings.Contains(string(over), marker) {
-			t.Errorf("%s/%s is missing %q -- the export would ship a mirror without it", overrideDir, rel, marker)
 		}
 	}
 }
@@ -145,5 +86,98 @@ func TestOverrideCIDropsTheExportTripwire(t *testing.T) {
 	// A job must survive, or the override is a CI file that tests nothing.
 	if !strings.Contains(string(over), "runs-on:") {
 		t.Error("the public ci.yml override has no jobs left")
+	}
+}
+
+// The SettingsDrawer override is no longer a whole-section deletion: the public
+// build keeps the Companion section (sidebar kind + pack controls) and drops
+// only the avatar radio and the avatar-only controls. A partial strip drifts in
+// both directions, so both are asserted.
+func TestSettingsDrawerOverrideKeepsSidebarAndDropsAvatar(t *testing.T) {
+	skipIfExported(t)
+	rel := filepath.Join("frontend", "src", "lib", "components", "SettingsDrawer.svelte")
+	priv, err := os.ReadFile(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	over, err := os.ReadFile(filepath.Join(overrideDir, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Present in both: the sidebar kind and its pack controls are public.
+	keep := []string{
+		`data-testid="companion-kind-panel"`,
+		`data-testid="companion-kind-off"`,
+		`data-testid="companion-create-pack"`,
+		`data-testid="companion-pick-pack"`,
+		`data-testid="companion-clear-pack"`,
+		"docs/companion-pack-format.md",
+	}
+	for _, m := range keep {
+		if !strings.Contains(string(priv), m) {
+			t.Errorf("%s is missing %q", rel, m)
+		}
+		if !strings.Contains(string(over), m) {
+			t.Errorf("%s/%s is missing %q -- the mirror would ship the section without it", overrideDir, rel, m)
+		}
+	}
+
+	// Private only: the overlay has no implementation in the public build, and
+	// the model label names the bundled model, which is gate vocabulary.
+	drop := []string{
+		`data-testid="companion-kind-avatar"`,
+		`data-testid="companion-size"`,
+		`data-testid="companion-opacity"`,
+		`data-testid="companion-jiggle-hair"`,
+		`data-testid="companion-pick-model"`,
+		`data-testid="companion-reset-pos"`,
+		"companionSetSize",
+		"companionPickModel",
+	}
+	for _, m := range drop {
+		if !strings.Contains(string(priv), m) {
+			t.Errorf("%s no longer has %q -- this test is guarding something that moved", rel, m)
+		}
+		if strings.Contains(string(over), m) {
+			t.Errorf("%s/%s still has %q -- it calls a binding the public build does not have", overrideDir, rel, m)
+		}
+	}
+}
+
+// stores.svelte.js keeps an override for one reason: five bindings that exist
+// only in the private build are imported BY NAME, and a missing named import
+// is a build failure rather than a silent absence. Everything else companion
+// must be present in both copies.
+func TestStoreOverrideKeepsSidebarActionsAndDropsOverlayBindings(t *testing.T) {
+	skipIfExported(t)
+	rel := filepath.Join("frontend", "src", "lib", "stores.svelte.js")
+	priv, err := os.ReadFile(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	over, err := os.ReadFile(filepath.Join(overrideDir, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range []string{
+		"companionSetKind", "companionLoadPack", "companionPickPack",
+		"companionClearPack", "companionState", "companionPack",
+	} {
+		if !strings.Contains(string(priv), m) {
+			t.Errorf("%s is missing %q", rel, m)
+		}
+		if !strings.Contains(string(over), m) {
+			t.Errorf("%s/%s is missing %q", overrideDir, rel, m)
+		}
+	}
+	for _, m := range []string{
+		"SetCompanionSize", "SetCompanionOpacity", "SetCompanionJiggle",
+		"ResetCompanionPos", "PickCompanionModel",
+	} {
+		if strings.Contains(string(over), m) {
+			t.Errorf("%s/%s imports %q, which the public build's bindings do not have",
+				overrideDir, rel, m)
+		}
 	}
 }

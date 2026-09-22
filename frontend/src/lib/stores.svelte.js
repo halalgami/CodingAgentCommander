@@ -7,6 +7,9 @@ import {
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
   DiscoverZenModels, DiscoverOllamaModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage,
+  GetCompanionConfig,
+  SetCompanionKind, LoadCompanionPack, PickCompanionPack, ClearCompanionPack,
+  CompanionState,
   GetBuildInfo, LitellmRuntimeStatus, InstallLitellmRuntime,
   DependencyStatus, InstallPwsh,
 } from "../../wailsjs/go/main/App.js";
@@ -14,8 +17,14 @@ import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime.js";
 import { migrateHistoryOnce } from "./history.js";
 import { prefs } from "./prefs.svelte.js";
 import { forget } from "./termbus.js";
+import { computeFirstRunOfDay } from "./dayRollover.js";
 
-// How long a latched app-level error stays attributed to a session.
+// How long a latched app-level error stays attributed to a session. Generic
+// on purpose — this file has a public-override copy, and a feature-named
+// constant here would trip the export's content grep on the public copy.
+// Kept numerically in sync with the sidebar figure's own ERROR_TTL_MS by
+// convention, not by import — the two live on opposite sides of the export
+// boundary, so nothing can import across it.
 export const ERROR_TTL_MS = 30000;
 
 export const app = $state({
@@ -27,12 +36,32 @@ export const app = $state({
   about: false,            // About modal open?
   paletteOpen: false,
   launchError: "",
-  // Latched app:error timestamp, attributed to whichever session is selected
-  // when it fires (and cleared once ERROR_TTL_MS has passed — see refresh()).
-  errorMs: 0,
   // LiteLLM first-run installer. null = closed; object = open, driving
   // LitellmRuntimeModal: { python, canInstall, running, log[], error, done }.
   litellmInstall: null,
+  // Companion config (Go-owned; mirrored here for the Settings panel). `kind`
+  // is authoritative and mutually exclusive: "avatar" | "panel" | "off".
+  companionCfg: {
+    enabled: true, kind: "off", size: 340, opacity: 1,
+    jiggle: { hair: 1, bust: 1, skirt: 1 }, modelPath: "", packPath: "",
+  },
+  // Sidebar-companion runtime state. companionPack === null means "no pack
+  // configured", which is the branch that shows the set-up affordance rather
+  // than a placeholder figure.
+  companionPack: null,
+  companionWarnings: [],
+  companionState: {
+    sessions: [], selected: "", running: 0, finished: 0, finishSeq: 0, lastFinished: "",
+  },
+  // Latched app:error timestamp, attributed to whichever session is selected
+  // when it fires (and cleared once ERROR_TTL_MS has passed — see refresh()).
+  // reportError already emits app:error to the deck, so this needs no new Go
+  // state and no binding regeneration.
+  errorMs: 0,
+  // True for the whole session iff this is the first app start of the local
+  // calendar day (see dayRollover.js), set once in loadAll(). Generic name
+  // and location for the same reason as errorMs above.
+  firstRunOfDay: false,
   // External-tool preflight: the last DependencyStatus() snapshot (tmux, pwsh,
   // claude), and null | { running, log[], error, done } driving
   // DependenciesModal. Kept separate so the sidebar can show the tool state
@@ -57,8 +86,10 @@ export async function refresh() {
     app.sessions = await ListSessions();
     for (const s of app.sessions) app.stats[s.windowID] = await SessionStats(s.windowID);
   } catch { /* plain browser / backend gone */ }
+  try { app.companionState = await CompanionState(); } catch {}
   // The latch has no timer of its own; refresh() runs on a 5s poll (App.svelte)
-  // and is what actually clears an expired error out of reactive state.
+  // and is what actually clears an expired error out of reactive state, so a
+  // card's error tint does not stay lit forever once nothing else touches it.
   if (app.errorMs && Date.now() - app.errorMs >= ERROR_TTL_MS) app.errorMs = 0;
 }
 
@@ -82,6 +113,10 @@ export async function reloadModels() {
 }
 
 export async function loadAll() {
+  // Computed once per process start, straight off the injectable pure
+  // function — the day-rollover key it reads/writes lives entirely in
+  // dayRollover.js, this call is the only place that touches it.
+  try { app.firstRunOfDay = computeFirstRunOfDay(Date.now()); } catch {}
   try {
     app.models = await Config();
     if (app.models.length && !app.selectedModel) app.selectedModel = preferredModel();
@@ -89,12 +124,61 @@ export async function loadAll() {
   try { app.keys = await KeyStatus(); } catch {}
   try { app.catalog = await Models(); } catch {}
   try { app.providers = await ListProviders(); } catch {}
+  try { app.companionCfg = await GetCompanionConfig(); } catch {}
+  if (app.companionCfg.kind === "panel") await companionLoadPack();
+  // Event-first delivery from the four Go push points (finish, startup, launch,
+  // kill); refresh() polls the binding as a fallback.
+  try { EventsOn("companion:state", (st) => { app.companionState = st; }); } catch {}
   // Latch the most recent app:error. App.svelte already toasts the same event;
   // this is an independent subscription so App.svelte's delta stays at zero.
   try { EventsOn("app:error", () => { app.errorMs = Date.now(); }); } catch {}
   try { await migrateHistoryOnce(); } catch {}
   await checkDependencies();
   await refresh();
+}
+
+// ---- sidebar-companion actions ----
+// Kind is enforced exclusive in Go at overlay-creation time; a frontend-only
+// check would allow two pollers to exist during the transition.
+export async function companionSetKind(kind) {
+  try {
+    await SetCompanionKind(kind);
+    app.companionCfg.kind = kind;
+    if (kind === "panel") await companionLoadPack();
+  } catch (e) { toast("" + e, "error"); }
+}
+
+// The ONLY error case Go raises is "no pack configured"; every other problem
+// arrives as a warning on the parsed pack. So a rejection here means "show the
+// set-up affordance", not "something broke".
+export async function companionLoadPack() {
+  try {
+    const p = await LoadCompanionPack();
+    app.companionPack = p;
+    app.companionWarnings = p?.warnings ?? [];
+  } catch {
+    app.companionPack = null;
+    app.companionWarnings = [];
+  }
+}
+
+export async function companionPickPack() {
+  try {
+    const name = await PickCompanionPack();
+    if (!name) return;                       // cancelled
+    app.companionCfg = await GetCompanionConfig();
+    await companionLoadPack();
+    toast("Companion pack: " + name);
+  } catch (e) { toast("" + e, "error"); }
+}
+
+export async function companionClearPack() {
+  try {
+    await ClearCompanionPack();
+    app.companionCfg.packPath = "";
+    app.companionPack = null;
+    app.companionWarnings = [];
+  } catch (e) { toast("" + e, "error"); }
 }
 
 // checkDependencies snapshots the external tools and, by default, opens the

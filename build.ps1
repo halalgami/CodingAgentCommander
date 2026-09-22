@@ -13,6 +13,7 @@
     test            — Go suite (serial; see -p 1 note below)
     vet             — go vet
     all             — vet, then test, then build
+    check           — the pre-merge gate: vet, Go test, node test, Playwright
     release         — portable exe for distribution, plus its SHA256 file
 
 .EXAMPLE
@@ -21,10 +22,10 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('build', 'dev', 'test', 'vet', 'all', 'release')]
+    [ValidateSet('build', 'dev', 'test', 'vet', 'all', 'check', 'release')]
     [string]$Target = 'build',
 
-    [string]$Version = '0.12.1'
+    [string]$Version = '0.12.2'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -155,6 +156,40 @@ switch ($Target) {
         Invoke-Step 'go vet' { & $go vet -tags $buildTags ./... }
         Invoke-Step 'go test' { & $go @testArgs }
         Invoke-Step 'wails build' { & $wails build -tags $buildTags -ldflags $ldflags }
+    }
+    'check' {
+        # Mirrors `make check`, which a Windows checkout cannot run at all —
+        # Windows ships no make. Worth more than a smoke run: two of the
+        # Playwright specs are the SOLE verification of correctness invariants
+        # rather than UI behaviour — that toggling optional sidebar content
+        # fires no pty resize, and that the terminal's activity registration
+        # does not leak across session switches. Neither has any other
+        # coverage, in Go or in node.
+        #
+        # CI deliberately stays Go-only: the runner is Windows and would
+        # reinstall browsers on every job, for specs that are a developer
+        # feedback loop rather than a release gate. So this is a local gate.
+        $npm = Resolve-Tool -Name 'npm.cmd' `
+            -Candidates @((Join-Path $env:ProgramFiles 'nodejs\npm.cmd')) `
+            -Hint 'Install Node.js LTS from https://nodejs.org/'
+
+        Invoke-Step 'go vet' { & $go vet -tags $buildTags ./... }
+        Invoke-Step 'go test' { & $go @testArgs }
+
+        Push-Location (Join-Path $PSScriptRoot 'frontend')
+        try {
+            Invoke-Step 'npm test' { & $npm test }
+
+            # Playwright needs its browser downloaded once per machine. Left to
+            # itself it fails deep in a spec with an "Executable doesn't exist"
+            # dump; say so up front with the command that fixes it.
+            $browsers = Join-Path $env:LOCALAPPDATA 'ms-playwright'
+            if (-not (Get-ChildItem $browsers -Filter 'chromium-*' -ErrorAction SilentlyContinue)) {
+                throw "Playwright has no chromium. Run this once: cd frontend; npm exec -- playwright install chromium"
+            }
+            Invoke-Step 'playwright test' { & $npm run test:e2e }
+        }
+        finally { Pop-Location }
     }
     'release' {
         # -webview2 embed bundles Microsoft's WebView2 bootstrapper (~150 KB).

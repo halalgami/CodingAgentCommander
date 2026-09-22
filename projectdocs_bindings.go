@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -42,10 +43,11 @@ func (a *App) RenderProjectDoc(root, rel string) (DocRender, error) {
 //
 // Both facts are read from the registry rather than passed in: a windowID is
 // all the frontend needs to know, and a launch timestamp never has to cross
-// the binding. This lives here rather than as a SessionStats field precisely
-// because app.go has an override copy the export overlays wholesale — a new
-// field there would need mirroring by hand, and override_parity_test.go's list
-// is curated, so nothing would catch the miss.
+// the binding. This lives here rather than as a SessionStats field: app.go no
+// longer has a public override (it publishes verbatim since the sidebar
+// companion shipped), but SessionStats is still a broad, general-purpose
+// struct, and a field that only this call needs doesn't belong on it just
+// because the override reason that used to justify the split is gone.
 //
 // The returned DocListing.Root is inherited from the ListProjectDocs call
 // below, not set separately — it is the session's cwd, resolved.
@@ -105,9 +107,24 @@ var docOpener = openInDefaultApp
 //
 // Note it does NOT go through readDocSource: the size cap and the binary sniff
 // are reasons to send a file HERE, not reasons to refuse it here.
+//
+// It does, however, refuse programs — see docOpenAllowed. The viewer's own
+// refusals ("too large to show here — open it externally instead") name this
+// button, so a repo can pick the anchor text on a link, get the viewer to
+// decline the file, and let our own copy walk the user to the one click that
+// executes it. The guard is what stops that chain.
 func (a *App) OpenProjectDoc(root, rel string) error {
 	path, err := docPath(root, rel)
 	if err != nil {
+		return err
+	}
+	// docPath already proved this is a regular, non-symlink file inside the
+	// project; this Lstat is only for the mode bits.
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("%s is no longer in the project: %w", rel, err)
+	}
+	if err := docOpenAllowed(path, fi.Mode()); err != nil {
 		return err
 	}
 	return docOpener(path)

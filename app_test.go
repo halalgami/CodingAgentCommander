@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +18,34 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 )
+
+// mediaHandler is the seam main.go's AssetServer.Handler is wired to (the
+// fallback for any GET the embedded assets answer with os.ErrNotExist). It
+// must delegate to the id-map lookup handler: known ids serve their file,
+// everything else 404s rather than touching the filesystem by path.
+func TestMediaHandlerDelegatesToPackLookup(t *testing.T) {
+	a, _ := loadedApp(t)
+	srv := httptest.NewServer(a.mediaHandler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + mediaPackPrefix + "idle-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200 for a known id through mediaHandler, got %d", resp.StatusCode)
+	}
+
+	resp2, err := http.Get(srv.URL + mediaPackPrefix + "no-such-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNotFound {
+		t.Fatalf("want 404 for an unregistered id through mediaHandler, got %d", resp2.StatusCode)
+	}
+}
 
 func TestBuildLaunchSpecNative(t *testing.T) {
 	keyring.MockInit()
@@ -112,8 +143,12 @@ func TestNotifyBackgroundVsFocused(t *testing.T) {
 	if fn.calls != 1 {
 		t.Errorf("expected 1 desktop notify for background, got %d", fn.calls)
 	}
-	if len(fe.events) != 1 || fe.events[0] != "session:finished" {
-		t.Errorf("expected session:finished event, got %v", fe.events)
+	// handleNotify emits session:finished and, via pushCompanion, companion:state.
+	// Asserted as an exact set rather than "session:finished is present": the
+	// point of this assertion is that a background finish emits nothing
+	// unexpected, and a presence check would not notice a third event.
+	if want := []string{"session:finished", "companion:state"}; !slices.Equal(fe.events, want) {
+		t.Errorf("events = %v, want %v", fe.events, want)
 	}
 	if a.sessions["@1"].Status != "finished" {
 		t.Errorf("bg session status = %q", a.sessions["@1"].Status)
@@ -471,12 +506,19 @@ type captureHost struct {
 	killed   []string
 	windows  []tmux.WindowState
 	sentKeys []string // windowID+"\x00"+text, one per SendKeys call
+	// launchErr, when set, makes every Launch call fail instead of
+	// succeeding — the seam that lets tests exercise startSession's error
+	// path from above (LaunchSession, SwapModel) without a real tmux.
+	launchErr error
 }
 
 func (c *captureHost) Launch(s tmux.LaunchSpec) (tmux.WindowState, error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.launchErr != nil {
+		return tmux.WindowState{}, c.launchErr
+	}
 	c.launched = append(c.launched, s)
-	c.mu.Unlock()
 	return tmux.WindowState{ID: "@sw", Name: s.WindowName}, nil
 }
 func (c *captureHost) List(string) ([]tmux.WindowState, error) {

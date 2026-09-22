@@ -10,11 +10,25 @@ export function AddModel(arg1:main.ModelInput):Promise<void>;
 
 export function AddProvider(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function BrowseCompanionPack():Promise<main.PackBrowse>;
+
+export function CancelPackGen():Promise<main.PackGenState>;
+
+export function ClearCompanionPack():Promise<void>;
+
+export function ClearImagegenKey(arg1:string):Promise<void>;
+
 export function ClearKey(arg1:string):Promise<void>;
+
+export function CompanionState():Promise<main.CompanionState>;
 
 export function Config():Promise<Array<main.ModelInfo>>;
 
+export function DeleteCompanionPack(arg1:string):Promise<void>;
+
 export function DependencyStatus():Promise<Array<deps.Tool>>;
+
+export function DiscardPackGen():Promise<void>;
 
 export function DiscoverBedrockModels(arg1:string):Promise<Array<bedrock.Model>>;
 
@@ -24,9 +38,19 @@ export function DiscoverZenModels():Promise<Array<zen.Model>>;
 
 export function EnableRemoteControl(arg1:string):Promise<void>;
 
+export function ExportCompanionPack():Promise<string>;
+
 export function GetBuildInfo():Promise<main.BuildInfo>;
 
+export function GetCompanionConfig():Promise<main.CompanionConfig>;
+
+export function GetCompanionKind():Promise<string>;
+
+export function ImportCompanionPack():Promise<string>;
+
 export function ImportProjects(arg1:Array<main.ProjectEntry>):Promise<void>;
+
+export function InspectPackGenBase(arg1:string):Promise<main.PackGenBase>;
 
 export function InstallLitellmRuntime():Promise<void>;
 
@@ -37,6 +61,8 @@ export function KeyStatus():Promise<Array<main.KeyInfo>>;
 export function KillSession(arg1:string):Promise<void>;
 
 export function LaunchSession(arg1:string,arg2:string,arg3:boolean):Promise<main.SessionInfo>;
+
+export function ListCompanionPacks():Promise<Array<main.PackSummary>>;
 
 export function ListProjectDocs(arg1:string):Promise<main.DocListing>;
 
@@ -50,11 +76,29 @@ export function ListSessions():Promise<Array<main.SessionInfo>>;
 
 export function LitellmRuntimeStatus():Promise<router.RuntimeStatus>;
 
+export function LoadCompanionPack():Promise<main.Pack>;
+
 export function Models():Promise<Array<main.ModelDetail>>;
 
 export function OpenProjectDoc(arg1:string,arg2:string):Promise<void>;
 
+export function PackGenConditions():Promise<Array<main.PackGenCondition>>;
+
+export function PackGenEstimate(arg1:string,arg2:number):Promise<main.PackGenCost>;
+
+export function PackGenProviders():Promise<Array<main.PackGenProvider>>;
+
+export function PackGenSlots():Promise<Array<main.PackGenSlot>>;
+
+export function PackGenStatus():Promise<main.PackGenState>;
+
+export function PackGenStyles():Promise<Array<main.PackGenStyle>>;
+
+export function PickCompanionPack():Promise<string>;
+
 export function PickFolder():Promise<string>;
+
+export function PickPackGenBase():Promise<string>;
 
 export function PinProject(arg1:string,arg2:boolean):Promise<void>;
 
@@ -72,11 +116,23 @@ export function RenameSession(arg1:string,arg2:string):Promise<void>;
 
 export function RenderProjectDoc(arg1:string,arg2:string):Promise<main.DocRender>;
 
+export function SavePackGen():Promise<main.PackGenState>;
+
+export function SelectCompanionPack(arg1:string):Promise<string>;
+
 export function SelectSession(arg1:string):Promise<void>;
 
 export function SessionStats(arg1:string):Promise<main.SessionStats>;
 
+export function SetCompanionKind(arg1:string):Promise<void>;
+
+export function SetImagegenKey(arg1:string,arg2:string):Promise<void>;
+
 export function SetKey(arg1:string,arg2:string):Promise<void>;
+
+export function SetPackVariantFocus(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number):Promise<void>;
+
+export function StartPackGen(arg1:main.PackGenRequest):Promise<main.PackGenState>;
 
 export function SwapModel(arg1:string,arg2:string):Promise<main.SessionInfo>;
 

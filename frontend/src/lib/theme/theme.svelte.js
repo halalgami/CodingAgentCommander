@@ -2,6 +2,7 @@
 // xterm theme object in sync. ANSI 16 are FIXED (hand-tuned for Claude Code
 // output legibility) — only bg/fg/cursor/selection follow the app theme.
 import { deriveAccent, DEFAULT_ACCENT } from "./accent.js";
+import { trailing } from "../rate.js";
 
 const KEY = "commander.accent.v1";
 
@@ -24,6 +25,27 @@ export const xtermTheme = $state({
   ...ANSI,
 });
 
+// ONE thing is deferred here, and it is not the persistence.
+//
+// Terminal.svelte has an $effect that spreads xtermTheme into
+// `term.options.theme` — xterm's WHOLE-theme setter, which invalidates the
+// colour cache and repaints the entire viewport including scrollback. The hue
+// and vividness sliders call applyAccent per input event, so dragging one
+// triggered that repaint hundreds of times; on a large scrollback it is the most
+// expensive thing the app does per input event.
+//
+// The localStorage write is NOT deferred, though it was at first: "the accent
+// survives a reload" has to hold the instant the slider moves, and a reload
+// inside the debounce window loses it. The e2e suite caught that. It is a tiny
+// synchronous write — the repaint was always the actual cost.
+//
+// The CSS custom properties are likewise immediate: they are what the user is
+// looking at while dragging, and the swatch has to track the slider exactly.
+const settleTerminal = trailing((accentHex, selectionHex) => {
+  xtermTheme.cursor = accentHex;
+  xtermTheme.selectionBackground = selectionHex;
+}, 120);
+
 export function applyAccent(h, c) {
   theme.h = h; theme.c = c;
   const d = deriveAccent({ h, c });
@@ -33,20 +55,28 @@ export function applyAccent(h, c) {
   root.setProperty("--accent-dim", d.accentDim);
   root.setProperty("--accent-faint", d.accentFaint);
   root.setProperty("--on-accent", d.onAccent);
-  xtermTheme.cursor = d.accentHex;
-  xtermTheme.selectionBackground = d.selectionHex;
   try { localStorage.setItem(KEY, JSON.stringify({ h, c })); } catch {}
+  settleTerminal(d.accentHex, d.selectionHex);
+}
+
+// applyAccentNow settles the terminal repaint immediately, for the paths where
+// no further input is coming: startup and the reset button. initTheme in
+// particular must not leave the terminal on the default cursor colour for 120ms
+// while the rest of the UI is already themed.
+export function applyAccentNow(h, c) {
+  applyAccent(h, c);
+  settleTerminal.flush();
 }
 
 export function resetAccent() {
-  applyAccent(DEFAULT_ACCENT.h, DEFAULT_ACCENT.c);
+  applyAccentNow(DEFAULT_ACCENT.h, DEFAULT_ACCENT.c);
 }
 
 export function initTheme() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
     if (saved && Number.isFinite(saved.h) && Number.isFinite(saved.c)) {
-      applyAccent(saved.h, saved.c);
+      applyAccentNow(saved.h, saved.c);
       return;
     }
   } catch {}

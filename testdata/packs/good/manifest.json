@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "Fixture Good",
+  "author": "test",
+  "license": "personal-use",
+  "canvas": { "w": 832, "h": 1216, "scale": 2, "anchor": "bottom-center" },
+  "alpha": true,
+  "slots": {
+    "idle": [
+      { "id": "idle-a", "file": "idle_a.png", "focusX": 0.5, "focusY": 0.28, "headScale": 0.22,
+        "anim": { "strip": "idle_a_strip.png", "frames": 12, "fps": 8 } },
+      { "id": "idle-secret", "file": "idle_a.png", "rarity": 0.02 }
+    ],
+    "working": [ { "id": "work-a", "file": "work.png", "mood": "relaxed", "when": "marathon" } ],
+    "bg_running": [ { "id": "bgr", "file": "bg_run.png" } ]
+  }
+}

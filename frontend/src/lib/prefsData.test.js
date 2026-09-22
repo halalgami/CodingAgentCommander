@@ -78,12 +78,19 @@ test("the region prefs round-trip through save and load", () => {
   assert.equal(out.scanlines, true);
 });
 
-test("no pref key names the feature, or the public override trips the export grep", () => {
+test("no pref key names the overlay vocabulary, or it trips the export grep gate", () => {
   // Fragments are concatenated so this assertion itself never spells out a
   // banned word contiguously — export-public.sh's grep gate scans raw source
   // text (see scripts/export-public.sh), and this file is neither deleted nor
   // overridden for the public mirror, so it ships as-is.
-  const forbidden = ["comp" + "anion", "v" + "rm", "bub" + "bles", "wai" + "fu", "va" + "fae"];
+  //
+  // The gate's vocabulary is narrower than it used to be: "companion" and
+  // "bubbles" are published deliberately (the sidebar companion and pack
+  // generator now ship in the mirror) and are no longer gate terms. Only the
+  // three terms below — the native overlay's model format and bundled model,
+  // spelled out nowhere in this comment for the same reason the assertion
+  // below is fragmented — are still checked here.
+  const forbidden = ["v" + "rm", "wai" + "fu", "va" + "fae"];
   const pattern = new RegExp(forbidden.join("|"), "i");
   for (const k of Object.keys(DEFAULTS)) {
     assert.ok(!pattern.test(k), `pref key ${k} is not neutral`);
