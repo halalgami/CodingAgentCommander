@@ -280,8 +280,20 @@ func (c *Controller) Stop() error {
 	if cmd == nil || cmd.Process == nil {
 		return nil
 	}
+	select {
+	case <-done:
+		return nil // already exited and reaped; nothing to kill
+	default:
+	}
 	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return err
+		// Kill races an exit the reaper is about to report: once Wait has
+		// released the handle, Windows answers EINVAL, not ErrProcessDone.
+		select {
+		case <-done:
+			return nil
+		case <-time.After(time.Second):
+			return err
+		}
 	}
 	<-done // the Start goroutine reaps it; wait so no zombie outlives Stop
 	return nil

@@ -102,7 +102,8 @@ func TestWaitHealthyReturnsWhenProcessExits(t *testing.T) {
 	if took := time.Since(start); took > 15*time.Second {
 		t.Errorf("WaitHealthy took %s to notice the exit", took)
 	}
-	if !strings.Contains(err.Error(), "-config") {
+	// The stand-in prints its flag usage; the tail is the end of that.
+	if !strings.Contains(err.Error(), "-test.") {
 		t.Errorf("error does not carry the process's output: %v", err)
 	}
 	if c.Running() {
