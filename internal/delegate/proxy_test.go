@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/halalgami/CodingAgentCommander/internal/config"
+	"github.com/halalgami/CodingAgentCommander/internal/router"
 )
 
 func ollamaCatalog() []config.Model {
@@ -222,7 +223,7 @@ func TestStaleProxyDirAgeExceedsRunBudget(t *testing.T) {
 	// delay. If staleProxyDirAge ever fails to exceed that, sweepStaleProxyDirs
 	// can reap a slow-but-healthy sibling mid-run — the mutual-kill bug the
 	// per-run directories exist to prevent, reintroduced from the other side.
-	boot := time.Duration(healthPollAttempts) * healthPollInterval
+	boot := healthBudget + router.HealthTimeout // the last probe may overrun the budget
 	var worst time.Duration
 	var worstRole string
 	for _, r := range Roles() {

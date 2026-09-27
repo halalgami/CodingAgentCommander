@@ -3,6 +3,7 @@ package router
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -61,11 +62,20 @@ const OllamaAPIBaseEnv = "OLLAMA_API_BASE"
 // Ollama Cloud models measured 74s to healthy against a 20s deadline, surfacing
 // as "LiteLLM did not become healthy". Pointed at the cloud base it was 12s.
 //
-// The first ollama-cloud model's api_base wins; the lookup only needs a host
-// that answers, and requests themselves still use each model's own api_base.
+// It keys on the upstream prefix, which is what sends LiteLLM down that path,
+// not on the provider. The first such model's api_base wins: the lookup only
+// needs a host that answers, and requests still use each model's own api_base.
+// An OLLAMA_API_BASE already in Commander's environment is left alone, since
+// the proxy env is appended after it and would otherwise override it.
 func ModelInfoEnv(models []config.Model) []string {
+	if os.Getenv(OllamaAPIBaseEnv) != "" {
+		return nil
+	}
 	for _, m := range models {
-		if m.IsRouted() && m.Provider == config.ProviderOllama && m.APIBase != "" {
+		if !m.IsRouted() || m.APIBase == "" {
+			continue
+		}
+		if strings.HasPrefix(m.Upstream, "ollama_chat/") || strings.HasPrefix(m.Upstream, "ollama/") {
 			return []string{OllamaAPIBaseEnv + "=" + m.APIBase}
 		}
 	}

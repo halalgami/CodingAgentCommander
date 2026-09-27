@@ -213,6 +213,7 @@ func TestGenerateConfigThinkOnlyForOllama(t *testing.T) {
 }
 
 func TestModelInfoEnv(t *testing.T) {
+	t.Setenv(OllamaAPIBaseEnv, "")
 	ollama := config.Model{ID: "ollama-kimi-k3", Provider: config.ProviderOllama, Upstream: "ollama_chat/kimi-k3", APIBase: "https://ollama.com", KeyEnv: config.OllamaKeyEnv}
 	zen := config.Model{ID: "gpt-5.5", Provider: "zen", Upstream: "openai/gpt-5.5", APIBase: "https://opencode.ai/zen/v1", KeyEnv: "ZEN_KEY"}
 	native := config.Model{ID: "claude-opus-5", Provider: config.ProviderAnthropic}
@@ -230,5 +231,15 @@ func TestModelInfoEnv(t *testing.T) {
 	unresolved.APIBase = ""
 	if got := ModelInfoEnv([]config.Model{unresolved}); got != nil {
 		t.Fatalf("ModelInfoEnv with blank api_base = %q, want nil", got)
+	}
+	// The upstream prefix decides, not the provider.
+	lan := config.Model{ID: "llama3", Provider: config.ProviderOpencodeGo, Upstream: "ollama_chat/llama3", APIBase: "http://10.0.0.5:11434"}
+	if got := ModelInfoEnv([]config.Model{zen, lan}); len(got) != 1 || got[0] != "OLLAMA_API_BASE=http://10.0.0.5:11434" {
+		t.Fatalf("ModelInfoEnv for an ollama_chat upstream under another provider = %q", got)
+	}
+	// A value the user already set wins over ours.
+	t.Setenv(OllamaAPIBaseEnv, "http://127.0.0.1:11434")
+	if got := ModelInfoEnv([]config.Model{ollama}); got != nil {
+		t.Fatalf("ModelInfoEnv overrode a user-set OLLAMA_API_BASE: %q", got)
 	}
 }

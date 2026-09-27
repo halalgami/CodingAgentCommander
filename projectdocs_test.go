@@ -359,6 +359,16 @@ func TestListProjectDocsDoesNotRunRepoSuppliedGitPrograms(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Positive control: without the overrides the fixture MUST fire, or the
+	// assertion below passes vacuously and guards nothing.
+	_ = exec.Command("git", "-C", root, "ls-files").Run()
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("fixture is inert: plain git ls-files did not run the planted fsmonitor (%v)", err)
+	}
+	if err := os.Remove(marker); err != nil {
+		t.Fatal(err)
+	}
+
 	if _, _, err := gitListDocs(root); err != nil {
 		t.Fatalf("git listing failed outright: %v", err)
 	}

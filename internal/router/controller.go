@@ -1,13 +1,16 @@
 package router
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,10 +22,22 @@ type Controller struct {
 	Port       int      // 0 => choose a free port on Start
 	ConfigPath string   // path to a generated config.yaml
 	Env        []string // extra env (e.g. provider keys) for the litellm process
-	mu         sync.Mutex
-	cmd        *exec.Cmd
-	running    bool
+	// LogPath receives litellm's stdout and stderr, truncated on each Start.
+	// Empty means the null device. Either way litellm gets a VALID stdout: a
+	// Windows GUI app has no std handles to pass on, and uvicorn's logging
+	// setup calls sys.stdout.isatty(), so with stdout None litellm dies at
+	// boot ("Unable to configure formatter 'default'") before binding its port.
+	LogPath string
+	mu      sync.Mutex
+	cmd     *exec.Cmd
+	running bool
+	done    chan struct{} // closed once the process has exited
+	waitErr error         // cmd.Wait's result; read only after done is closed
 }
+
+// HealthTimeout bounds one Health probe. A probe can take this long even when
+// nothing is listening: Windows retries a refused loopback connect for ~2s.
+const HealthTimeout = 2 * time.Second
 
 // NewController returns a controller bound to port (0 = auto).
 func NewController(port int) *Controller { return &Controller{Port: port} }
@@ -70,11 +85,21 @@ func ReapStale(configPath string) {
 	reapStale(configPath)
 }
 
-// Running reports whether the proxy process has been started and not stopped.
+// Running reports whether the proxy process has been started, not stopped, and
+// has not exited on its own. A proxy that crashed mid-session reports false, so
+// callers restart it instead of handing sessions a dead port.
 func (c *Controller) Running() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.running
+	if !c.running {
+		return false
+	}
+	select {
+	case <-c.done:
+		return false
+	default:
+		return true
+	}
 }
 
 func freePort() (int, error) {
@@ -120,23 +145,105 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	// proc.Hide suppresses a console window on Windows (no-op elsewhere); stdout
-	// and stderr are still redirected below, so litellm's logs stay visible.
+	logPath := c.LogPath
+	if logPath == "" {
+		logPath = os.DevNull
+	}
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return fmt.Errorf("open litellm log: %w", err)
+	}
+	// proc.Hide suppresses a console window on Windows (no-op elsewhere).
 	cmd := proc.Hide(exec.Command(bin, litellmArgs(c.ConfigPath, c.Port)...))
 	cmd.Env = pythonEnv(c.Env...)
 	// Run from the config dir so the strip_thinking callback module (written
 	// alongside the yaml) is importable by litellm.
 	cmd.Dir = filepath.Dir(c.ConfigPath)
-	cmd.Stdout = os.Stderr // litellm logs to our stderr; keeps output visible
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
 		return fmt.Errorf("start litellm: %w", err)
 	}
+	done := make(chan struct{})
 	c.mu.Lock()
 	c.cmd = cmd
 	c.running = true
+	c.done = done
 	c.mu.Unlock()
+	// The only Wait: it reaps the process, and closing done is how Running,
+	// WaitHealthy and Stop learn it has exited.
+	go func() {
+		err := cmd.Wait()
+		_ = logFile.Close()
+		c.mu.Lock()
+		c.waitErr = err
+		c.mu.Unlock()
+		close(done)
+	}()
 	return nil
+}
+
+// WaitHealthy polls Health until it passes, the process exits, ctx ends, or
+// budget elapses, whichever comes first. The budget is wall-clock, not a probe
+// count: a probe against a port nobody listens on can itself take HealthTimeout.
+// An exit returns at once with the log tail, rather than polling a dead port
+// until the budget runs out.
+func (c *Controller) WaitHealthy(ctx context.Context, budget time.Duration) error {
+	c.mu.Lock()
+	done := c.done
+	c.mu.Unlock()
+	if done == nil {
+		return errors.New("litellm is not started")
+	}
+	deadline := time.Now().Add(budget)
+	for {
+		select {
+		case <-done:
+			c.mu.Lock()
+			werr := c.waitErr
+			c.mu.Unlock()
+			return fmt.Errorf("litellm exited during startup (%v)%s", werr, c.logTail())
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if c.Health() == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("litellm did not answer within %s%s", budget, c.logTail())
+		}
+		select {
+		case <-done: // handled at the top of the loop
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
+// logTail returns the end of the log, formatted for appending to an error, or
+// "" when there is no log to show.
+func (c *Controller) logTail() string {
+	if c.LogPath == "" {
+		return ""
+	}
+	f, err := os.Open(c.LogPath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	const maxTail = 1500
+	if fi, err := f.Stat(); err == nil && fi.Size() > maxTail {
+		_, _ = f.Seek(-maxTail, io.SeekEnd)
+	}
+	b, _ := io.ReadAll(f)
+	tail := strings.TrimSpace(string(b))
+	if tail == "" {
+		return fmt.Sprintf("; log: %s is empty", c.LogPath)
+	}
+	return fmt.Sprintf("; last output (%s):\n%s", c.LogPath, tail)
 }
 
 // Health returns nil when the proxy answers /health/liveliness with 2xx.
@@ -148,7 +255,7 @@ func (c *Controller) Start() error {
 // since Controller has no way to pass the master_key here and only needs to
 // know the process is alive and serving.
 func (c *Controller) Health() error {
-	client := http.Client{Timeout: 2 * time.Second}
+	client := http.Client{Timeout: HealthTimeout}
 	resp, err := client.Get(fmt.Sprintf("http://localhost:%d/health/liveliness", c.Port))
 	if err != nil {
 		return err
@@ -166,6 +273,7 @@ func (c *Controller) Health() error {
 func (c *Controller) Stop() error {
 	c.mu.Lock()
 	cmd := c.cmd
+	done := c.done
 	c.cmd = nil // idempotent: subsequent Stop() is a no-op
 	c.running = false
 	c.mu.Unlock()
@@ -175,6 +283,6 @@ func (c *Controller) Stop() error {
 	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return err
 	}
-	_ = cmd.Wait() // reap the process; ignore the "signal: killed" exit error
+	<-done // the Start goroutine reaps it; wait so no zombie outlives Stop
 	return nil
 }

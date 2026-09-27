@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,6 +73,43 @@ func TestRunningReflectsLifecycle(t *testing.T) {
 	}
 	if c.Running() {
 		t.Error("still not running after Stop")
+	}
+}
+
+// A litellm that dies at boot must fail the wait at once, with its output, not
+// after the whole budget of polling a port nobody will ever open. The test
+// binary stands in for litellm: it rejects the --config flag and exits 2.
+func TestWaitHealthyReturnsWhenProcessExits(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMMANDER_LITELLM", exe)
+	dir := t.TempDir()
+	c := NewController(0)
+	c.ConfigPath = filepath.Join(dir, "litellm.yaml")
+	c.LogPath = filepath.Join(dir, "litellm.log")
+	if err := c.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Stop() })
+
+	start := time.Now()
+	err = c.WaitHealthy(context.Background(), 60*time.Second)
+	if err == nil || !strings.Contains(err.Error(), "exited during startup") {
+		t.Fatalf("WaitHealthy = %v, want an exited-during-startup error", err)
+	}
+	if took := time.Since(start); took > 15*time.Second {
+		t.Errorf("WaitHealthy took %s to notice the exit", took)
+	}
+	if !strings.Contains(err.Error(), "-config") {
+		t.Errorf("error does not carry the process's output: %v", err)
+	}
+	if c.Running() {
+		t.Error("Running() is true for a process that has exited")
+	}
+	if err := c.Stop(); err != nil {
+		t.Errorf("Stop after exit: %v", err)
 	}
 }
 

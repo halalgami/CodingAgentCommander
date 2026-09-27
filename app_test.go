@@ -427,6 +427,7 @@ key_env = "OTHER_KEY"
 // blows the health deadline (see router.ModelInfoEnv).
 func TestRouterConfigAndEnvSetsOllamaAPIBase(t *testing.T) {
 	keyring.MockInit()
+	t.Setenv("OLLAMA_API_BASE", "")
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "c.toml")
 	os.WriteFile(cfgPath, []byte(`

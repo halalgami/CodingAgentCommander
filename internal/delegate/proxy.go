@@ -160,9 +160,10 @@ func runProxyDir() (string, error) {
 //
 // The margin is NOT generous, and an earlier version of this comment claimed
 // it was. A live directory's age is measured from the config.yaml write, so
-// the worst case is the health loop (120 × 500ms = 60s) plus Run's own budget
-// (TimeoutSec = 300s, plus 2s WaitDelay): about 6m02s against a 10m cutoff, a
-// 1.66× margin. It is crossed as soon as TimeoutSec exceeds ~538s, which a
+// the worst case is the health wait (healthBudget = 60s, plus one probe's
+// router.HealthTimeout overrun) plus Run's own budget (TimeoutSec = 300s, plus
+// 2s WaitDelay): about 6m04s against a 10m cutoff, a 1.65× margin. It is
+// crossed as soon as TimeoutSec exceeds ~536s, which a
 // future role tuning could plausibly do. TestStaleProxyDirAgeExceedsRunBudget
 // asserts the relationship so it breaks loudly instead of silently.
 //
@@ -174,14 +175,13 @@ func runProxyDir() (string, error) {
 // CLAUDE_CODE_MAX_RETRIES=0 makes that fast, and it reports failed_infra.
 const staleProxyDirAge = 10 * time.Minute
 
-// healthPollAttempts and healthPollInterval bound how long StartProxy waits for
-// litellm to answer /health/liveliness. Named because they are half of the
-// worst-case age of a LIVE run directory, which staleProxyDirAge must exceed —
-// TestStaleProxyDirAgeExceedsRunBudget asserts that relationship.
-const (
-	healthPollAttempts = 120
-	healthPollInterval = 500 * time.Millisecond
-)
+// healthBudget bounds how long StartProxy waits for litellm to answer
+// /health/liveliness, in wall-clock time (router.Controller.WaitHealthy). Named
+// because it is half of the worst-case age of a LIVE run directory, which
+// staleProxyDirAge must exceed — TestStaleProxyDirAgeExceedsRunBudget asserts
+// that relationship. It was once 120 polls × 500ms, which undercounted: each
+// probe can itself take router.HealthTimeout, so the real wait was up to ~5m.
+const healthBudget = 60 * time.Second
 
 // sweepStaleProxyDirs best-effort reaps every abandoned run directory under
 // proxyRoot: for each entry older than staleProxyDirAge, it kills any orphan
@@ -297,25 +297,23 @@ func StartProxy(ctx context.Context, models []config.Model, masterKey, apiBase s
 
 	ctl := router.NewController(0)
 	ctl.ConfigPath = cfgPath
-	ctl.Env = append([]string{config.OllamaKeyEnv + "=" + key}, router.ModelInfoEnv(models)...)
+	ctl.Env = []string{config.OllamaKeyEnv + "=" + key}
+	ctl.LogPath = filepath.Join(dir, "litellm.log")
 	if err := ctl.Start(); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
 	p := &Proxy{ctl: ctl, dir: dir}
-	for i := 0; i < healthPollAttempts; i++ { // a cold venv start measured ~8s
-		if ctl.Health() == nil {
-			return p, nil
-		}
-		select {
-		case <-ctx.Done():
-			_ = p.Stop()
+	// A cold venv start measured ~8s. The error carries the log tail, read
+	// before Stop removes the run directory the log lives in.
+	if err := ctl.WaitHealthy(ctx, healthBudget); err != nil {
+		_ = p.Stop()
+		if ctx.Err() != nil {
 			return nil, ctx.Err()
-		case <-time.After(healthPollInterval):
 		}
+		return nil, fmt.Errorf("litellm did not become healthy: %w", err)
 	}
-	_ = p.Stop()
-	return nil, errors.New("litellm did not become healthy")
+	return p, nil
 }
 
 // URL is the proxy's base URL, for ANTHROPIC_BASE_URL.
