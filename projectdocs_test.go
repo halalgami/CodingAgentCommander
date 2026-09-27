@@ -343,7 +343,11 @@ func TestListProjectDocsDoesNotRunRepoSuppliedGitPrograms(t *testing.T) {
 		t.Fatalf("git init: %v: %s", err, out)
 	}
 	hook := filepath.Join(root, ".git", "pwn.sh")
-	if err := os.WriteFile(hook, []byte("#!/bin/sh\ntouch "+marker+"\n"), 0o755); err != nil {
+	// Forward slashes and quotes throughout. git config reads a backslash as an
+	// escape, so a raw C:\Users path is a "bad config line" and git exits 128
+	// before the guard is ever exercised; and git runs fsmonitor through sh, so
+	// a path with a space must be quoted for the shell too.
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\ntouch \""+filepath.ToSlash(marker)+"\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cfg := filepath.Join(root, ".git", "config")
@@ -351,7 +355,7 @@ func TestListProjectDocsDoesNotRunRepoSuppliedGitPrograms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(cfg, append(b, []byte("[core]\n\tfsmonitor = "+hook+"\n")...), 0o600); err != nil {
+	if err := os.WriteFile(cfg, append(b, []byte("[core]\n\tfsmonitor = \"\\\""+filepath.ToSlash(hook)+"\\\"\"\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
