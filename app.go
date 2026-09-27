@@ -595,6 +595,7 @@ func (a *App) routerConfigAndEnv() ([]byte, []string, []string, error) {
 		}
 	}
 	opts := router.Options{AWSSessionToken: keyOK[config.AWSSessionTokenEnv]}
+	env = append(env, router.ModelInfoEnv(ready)...)
 	if skip := router.ThinkingSkipIDs(ready); len(skip) > 0 {
 		env = append(env, router.SkipThinkingEnv+"="+strings.Join(skip, ","))
 	}
@@ -770,7 +771,9 @@ func (a *App) ensureRouter() error {
 	if err := a.router.Start(); err != nil {
 		return err
 	}
-	for i := 0; i < 100; i++ {
+	// 60s, matching delegate.StartProxy. A healthy start measures ~12s on
+	// Windows; the old 20s left too little room for a cold venv after reboot.
+	for i := 0; i < 300; i++ {
 		if a.router.Health() == nil {
 			a.routerHash = h
 			return nil

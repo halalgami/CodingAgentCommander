@@ -297,7 +297,7 @@ func StartProxy(ctx context.Context, models []config.Model, masterKey, apiBase s
 
 	ctl := router.NewController(0)
 	ctl.ConfigPath = cfgPath
-	ctl.Env = []string{config.OllamaKeyEnv + "=" + key}
+	ctl.Env = append([]string{config.OllamaKeyEnv + "=" + key}, router.ModelInfoEnv(models)...)
 	if err := ctl.Start(); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err

@@ -46,6 +46,32 @@ type Options struct {
 	AWSSessionToken bool
 }
 
+// OllamaAPIBaseEnv is the env var LiteLLM's ollama provider falls back to when
+// no api_base is passed.
+const OllamaAPIBaseEnv = "OLLAMA_API_BASE"
+
+// ModelInfoEnv returns the env the proxy needs so its STARTUP model-info lookup
+// reaches the same host the models are served from.
+//
+// While building the router, LiteLLM calls get_model_info for every ollama_chat
+// model, and that path (llms/ollama/completion/transformation.py) ignores the
+// model's litellm_params api_base: it posts to OLLAMA_API_BASE, else
+// http://localhost:11434/api/show. With no local Ollama running, Windows takes
+// ~4s to report a refused loopback connection, sequentially per model: 17
+// Ollama Cloud models measured 74s to healthy against a 20s deadline, surfacing
+// as "LiteLLM did not become healthy". Pointed at the cloud base it was 12s.
+//
+// The first ollama-cloud model's api_base wins; the lookup only needs a host
+// that answers, and requests themselves still use each model's own api_base.
+func ModelInfoEnv(models []config.Model) []string {
+	for _, m := range models {
+		if m.IsRouted() && m.Provider == config.ProviderOllama && m.APIBase != "" {
+			return []string{OllamaAPIBaseEnv + "=" + m.APIBase}
+		}
+	}
+	return nil
+}
+
 // SkipThinkingEnv names the env var the strip_thinking hook reads to learn which
 // model_names must NOT have their thinking blocks stripped (comma-separated).
 const SkipThinkingEnv = "STRIP_THINKING_SKIP"

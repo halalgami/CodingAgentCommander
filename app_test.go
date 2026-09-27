@@ -422,6 +422,47 @@ key_env = "OTHER_KEY"
 	}
 }
 
+// A ready ollama-cloud model must carry OLLAMA_API_BASE into the proxy env, or
+// LiteLLM's startup model-info lookup hits localhost:11434 once per model and
+// blows the health deadline (see router.ModelInfoEnv).
+func TestRouterConfigAndEnvSetsOllamaAPIBase(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "c.toml")
+	os.WriteFile(cfgPath, []byte(`
+default_model = "ollama-kimi-k3"
+[[models]]
+id = "ollama-kimi-k3"
+provider = "ollama-cloud"
+upstream = "ollama_chat/kimi-k3"
+[[providers]]
+type = "ollama-cloud"
+api_base = "https://ollama.com"
+`), 0o600)
+	a := NewApp()
+	a.masterKey = "k"
+	if err := a.loadConfigFrom(cfgPath); err != nil {
+		t.Fatal(err)
+	}
+	// No key yet: the model is not ready, so nothing ollama belongs in the env.
+	_, env, _, err := a.routerConfigAndEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j := strings.Join(env, " "); strings.Contains(j, "OLLAMA_API_BASE") {
+		t.Errorf("OLLAMA_API_BASE set for a model that is not ready: %v", env)
+	}
+
+	_ = secrets.Set(config.OllamaKeyEnv, "sk-ollama")
+	_, env, _, err = a.routerConfigAndEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j := strings.Join(env, " "); !strings.Contains(j, "OLLAMA_API_BASE=https://ollama.com") {
+		t.Errorf("env missing OLLAMA_API_BASE for a ready ollama model: %v", env)
+	}
+}
+
 func TestCatalogAddRemove(t *testing.T) {
 	keyring.MockInit()
 	dir := t.TempDir()
