@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -293,7 +294,13 @@ func TestOpenProjectDocRefusesPrograms(t *testing.T) {
 	docOpener = func(path string) error { opened = append(opened, path); return nil }
 	t.Cleanup(func() { docOpener = restore })
 
-	for _, rel := range []string{"setup.command", "install.bat", "notes.md"} {
+	programs := []string{"setup.command", "install.bat", "notes.md"}
+	if runtime.GOOS == "windows" {
+		// Chmod cannot set an exec bit there (Go synthesizes 0666/0444), so
+		// notes.md is an ordinary document; the extension check is the guard.
+		programs = programs[:2]
+	}
+	for _, rel := range programs {
 		if err := NewApp().OpenProjectDoc(root, rel); err == nil {
 			t.Errorf("handed %s to the OS", rel)
 		}

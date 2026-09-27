@@ -595,6 +595,7 @@ func (a *App) routerConfigAndEnv() ([]byte, []string, []string, error) {
 		}
 	}
 	opts := router.Options{AWSSessionToken: keyOK[config.AWSSessionTokenEnv]}
+	env = append(env, router.ModelInfoEnv(ready)...)
 	if skip := router.ThinkingSkipIDs(ready); len(skip) > 0 {
 		env = append(env, router.SkipThinkingEnv+"="+strings.Join(skip, ","))
 	}
@@ -767,19 +768,25 @@ func (a *App) ensureRouter() error {
 	}
 	a.router.ConfigPath = p
 	a.router.Env = env
+	// Kept across restarts (only the next Start truncates it) so a failed boot
+	// can be read after the fact; the GUI has no stderr of its own to show.
+	a.router.LogPath = filepath.Join(filepath.Dir(p), "litellm.log")
 	if err := a.router.Start(); err != nil {
 		return err
 	}
-	for i := 0; i < 100; i++ {
-		if a.router.Health() == nil {
-			a.routerHash = h
-			return nil
-		}
-		time.Sleep(200 * time.Millisecond)
+	// 60s wall-clock, matching delegate.StartProxy. A healthy start measures
+	// ~12s on Windows with 17 Ollama models.
+	ctx := a.ctx
+	if ctx == nil { // tests drive ensureRouter without Wails' startup
+		ctx = context.Background()
 	}
-	_ = a.router.Stop() // reset so a later launch can retry
-	a.routerHash = ""
-	return fmt.Errorf("LiteLLM did not become healthy")
+	if err := a.router.WaitHealthy(ctx, 60*time.Second); err != nil {
+		_ = a.router.Stop() // reset so a later launch can retry
+		a.routerHash = ""
+		return fmt.Errorf("LiteLLM did not become healthy: %w", err)
+	}
+	a.routerHash = h
+	return nil
 }
 
 // hashConfig fingerprints the generated yaml plus the (order-independent) env so

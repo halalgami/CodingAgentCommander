@@ -3,6 +3,7 @@ package router
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,41 @@ type Options struct {
 	// AWSSessionToken wires aws_session_token from the env for bedrock models.
 	// Set only when a token is actually present — an empty token breaks SigV4.
 	AWSSessionToken bool
+}
+
+// OllamaAPIBaseEnv is the env var LiteLLM's ollama provider falls back to when
+// no api_base is passed.
+const OllamaAPIBaseEnv = "OLLAMA_API_BASE"
+
+// ModelInfoEnv returns the env the proxy needs so its STARTUP model-info lookup
+// reaches the same host the models are served from.
+//
+// While building the router, LiteLLM calls get_model_info for every ollama_chat
+// model, and that path (llms/ollama/completion/transformation.py) ignores the
+// model's litellm_params api_base: it posts to OLLAMA_API_BASE, else
+// http://localhost:11434/api/show. With no local Ollama running, Windows takes
+// ~4s to report a refused loopback connection, sequentially per model: 17
+// Ollama Cloud models measured 74s to healthy against a 20s deadline, surfacing
+// as "LiteLLM did not become healthy". Pointed at the cloud base it was 12s.
+//
+// It keys on the upstream prefix, which is what sends LiteLLM down that path,
+// not on the provider. The first such model's api_base wins: the lookup only
+// needs a host that answers, and requests still use each model's own api_base.
+// An OLLAMA_API_BASE already in Commander's environment is left alone, since
+// the proxy env is appended after it and would otherwise override it.
+func ModelInfoEnv(models []config.Model) []string {
+	if os.Getenv(OllamaAPIBaseEnv) != "" {
+		return nil
+	}
+	for _, m := range models {
+		if !m.IsRouted() || m.APIBase == "" {
+			continue
+		}
+		if strings.HasPrefix(m.Upstream, "ollama_chat/") || strings.HasPrefix(m.Upstream, "ollama/") {
+			return []string{OllamaAPIBaseEnv + "=" + m.APIBase}
+		}
+	}
+	return nil
 }
 
 // SkipThinkingEnv names the env var the strip_thinking hook reads to learn which
