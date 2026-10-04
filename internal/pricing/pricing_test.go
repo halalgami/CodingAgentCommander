@@ -1,37 +1,36 @@
 package pricing
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/halalgami/CodingAgentCommander/internal/config"
-)
-
-func TestTurnInputCost(t *testing.T) {
-	// 1,000,000 tokens at $15/1M = $15.00
-	got := TurnInputCost(1_000_000, config.Model{InputPrice: 15})
-	if got != 15.0 {
-		t.Errorf("TurnInputCost = %v, want 15", got)
+func TestContextBandScalesWithTheWindow(t *testing.T) {
+	cases := []struct {
+		tokens, window int
+		want           string
+	}{
+		// 200k window: the old fixed thresholds, now expressed as fractions.
+		{0, 200_000, "green"},
+		{99_999, 200_000, "green"},
+		{100_000, 200_000, "amber"},
+		{159_999, 200_000, "amber"},
+		{160_000, 200_000, "red"},
+		{210_000, 200_000, "red"},
+		// 1M window: the same token counts are nowhere near full. Under the
+		// old fixed 200k assumption every one of these read red.
+		{160_000, 1_000_000, "green"},
+		{499_999, 1_000_000, "green"},
+		{500_000, 1_000_000, "amber"},
+		{800_000, 1_000_000, "red"},
 	}
-}
-
-func TestContextBand(t *testing.T) {
-	cases := map[int]string{
-		0: "green", 99_999: "green",
-		100_000: "amber", 159_999: "amber",
-		160_000: "red", 210_000: "red",
-	}
-	for tokens, want := range cases {
-		if got := ContextBand(tokens); got != want {
-			t.Errorf("ContextBand(%d) = %q, want %q", tokens, got, want)
+	for _, c := range cases {
+		if got := ContextBand(c.tokens, c.window); got != c.want {
+			t.Errorf("ContextBand(%d, %d) = %q, want %q", c.tokens, c.window, got, c.want)
 		}
 	}
 }
 
-func TestBand(t *testing.T) {
-	cases := map[float64]string{0.05: "green", 0.30: "amber", 1.50: "red"}
-	for cost, want := range cases {
-		if got := Band(cost); got != want {
-			t.Errorf("Band(%v) = %q, want %q", cost, got, want)
-		}
+// A model with no reported window must not divide by zero or read as full.
+func TestContextBandWithUnknownWindow(t *testing.T) {
+	if got := ContextBand(50_000, 0); got != "green" {
+		t.Errorf("ContextBand with a zero window = %q, want green", got)
 	}
 }

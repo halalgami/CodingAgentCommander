@@ -225,3 +225,156 @@ test("an expired app:error clears once its TTL passes and the 5s poll ticks", as
   await page.clock.fastForward(35000); // past ERROR_TTL_MS (30s) + a poll tick
   await expect(page.getByTestId("session-card")).not.toHaveClass(/errored/);
 });
+
+// The card's telemetry reads context fullness against the MODEL'S OWN window.
+// Both the number and the meter used to divide by a hardcoded 200k, so a 1M
+// model sat near-full and permanently red at 16% used — a meter that said
+// nothing. Asserting the rendered text and the meter width together, because
+// the two were separate hardcodings and fixing one would not fix the other.
+test("a session card measures context against the model's own window", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate(() => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.stats = { w1: {
+      contextTokens: 160_000, contextWindow: 1_000_000, band: "green",
+      turns: 3, model: "claude-opus-5-5", provider: "anthropic",
+      uptimeSeconds: 60, status: "active", remoteControl: false, cwd: "/tmp/x",
+    } };
+  });
+  const card = page.getByTestId("session-card");
+  await expect(card).toContainText("160k / 1M");
+  // No dollar figure survives anywhere on the card.
+  await expect(card).not.toContainText("$");
+  // 160k of 1M is 16%, not the 80% a 200k divisor would have produced.
+  const width = await card.locator(".fill").evaluate((el) => el.style.width);
+  expect(parseFloat(width)).toBeGreaterThan(14);
+  expect(parseFloat(width)).toBeLessThan(18);
+});
+
+// A model that reports no window (routed providers, hand-added entries) must
+// still render a scale rather than dividing by zero.
+test("a session card falls back to a usable window when the model reports none", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate(() => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.stats = { w1: {
+      contextTokens: 50_000, contextWindow: 0, band: "green",
+      turns: 1, model: "some-routed-model", provider: "zen",
+      uptimeSeconds: 60, status: "active", remoteControl: false, cwd: "/tmp/x",
+    } };
+  });
+  await expect(page.getByTestId("session-card")).toContainText("50k / 200k");
+});
+
+const SWAP_STAT = { provider: "anthropic", model: "opus", contextTokens: 1, contextWindow: 200000, turns: 1, uptimeSeconds: 60, band: "ok", cwd: "/x/one" };
+
+test("the card swap control groups models with optgroups", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate((stat) => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.stats = { w1: stat };
+    window.__app.models = [
+      { id: "a", label: "Anthropic · Opus 5.5", provider: "anthropic", routed: false, ready: true },
+      { id: "o", label: "Ollama · glm", provider: "ollama-cloud", routed: true, ready: true },
+    ];
+  }, SWAP_STAT);
+  const swap = page.getByTestId("swap-select");
+  await expect(swap.locator("optgroup")).toHaveCount(2);
+  await expect(swap.locator("optgroup").nth(0)).toHaveAttribute("label", "Anthropic");
+  await expect(swap.locator("optgroup").nth(1)).toHaveAttribute("label", "Ollama Cloud");
+  // Prefix stripped, since the optgroup label supplies it; value stays the id.
+  await expect(swap.locator("optgroup").nth(0).locator("option")).toHaveText("Opus 5.5");
+  await expect(swap.locator("optgroup").nth(1).locator("option")).toHaveText("glm");
+  await expect(swap.locator("optgroup").nth(1).locator("option")).toHaveAttribute("value", "o");
+});
+
+test("a single-provider catalog gives the card swap no optgroup and full labels", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate((stat) => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.stats = { w1: stat };
+    window.__app.models = [
+      { id: "a", label: "Anthropic · Opus 5.5", provider: "anthropic", routed: false, ready: true },
+      { id: "b", label: "Anthropic · Sonnet 5.5", provider: "anthropic", routed: false, ready: true },
+    ];
+  }, SWAP_STAT);
+  const swap = page.getByTestId("swap-select");
+  await expect(swap.locator("option")).toHaveCount(3); // swap… + 2
+  await expect(swap.locator("optgroup")).toHaveCount(0);
+  await expect(swap.locator("option").nth(1)).toHaveText("Anthropic · Opus 5.5");
+});
+
+test("palette swap rows carry the provider as their hint and keep full labels", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate(() => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.sessionKey = "w1:1";
+    // Labels deliberately do not name their provider, so only the hint can.
+    window.__app.models = [
+      { id: "a", label: "Opus 5.5", provider: "anthropic", routed: false, ready: true },
+      { id: "o", label: "GLM Flash", provider: "ollama-cloud", routed: true, ready: true },
+    ];
+  });
+  await page.keyboard.press("Meta+k");
+  const pal = page.getByTestId("palette");
+  const glm = pal.getByRole("button", { name: /Swap to: GLM Flash/ });
+  await expect(glm.locator(".hint")).toHaveText("Ollama Cloud");
+  await expect(glm.locator("span").first()).toHaveText("Swap to: GLM Flash");
+  await expect(pal.getByRole("button", { name: /Swap to: Opus 5.5/ }).locator(".hint")).toHaveText("Anthropic");
+});
+
+test("palette shows every model row and still offers the config commands", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate(() => {
+    window.__app.sessions = [{ windowID: "w1", name: "one" }];
+    window.__app.sessionKey = "w1:1";
+    window.__app.models = Array.from({ length: 32 }, (_, i) => ({
+      id: "m" + i, label: "Model " + i, provider: i < 16 ? "anthropic" : "ollama-cloud", routed: false, ready: true,
+    }));
+  });
+  await page.keyboard.press("Meta+k");
+  const pal = page.getByTestId("palette");
+  await expect(pal.getByRole("button", { name: /^Swap to: / })).toHaveCount(32);
+  await expect(pal.getByRole("button", { name: /^Settings\b/ })).toBeVisible();
+  await expect(pal.getByRole("button", { name: /^Models\b/ })).toBeVisible();
+  await expect(pal.getByRole("button", { name: /^About\b/ })).toBeVisible();
+});
+
+// The 12-row cap still binds everything that is NOT a model. Fixture has 20
+// sessions (more than the cap) plus the config commands, so a cap that were
+// removed would show more than 12, and one that also bit models would show
+// fewer than 32 swap rows.
+test("the palette cap bounds non-model rows at exactly 12 and never models", async ({ page }) => {
+  await page.goto("/?nointro");
+  await page.evaluate(() => {
+    window.__app.sessions = Array.from({ length: 20 }, (_, i) => ({ windowID: "w" + i, name: "sess" + i }));
+    window.__app.sessionKey = "w0:1";
+    window.__app.models = Array.from({ length: 32 }, (_, i) => ({
+      id: "m" + i, label: "Model " + i, provider: i < 16 ? "anthropic" : "ollama-cloud", routed: false, ready: true,
+    }));
+  });
+  await page.keyboard.press("Meta+k");
+  const pal = page.getByTestId("palette");
+  await expect(pal.getByRole("button", { name: /^Swap to: / })).toHaveCount(32);
+  await expect(pal.getByRole("button", { name: /^Go: sess/ })).toHaveCount(12);
+  await expect(pal.getByRole("button")).toHaveCount(44);
+});
+
+test("double-clicking the bare titlebar calls Go; double-clicking a nav button does not", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.go = window.go || {}; window.go.main = window.go.main || {};
+    window.__tbDbl = 0;
+    window.go.main.App = Object.assign(window.go.main.App || {}, {
+      TitleBarDoubleClick: async () => { window.__tbDbl++; },
+    });
+  });
+  await page.goto("/?nointro");
+  const bar = await page.getByTestId("titlebar").boundingBox();
+  const word = await page.getByTestId("wordmark").boundingBox();
+  // An empty spot between the wordmark and the palette hint.
+  await page.mouse.dblclick(word.x + word.width + 8, bar.y + bar.height / 2);
+  await expect.poll(() => page.evaluate(() => window.__tbDbl)).toBe(1);
+  await page.getByTestId("open-about").dblclick();
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => window.__tbDbl)).toBe(1);
+});

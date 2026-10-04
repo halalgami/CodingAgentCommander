@@ -104,6 +104,8 @@ export function PinProject(arg1:string,arg2:boolean):Promise<void>;
 
 export function PlanUsage():Promise<main.PlanUsage>;
 
+export function RefreshModels():Promise<void>;
+
 export function RemoveModel(arg1:string):Promise<void>;
 
 export function RemoveProject(arg1:string):Promise<void>;
@@ -135,6 +137,8 @@ export function SetPackVariantFocus(arg1:string,arg2:string,arg3:string,arg4:num
 export function StartPackGen(arg1:main.PackGenRequest):Promise<main.PackGenState>;
 
 export function SwapModel(arg1:string,arg2:string):Promise<main.SessionInfo>;
+
+export function TitleBarDoubleClick():Promise<void>;
 
 export function WSPort():Promise<number>;
 

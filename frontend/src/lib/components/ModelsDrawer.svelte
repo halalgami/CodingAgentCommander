@@ -1,6 +1,8 @@
 <script>
+  import GroupCaret from "./GroupCaret.svelte";
   import Drawer from "./Drawer.svelte";
-  import { app, addModel, removeModel, discoverBedrock, discoverZen, discoverOllama, providerLabel } from "../stores.svelte.js";
+  import { catalogGroups, toggleProviderGroup } from "../modelGroupState.svelte.js";
+  import { app, addModel, removeModel, discoverBedrock, discoverZen, discoverOllama, refreshNativeModels, providerLabel } from "../stores.svelte.js";
 
   // per-section state, keyed by provider type
   let disc = $state({});        // type -> [{id,label,upstream?,region?}]
@@ -21,9 +23,17 @@
     secErr.anthropic = "";
     try {
       await addModel({ id: native.id, label: native.label, provider: "anthropic",
-        upstream: "", apiBase: "", keyEnv: "", region: "", inputPrice: 0, outputPrice: 0 });
+        upstream: "", apiBase: "", keyEnv: "", region: "" });
       native = { id: "", label: "" };
     } catch (e) { secErr.anthropic = "" + e; }
+  }
+
+  // Native models refresh on their own at launch and once a day; this is the
+  // "a model shipped this morning and I want it now" path.
+  async function refreshNative() {
+    secErr.anthropic = ""; discBusy.anthropic = true;
+    try { await refreshNativeModels(); } catch (e) { secErr.anthropic = "" + e; }
+    discBusy.anthropic = false;
   }
 
   async function discover(p) {
@@ -52,7 +62,7 @@
         if (!discSel[p.type]?.[m.id]) continue;
         await addModel({ id: m.id, label: m.label, provider: p.type,
           upstream: m.upstream, apiBase: "", keyEnv: "",
-          region: m.region || "", inputPrice: 0, outputPrice: 0 });
+          region: m.region || "" });
       }
       disc[p.type] = []; discSel[p.type] = {};
     } catch (e) { secErr[p.type] = "" + e; }
@@ -75,7 +85,7 @@
         upstream: p.type === "opencode-go" && !up.includes("/") ? "openai/" + up : up,
         // For ollama-cloud the backend overwrites `id` with the canonical
         // derivation, so the mangled local `id` above is inert there.
-        apiBase: "", keyEnv: "", region: "", inputPrice: 0, outputPrice: 0 });
+        apiBase: "", keyEnv: "", region: "" });
       manual[p.type] = "";
     } catch (e) { secErr[p.type] = "" + e; }
   }
@@ -94,11 +104,24 @@
 
 <Drawer title="MODELS" testid="drawer-models" onclose={() => (app.drawer = null)}>
   <ul class="catalog">
-    {#each app.catalog as m (m.id)}
-      <li>
-        <span>{m.label || m.id} <span class="dim">{m.provider}</span></span>
-        <button class="icon" title="Remove" onclick={() => remove(m.id)}>✕</button>
-      </li>
+    {#each catalogGroups(app.catalog) as g (g.provider)}
+      {#if !g.single}
+        <li class="grouphdr">
+          <button type="button" aria-expanded={!g.collapsed} onclick={() => toggleProviderGroup(g.provider)}>
+            <GroupCaret collapsed={g.collapsed} />
+            <span class="name">{g.label}</span>
+            <span class="count">{g.count}</span>
+          </button>
+        </li>
+      {/if}
+      {#if !g.collapsed}
+        {#each g.models as m (m.id)}
+          <li class="model">
+            <span>{m.displayLabel || m.id}</span>
+            <button class="icon" title="Remove" onclick={() => remove(m.id)}>✕</button>
+          </li>
+        {/each}
+      {/if}
     {/each}
   </ul>
   {#if secErr.list}<p class="err">{secErr.list}</p>{/if}
@@ -106,6 +129,11 @@
   <section data-testid="models-section-anthropic">
     <h3>Anthropic (native)</h3>
     <div class="form">
+      <button data-testid="refresh-native"
+        disabled={discBusy.anthropic} onclick={refreshNative}>
+        {discBusy.anthropic ? "Checking…" : "Check for new models"}
+      </button>
+      <p class="dim hint">Checked automatically at launch and once a day.</p>
       <input data-testid="add-model-id" placeholder="model id e.g. claude-sonnet-5" bind:value={native.id} />
       <input placeholder="label" bind:value={native.label} />
       <button class="primary" data-testid="add-model-submit" onclick={addNative}>Add model</button>
@@ -167,6 +195,18 @@
     display: flex; justify-content: space-between; align-items: center;
     padding: var(--sp-1) 0; border-bottom: 1px solid var(--border-0); font-size: var(--fs-1);
   }
+  .catalog .grouphdr { border-bottom: 0; padding: var(--sp-2) 0 var(--sp-1); }
+  .catalog .grouphdr button {
+    width: 100%; display: flex; align-items: center; gap: var(--sp-1);
+    background: none; border: 0; cursor: pointer; padding: 0;
+    color: var(--text-2); font-size: var(--fs-0);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .catalog .grouphdr button { padding: 3px 4px; border-radius: var(--r-2); }
+  .catalog .grouphdr button:hover { background: var(--surface-3); }
+  .catalog .grouphdr .name { flex: 1; text-align: left; }
+  .catalog .grouphdr .count { font-variant-numeric: tabular-nums; }
+  .catalog li.model { padding-left: var(--sp-2); }
   h3 { font-size: var(--fs-1); letter-spacing: 0.1em; color: var(--text-1); margin: 0 0 var(--sp-2); }
   section { margin-bottom: var(--sp-4); }
   .hint { margin: var(--sp-2) 0; }

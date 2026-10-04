@@ -6,7 +6,7 @@ import {
   KillSession, RenameSession, SessionStats, KeyStatus, SetKey, ClearKey,
   Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
   DiscoverZenModels, DiscoverOllamaModels, ListProviders, AddProvider, RemoveProvider,
-  EnableRemoteControl, PlanUsage,
+  EnableRemoteControl, PlanUsage, RefreshModels,
   GetCompanionConfig,
   SetCompanionKind, LoadCompanionPack, PickCompanionPack, ClearCompanionPack,
   CompanionState,
@@ -81,10 +81,37 @@ export function toast(msg, kind = "info") {
   }, 5000);
 }
 
+// refreshing latches a poll in flight. The 5s interval fires regardless of
+// whether the previous refresh returned, so on a slow tick (cold transcript
+// cache, network-mounted home) the polls used to overlap and stack up, each
+// redoing the same work the one before it had not finished.
+let refreshing = false;
+
 export async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  // The outer finally is not decoration: a throw that escaped here would leave
+  // the latch set and stop the app polling for the rest of the session.
+  try {
+    await refreshOnce();
+  } finally {
+    refreshing = false;
+  }
+}
+
+async function refreshOnce() {
   try {
     app.sessions = await ListSessions();
-    for (const s of app.sessions) app.stats[s.windowID] = await SessionStats(s.windowID);
+    // Concurrent, not sequential. Each SessionStats is a separate bridge
+    // crossing that blocks on a Go-side transcript read; awaiting them in a loop
+    // made the tick cost the SUM rather than the max. Collecting first and
+    // assigning once also means one reactive flush instead of N, so the sidebar
+    // re-renders a single time per poll.
+    const ids = app.sessions.map((s) => s.windowID);
+    const stats = await Promise.all(ids.map((id) => SessionStats(id)));
+    const next = {};
+    ids.forEach((id, i) => { next[id] = stats[i]; });
+    app.stats = next;
   } catch { /* plain browser / backend gone */ }
   try { app.companionState = await CompanionState(); } catch {}
   // The latch has no timer of its own; refresh() runs on a 5s poll (App.svelte)
@@ -410,6 +437,17 @@ export async function removeModel(id) {
 }
 export async function discoverBedrock(region) {
   return await DiscoverBedrockModels(region);
+}
+// refreshNativeModels re-checks Anthropic for models newer than this build.
+// Throws so the drawer can render the reason inline — a missing or expired
+// Claude Code login is the common failure, and it is one the user can fix.
+export async function refreshNativeModels() {
+  await RefreshModels();
+  // Reload here rather than waiting on the models:updated event the backend
+  // also emits. That event exists for the passes nobody asked for (launch, the
+  // daily ticker); a button the user just pressed should show its own result
+  // directly, not depend on an event round-trip landing.
+  await reloadModels();
 }
 export async function fetchPlanUsage() {
   return await PlanUsage(); // throws -> drawer renders the error inline

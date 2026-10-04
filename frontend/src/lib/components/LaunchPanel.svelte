@@ -2,6 +2,7 @@
   import { app, launch, pickFolder } from "../stores.svelte.js";
   import { prefs } from "../prefs.svelte.js";
   import Select from "./Select.svelte";
+  import { pickerGroups, toggleProviderGroup } from "../modelGroupState.svelte.js";
 
   let busy = $state(false);
 
@@ -26,7 +27,8 @@
   </div>
   <Select
     testid="model-select"
-    options={app.models.map((m) => ({ value: m.id, label: m.label + (m.routed && !m.ready ? " (needs key)" : "") }))}
+    groups={pickerGroups(app.models)}
+    ontogglegroup={toggleProviderGroup}
     bind:value={app.selectedModel}
     placeholder="model…"
   />

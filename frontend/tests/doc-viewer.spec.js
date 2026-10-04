@@ -43,7 +43,7 @@ export async function stubDocs(page, files, opts = {}) {
         windowID: `w${i + 1}`, name: `w${i + 1}`, model: "claude-opus-4-8",
       })),
       SessionStats: async () => ({
-        contextTokens: 1000, estCostPerTurn: 0.01, unpriced: false, band: "green",
+        contextTokens: 1000, contextWindow: 1000000, band: "green",
         turns: 1, model: "claude-opus-4-8", provider: "anthropic", uptimeSeconds: 60,
         status: "active", remoteControl: false, cwd: sessionCwd,
       }),

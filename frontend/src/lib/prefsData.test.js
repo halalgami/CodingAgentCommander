@@ -7,6 +7,14 @@ function fakeStorage() {
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) };
 }
 
+function mem() {
+  const m = new Map();
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => m.set(k, v),
+  };
+}
+
 test("empty storage yields defaults", () => {
   assert.deepEqual(loadPrefs(fakeStorage()), DEFAULTS);
 });
@@ -39,6 +47,7 @@ test("defaults are the spec values", () => {
     // 0 = size the lower band from the column, the behaviour before it was
     // adjustable. Only a drag makes it fixed.
     dockH: 0,
+    collapsedProviders: [],
   });
 });
 
@@ -100,4 +109,35 @@ test("no pref key names the overlay vocabulary, or it trips the export grep gate
 test("noticeSeconds has a default so setPref does not silently drop it", () => {
   assert.equal(typeof DEFAULTS.noticeSeconds, "number");
   assert.ok(DEFAULTS.noticeSeconds >= 2 && DEFAULTS.noticeSeconds <= 15);
+});
+
+test("collapsedProviders round-trips", () => {
+  const store = mem();
+  savePrefs({ ...DEFAULTS, collapsedProviders: ["ollama-cloud"] }, store);
+  assert.deepEqual(loadPrefs(store).collapsedProviders, ["ollama-cloud"]);
+});
+
+// typeof null === "object" and typeof {} === "object", so the generic typeof
+// check in loadPrefs would let both through and the grouping code would then
+// call .includes() on a non-array.
+test("a corrupt collapsedProviders falls back to the default", () => {
+  for (const bad of [null, { a: 1 }, "ollama-cloud", 7]) {
+    const store = mem();
+    store.setItem("commander.prefs.v2", JSON.stringify({ ...DEFAULTS, collapsedProviders: bad }));
+    assert.deepEqual(loadPrefs(store).collapsedProviders, []);
+  }
+});
+
+test("non-string entries are dropped rather than poisoning the list", () => {
+  const store = mem();
+  store.setItem("commander.prefs.v2", JSON.stringify({ collapsedProviders: ["ok", 5, null] }));
+  assert.deepEqual(loadPrefs(store).collapsedProviders, ["ok"]);
+});
+
+test("loadPrefs never hands out the shared DEFAULTS array", () => {
+  const a = loadPrefs(fakeStorage());
+  assert.notEqual(a.collapsedProviders, DEFAULTS.collapsedProviders);
+  a.collapsedProviders.push("x");
+  assert.deepEqual(DEFAULTS.collapsedProviders, []);
+  assert.deepEqual(loadPrefs(fakeStorage()).collapsedProviders, []);
 });

@@ -1,11 +1,14 @@
 <script>
   import { openDocsList } from "../docview.svelte.js";
+  import { groupByProvider } from "../modelGroups.js";
 
   let {
     session, stat, isActive = false, isFinished, isErrored = false,
     models, onselect, onrename, onkill, onswap, onrc,
   } = $props();
   const native = $derived(stat?.provider === "anthropic");
+  // Native <select> cannot collapse, so this is grouped but always open.
+  const swapGroups = $derived(groupByProvider(models));
 
   let renaming = $state(false);
   let renameVal = $state("");
@@ -22,10 +25,22 @@
     killArmed = true;
     killTimer = setTimeout(() => (killArmed = false), 3000);
   }
-  // meter width: % of a 200k context window, clamped to stay visible
-  const meterPct = $derived(
-    stat ? Math.min(100, Math.max(2, stat.contextTokens / 2000)) : 0,
-  );
+  // meter width: % of the model's OWN context window, clamped to stay visible.
+  // This used to divide by a hardcoded 200k, which pinned the meter near full
+  // on the 1M-window models that are now most of the catalog.
+  const meterPct = $derived.by(() => {
+    if (!stat) return 0;
+    const window = stat.contextWindow || 200_000;
+    return Math.min(100, Math.max(2, (stat.contextTokens / window) * 100));
+  });
+  // Compact token count: 1000000 -> "1M", 200000 -> "200k".
+  function tokens(n) {
+    if (n >= 1_000_000) {
+      const m = n / 1_000_000;
+      return (Number.isInteger(m) ? m : m.toFixed(1)) + "M";
+    }
+    return Math.round(n / 1000) + "k";
+  }
   const running = $derived(stat?.status === "active" && !isFinished);
   // Project folder, shown unless the window name already is the folder.
   const folder = $derived(stat?.cwd ? (stat.cwd.split("/").filter(Boolean).pop() ?? "") : "");
@@ -73,8 +88,7 @@
       <div class="fill {stat.band}" style="width: {meterPct}%"></div>
     </div>
     <div class="telemetry">
-      <span class="mono">{Math.round(stat.contextTokens / 1000)}k</span>
-      {#if !stat.unpriced}<span class="mono">${stat.estCostPerTurn.toFixed(2)}/turn</span>{/if}
+      <span class="mono">{tokens(stat.contextTokens)} / {tokens(stat.contextWindow || 200_000)}</span>
       <span class="detail mono">{stat.turns}t · {Math.floor(stat.uptimeSeconds / 60)}m</span>
       {#if stat.remoteControl}<span class="rc" title="Remote control enabled">📱</span>{/if}
     </div>
@@ -85,8 +99,18 @@
         onchange={(e) => { if (e.target.value) onswap(session.windowID, e.target.value); e.target.value = ""; }}
       >
         <option value="" selected>swap…</option>
-        {#each models as m (m.id)}
-          <option value={m.id}>{m.label}</option>
+        {#each swapGroups as g (g.provider)}
+          {#if g.single}
+            {#each g.models as m (m.id)}
+              <option value={m.id}>{m.displayLabel}</option>
+            {/each}
+          {:else}
+            <optgroup label={g.label}>
+              {#each g.models as m (m.id)}
+                <option value={m.id}>{m.displayLabel}</option>
+              {/each}
+            </optgroup>
+          {/if}
         {/each}
       </select>
     </div>

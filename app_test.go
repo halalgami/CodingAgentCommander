@@ -987,7 +987,7 @@ func TestMergeAnthropicIsAddOnly(t *testing.T) {
 		TmuxSession:  "commander",
 		DefaultModel: "claude-opus-4-8",
 		Models: []config.Model{
-			{ID: "claude-opus-4-8", Label: "MY OPUS", Provider: config.ProviderAnthropic, InputPrice: 1, OutputPrice: 2},
+			{ID: "claude-opus-4-8", Label: "MY OPUS", Provider: config.ProviderAnthropic, MaxInputTokens: 123_456},
 		},
 	}
 
@@ -999,7 +999,7 @@ func TestMergeAnthropicIsAddOnly(t *testing.T) {
 	}
 	// The hand-edited entry survives untouched.
 	m, ok := a.cfg.Model("claude-opus-4-8")
-	if !ok || m.Label != "MY OPUS" || m.InputPrice != 1 {
+	if !ok || m.Label != "MY OPUS" || m.MaxInputTokens != 123_456 {
 		t.Errorf("user edits clobbered: %+v", m)
 	}
 	// Everything else in the catalog is now present, exactly once.
@@ -1043,7 +1043,7 @@ func TestRefreshSkipsMergeWhenRevisionIsCurrent(t *testing.T) {
 		TmuxSession:  "commander",
 		DefaultModel: anthropic.DefaultID,
 		Models: []config.Model{
-			{ID: anthropic.DefaultID, Label: "Anthropic · Opus 5", Provider: config.ProviderAnthropic, InputPrice: 5, OutputPrice: 25},
+			{ID: anthropic.DefaultID, Label: "Anthropic · Opus 5", Provider: config.ProviderAnthropic, MaxInputTokens: 1_000_000, MaxOutputTokens: 128_000},
 		},
 		AnthropicCatalogRev: anthropic.CatalogRev,
 	}
@@ -1158,12 +1158,271 @@ func TestSessionStatBandsOllamaByContext(t *testing.T) {
 	if !ok {
 		t.Fatal("model not found")
 	}
-	// Routed, but subscription-billed: the meter must not be a dollar band, or
-	// it reads permanently green at $0.00.
-	if !m.BandByContext() {
-		t.Error("ollama must band by context")
+	// Routed and reporting no limits of its own, so the meter needs the
+	// fallback window rather than a zero divisor.
+	if got := m.ContextWindow(); got != config.DefaultContextWindow {
+		t.Errorf("ollama ContextWindow = %d, want the %d fallback", got, config.DefaultContextWindow)
 	}
-	if !m.Unpriced() {
-		t.Error("ollama model must report unpriced")
+}
+
+// --- Anthropic model discovery -------------------------------------------
+
+// An exported API key wins over the Claude Code login, matching the SDKs' own
+// precedence: someone who went to the trouble of exporting one meant it.
+func TestAnthropicCredentialPrefersAPIKey(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv(anthropic.KeyEnv, "sk-explicit")
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) { return "oat-from-keychain", nil }
+	defer func() { oauthTokenFn = oldFn }()
+
+	got := NewApp().anthropicCredential()
+	if got.Token != "sk-explicit" {
+		t.Errorf("token = %q, want the exported key", got.Token)
+	}
+	if got.OAuth {
+		t.Error("an API key must not be flagged OAuth; it goes in x-api-key")
+	}
+}
+
+// The subscription login is the path that actually exists on most installs.
+// Before this, discovery required a key and so never ran for them at all.
+func TestAnthropicCredentialFallsBackToClaudeLogin(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv(anthropic.KeyEnv, "")
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) { return "oat-from-keychain", nil }
+	defer func() { oauthTokenFn = oldFn }()
+
+	got := NewApp().anthropicCredential()
+	if got.Token != "oat-from-keychain" || !got.OAuth {
+		t.Errorf("want the keychain token flagged OAuth, got %+v", got)
+	}
+}
+
+func TestAnthropicCredentialEmptyWhenNothingAvailable(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv(anthropic.KeyEnv, "")
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) { return "", fmt.Errorf("no login") }
+	defer func() { oauthTokenFn = oldFn }()
+
+	if got := NewApp().anthropicCredential(); !got.Empty() {
+		t.Errorf("want an empty credential, got %+v", got)
+	}
+}
+
+// With no credential the pass must fail loudly rather than returning nil, or
+// the drawer's refresh button reports success having done nothing.
+func TestRefreshModelsReportsMissingCredential(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv(anthropic.KeyEnv, "")
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) { return "", fmt.Errorf("no login") }
+	defer func() { oauthTokenFn = oldFn }()
+
+	err := NewApp().RefreshModels()
+	if err == nil {
+		t.Fatal("expected an error with no credential")
+	}
+	if !strings.Contains(err.Error(), "claude") {
+		t.Errorf("the error should say how to fix it, got %v", err)
+	}
+}
+
+// Launch, the daily ticker, and the refresh button can all fire at once. Two
+// passes merging concurrently would race on a.cfg between read and persist, so
+// the second must bow out instead of running.
+func TestRunDiscoveryDoesNotOverlap(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	a.discovering.Store(true) // stand in for a pass already in flight
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) {
+		t.Error("a second pass must not reach the credential while one is running")
+		return "", fmt.Errorf("unreachable")
+	}
+	defer func() { oauthTokenFn = oldFn }()
+
+	if err := a.runDiscovery(); err != nil {
+		t.Errorf("a skipped pass is not a failure, got %v", err)
+	}
+}
+
+// Discovery merges live results into the catalog add-only, keeping the token
+// limits the API reported so the session meter has a real window to divide by.
+func TestRunDiscoveryMergesNewModels(t *testing.T) {
+	keyring.MockInit()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer oat-live" {
+			t.Errorf("Authorization = %q, want the keychain token as a bearer", got)
+		}
+		w.Write([]byte(`{"data":[
+			{"id":"claude-brand-new","display_name":"Brand New","max_input_tokens":2000000,"max_tokens":64000}
+		]}`))
+	}))
+	defer srv.Close()
+	oldBase := anthropic.APIBase
+	anthropic.APIBase = srv.URL
+	defer func() { anthropic.APIBase = oldBase }()
+
+	t.Setenv(anthropic.KeyEnv, "")
+	oldFn := oauthTokenFn
+	oauthTokenFn = func() (string, error) { return "oat-live", nil }
+	defer func() { oauthTokenFn = oldFn }()
+
+	a := NewApp()
+	a.configPath = filepath.Join(t.TempDir(), "config.toml")
+	a.cfg = config.Default()
+	before := a.cfg.AnthropicCatalogRev
+
+	if err := a.runDiscovery(); err != nil {
+		t.Fatalf("runDiscovery: %v", err)
+	}
+	m, ok := a.cfg.Model("claude-brand-new")
+	if !ok {
+		t.Fatal("discovered model was not merged into the catalog")
+	}
+	if m.MaxInputTokens != 2_000_000 || m.MaxOutputTokens != 64_000 {
+		t.Errorf("reported limits were dropped: %+v", m)
+	}
+	if m.Provider != config.ProviderAnthropic {
+		t.Errorf("provider = %q, want %q", m.Provider, config.ProviderAnthropic)
+	}
+	// Discovery is not the built-in catalog; stamping the revision here would
+	// suppress the next build's merge.
+	if a.cfg.AnthropicCatalogRev != before {
+		t.Errorf("discovery moved the catalog revision %d -> %d", before, a.cfg.AnthropicCatalogRev)
+	}
+}
+
+// TestLiveAnthropicDiscovery drives the real thing: the actual Claude Code
+// login out of the keychain, against the real Models API, through the real
+// merge. Skipped unless COMMANDER_LIVE_ANTHROPIC=1, because it needs the
+// network and a signed-in CLI.
+//
+// Worth keeping rather than running once by hand: every other test in this
+// file stubs either the credential or the endpoint, so none of them would
+// notice if the OAuth header shape stopped being accepted — which is exactly
+// the failure that kept discovery silently dead before.
+//
+//	COMMANDER_LIVE_ANTHROPIC=1 go test ./ -run TestLiveAnthropicDiscovery -v
+func TestLiveAnthropicDiscovery(t *testing.T) {
+	if os.Getenv("COMMANDER_LIVE_ANTHROPIC") != "1" {
+		t.Skip("set COMMANDER_LIVE_ANTHROPIC=1 to hit the real API")
+	}
+	keyring.MockInit()
+	a := NewApp()
+	a.configPath = filepath.Join(t.TempDir(), "config.toml")
+	a.cfg = config.Default()
+	seeded := len(a.cfg.Models)
+
+	if err := a.runDiscovery(); err != nil {
+		t.Fatalf("live discovery failed: %v", err)
+	}
+	t.Logf("catalog went from %d to %d models", seeded, len(a.cfg.Models))
+	for _, m := range a.cfg.Models {
+		t.Logf("  %-30s ctx=%-9d out=%d", m.ID, m.MaxInputTokens, m.MaxOutputTokens)
+	}
+	// The whole point is that models the build predates get picked up.
+	if len(a.cfg.Models) < seeded {
+		t.Errorf("discovery removed models: %d -> %d", seeded, len(a.cfg.Models))
+	}
+	for _, m := range a.cfg.Models {
+		if m.Provider != config.ProviderAnthropic {
+			t.Errorf("%s has provider %q", m.ID, m.Provider)
+		}
+	}
+	// Written through, not just held in memory.
+	reloaded, err := config.Load(a.configPath)
+	if err != nil {
+		t.Fatalf("discovery did not leave a loadable config: %v", err)
+	}
+	if len(reloaded.Models) != len(a.cfg.Models) {
+		t.Errorf("persisted %d models, in memory %d", len(reloaded.Models), len(a.cfg.Models))
+	}
+}
+
+// Token limits are new, so every config written by an earlier build has none.
+// Add-only on its own would leave those entries banding against the fallback
+// window forever — the exact meter bug the limits were added to fix. The merge
+// must backfill them while still leaving the user's own edits alone.
+func TestMergeAnthropicBackfillsMissingLimits(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	a.configPath = filepath.Join(t.TempDir(), "config.toml")
+	// A config from before the limits existed: renamed by hand, no window.
+	a.cfg = config.Config{
+		TmuxSession:  "commander",
+		DefaultModel: "claude-opus-4-8",
+		Models: []config.Model{
+			{ID: "claude-opus-4-8", Label: "MY OPUS", Provider: config.ProviderAnthropic},
+		},
+	}
+
+	if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
+		t.Fatalf("mergeAnthropic: %v", err)
+	}
+	m, ok := a.cfg.Model("claude-opus-4-8")
+	if !ok {
+		t.Fatal("model vanished")
+	}
+	if m.MaxInputTokens == 0 {
+		t.Error("a pre-limits entry was not backfilled; its meter would stay on the fallback window")
+	}
+	if m.Label != "MY OPUS" {
+		t.Errorf("backfill clobbered the user's rename: %+v", m)
+	}
+}
+
+// Backfill must not overwrite limits that are already set, or it would undo a
+// deliberate edit every launch.
+func TestMergeAnthropicLeavesExistingLimitsAlone(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	a.configPath = filepath.Join(t.TempDir(), "config.toml")
+	a.cfg = config.Config{
+		TmuxSession:  "commander",
+		DefaultModel: "claude-opus-4-8",
+		Models: []config.Model{
+			{ID: "claude-opus-4-8", Provider: config.ProviderAnthropic, MaxInputTokens: 42_000, MaxOutputTokens: 7},
+		},
+		AnthropicCatalogRev: anthropic.CatalogRev,
+	}
+
+	if err := a.mergeAnthropic(config.AnthropicModels(), anthropic.CatalogRev); err != nil {
+		t.Fatalf("mergeAnthropic: %v", err)
+	}
+	m, _ := a.cfg.Model("claude-opus-4-8")
+	if m.MaxInputTokens != 42_000 || m.MaxOutputTokens != 7 {
+		t.Errorf("a deliberate limit was overwritten: %+v", m)
+	}
+}
+
+// Four of the five model-listing surfaces read Config() rather than Models(),
+// so without Provider here none of them can group. ModelDetail already has it.
+func TestConfigCarriesProvider(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	if err := a.loadConfigFrom("example.config.toml"); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	got := a.Config()
+	if len(got) == 0 {
+		t.Fatal("no models in picker payload")
+	}
+	for _, m := range got {
+		if m.Provider == "" {
+			t.Errorf("%s has an empty provider; the picker cannot group it", m.ID)
+		}
+	}
+	var sawNative bool
+	for _, m := range got {
+		if m.Provider == config.ProviderAnthropic {
+			sawNative = true
+		}
+	}
+	if !sawNative {
+		t.Error("expected at least one anthropic model from the example config")
 	}
 }

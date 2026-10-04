@@ -198,6 +198,10 @@ export function PlanUsage() {
   return window['go']['main']['App']['PlanUsage']();
 }
 
+export function RefreshModels() {
+  return window['go']['main']['App']['RefreshModels']();
+}
+
 export function RemoveModel(arg1) {
   return window['go']['main']['App']['RemoveModel'](arg1);
 }
@@ -260,6 +264,10 @@ export function StartPackGen(arg1) {
 
 export function SwapModel(arg1, arg2) {
   return window['go']['main']['App']['SwapModel'](arg1, arg2);
+}
+
+export function TitleBarDoubleClick() {
+  return window['go']['main']['App']['TitleBarDoubleClick']();
 }
 
 export function WSPort() {

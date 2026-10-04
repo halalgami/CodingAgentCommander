@@ -43,6 +43,11 @@ var windowLabels = map[string]string{
 // on other platforms (usage_other.go). Both hand the raw JSON to
 // parseClaudeCredential.
 
+// oauthTokenFn indirects that platform call so tests can stand in for it. The
+// real one shells out to `security` or reads the user's home directory, neither
+// of which a test should depend on.
+var oauthTokenFn = claudeOAuthToken
+
 // parseClaudeCredential extracts the OAuth access token from Claude Code's
 // credential JSON. The shape is identical whether the blob came from the macOS
 // keychain or the on-disk .credentials.json.

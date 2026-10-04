@@ -14,16 +14,43 @@ import (
 )
 
 // Model is one selectable LLM in the catalog.
+//
+// There are no price columns. Every provider but native Anthropic already
+// carried none, and the native ones were a hand-maintained table that went
+// stale between releases and quoted dollars for sessions billed by
+// subscription. Token limits replaced them: unlike price, the upstream actually
+// reports those, and the context window is what the session meter needs.
+//
+// Dropping the old input_price/output_price keys is safe for configs already on
+// disk — Load does not check MetaData.Undecoded, so unknown keys are ignored.
 type Model struct {
-	ID          string  `toml:"id"`                 // value passed as ANTHROPIC_MODEL
-	Label       string  `toml:"label"`              // human display name
-	Provider    string  `toml:"provider"`           // "anthropic" (native); "opencode-go"/"bedrock"/... routed
-	InputPrice  float64 `toml:"input_price"`        // USD per 1M input tokens
-	OutputPrice float64 `toml:"output_price"`       // USD per 1M output tokens
-	KeyEnv      string  `toml:"key_env,omitempty"`  // env var LiteLLM reads: api_key: os.environ/<KeyEnv>
-	Upstream    string  `toml:"upstream,omitempty"` // LiteLLM model string, e.g. "openai/gpt-5.5" or "bedrock/us.anthropic.claude-..."
-	APIBase     string  `toml:"api_base,omitempty"` // upstream base URL for routed models
-	Region      string  `toml:"region,omitempty"`   // AWS region for bedrock models (not a secret)
+	ID       string `toml:"id"`       // value passed as ANTHROPIC_MODEL
+	Label    string `toml:"label"`    // human display name
+	Provider string `toml:"provider"` // "anthropic" (native); "opencode-go"/"bedrock"/... routed
+	// MaxInputTokens is the context window, used to band session fullness.
+	// Zero means unknown, which falls back to DefaultContextWindow.
+	MaxInputTokens int `toml:"max_input_tokens,omitempty"`
+	// MaxOutputTokens is the per-response ceiling. Informational.
+	MaxOutputTokens int    `toml:"max_output_tokens,omitempty"`
+	KeyEnv          string `toml:"key_env,omitempty"`  // env var LiteLLM reads: api_key: os.environ/<KeyEnv>
+	Upstream        string `toml:"upstream,omitempty"` // LiteLLM model string, e.g. "openai/gpt-5.5" or "bedrock/us.anthropic.claude-..."
+	APIBase         string `toml:"api_base,omitempty"` // upstream base URL for routed models
+	Region          string `toml:"region,omitempty"`   // AWS region for bedrock models (not a secret)
+}
+
+// DefaultContextWindow is the window assumed for a model that reports none —
+// routed models from providers whose listing says nothing about limits, and
+// entries a user typed by hand. 200k is the smallest window any current model
+// has, so the band it produces errs toward "fuller than it is" rather than
+// reassuring a user whose context is actually about to compact.
+const DefaultContextWindow = 200_000
+
+// ContextWindow is the model's usable input window, falling back when unknown.
+func (m Model) ContextWindow() int {
+	if m.MaxInputTokens > 0 {
+		return m.MaxInputTokens
+	}
+	return DefaultContextWindow
 }
 
 // Provider names. "anthropic" is native (subscription OAuth, no proxy); every
@@ -182,23 +209,12 @@ func (m Model) PreservesThinking() bool {
 	return m.Provider == ProviderBedrock && strings.Contains(m.Upstream, "anthropic")
 }
 
-// BandByContext reports whether a session's meter should show context fullness
-// rather than dollars per turn.
-//
-// True for providers that bill by subscription, where per-turn cost is not the
-// scarce resource: native Anthropic (Claude Code's own subscription) and Ollama
-// Cloud (a monthly plan with 5-hour and weekly session limits, and no published
-// per-token rate). The name describes which meter to draw rather than asserting
-// a billing model the code cannot know — an Anthropic user with an API key does
-// pay per token.
-func (m Model) BandByContext() bool {
-	return m.Provider == ProviderAnthropic || m.Provider == ProviderOllama
-}
-
-// Unpriced reports that the catalog carries no rate for this model, so no dollar
-// figure can honestly be shown. Discovery adds models at price 0 whenever the
-// upstream does not report pricing.
-func (m Model) Unpriced() bool { return m.InputPrice == 0 && m.OutputPrice == 0 }
+// BandByContext and Unpriced are gone along with the price columns. Every
+// session now bands by context fullness, so there is no longer a choice to
+// make: the two helpers existed to pick between a dollar meter and a context
+// meter, and between them they already covered every provider — native
+// Anthropic and Ollama via BandByContext, Bedrock and Zen via Unpriced, since
+// neither ever set a rate. The dollar branch was unreachable in practice.
 
 // NormalizeBedrockUpstream prepends the "bedrock/" LiteLLM provider prefix if the
 // user omitted it, so "us.anthropic.claude-..." and "bedrock/us.anthropic..."
@@ -285,7 +301,7 @@ func AnthropicModels() []Model {
 	for _, m := range cat {
 		out = append(out, Model{
 			ID: m.ID, Label: m.Label, Provider: ProviderAnthropic,
-			InputPrice: m.InputPrice, OutputPrice: m.OutputPrice,
+			MaxInputTokens: m.MaxInputTokens, MaxOutputTokens: m.MaxOutputTokens,
 		})
 	}
 	return out

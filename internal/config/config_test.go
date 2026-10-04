@@ -56,6 +56,35 @@ output_price = 15.0
 	}
 }
 
+// Configs written before the price columns were removed still carry
+// input_price/output_price. Load must ignore them rather than fail, or every
+// existing install breaks on upgrade. This holds because Load never inspects
+// MetaData.Undecoded — if that ever changes, this test is the alarm.
+func TestLoadIgnoresRetiredPriceKeys(t *testing.T) {
+	p := writeTemp(t, `
+default_model = "claude-opus-5-5"
+
+[[models]]
+id = "claude-opus-5-5"
+label = "Opus 5.5"
+provider = "anthropic"
+input_price = 5.0
+output_price = 25.0
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatalf("a config carrying the retired price keys must still load: %v", err)
+	}
+	m, ok := c.Model("claude-opus-5-5")
+	if !ok {
+		t.Fatal("model missing after load")
+	}
+	// The window falls back rather than inheriting anything from the dead keys.
+	if got := m.ContextWindow(); got != DefaultContextWindow {
+		t.Errorf("ContextWindow = %d, want the %d fallback", got, DefaultContextWindow)
+	}
+}
+
 func TestLoadRejectsUnknownDefault(t *testing.T) {
 	p := writeTemp(t, `
 default_model = "ghost"
@@ -206,7 +235,7 @@ func TestSaveRoundTrip(t *testing.T) {
 		TmuxSession:  "commander",
 		DefaultModel: "claude-opus-4-8",
 		Models: []Model{
-			{ID: "claude-opus-4-8", Label: "Opus", Provider: "anthropic", InputPrice: 15, OutputPrice: 75},
+			{ID: "claude-opus-4-8", Label: "Opus", Provider: "anthropic", MaxInputTokens: 1_000_000, MaxOutputTokens: 128_000},
 			{ID: "kimi", Label: "Kimi", Provider: "zen", Upstream: "openai/kimi", APIBase: "https://x/v1", KeyEnv: "ZEN_KEY"},
 		},
 	}
@@ -237,7 +266,7 @@ func TestSaveRoundTripProviders(t *testing.T) {
 		TmuxSession:  "commander",
 		DefaultModel: "claude-opus-4-8",
 		Models: []Model{
-			{ID: "claude-opus-4-8", Label: "Opus", Provider: "anthropic", InputPrice: 15, OutputPrice: 75},
+			{ID: "claude-opus-4-8", Label: "Opus", Provider: "anthropic", MaxInputTokens: 1_000_000, MaxOutputTokens: 128_000},
 		},
 		Providers: []Provider{
 			{Type: ProviderOpencodeGo, APIBase: ZenDefaultAPIBase},
@@ -518,22 +547,37 @@ func TestResolveModelOllamaFallsBackToDefaultBase(t *testing.T) {
 	}
 }
 
-func TestBandByContextAndUnpriced(t *testing.T) {
-	native := Model{Provider: ProviderAnthropic, InputPrice: 5, OutputPrice: 25}
-	oll := Model{Provider: ProviderOllama}
-	zen := Model{Provider: ProviderOpencodeGo, InputPrice: 1, OutputPrice: 2}
+func TestContextWindow(t *testing.T) {
+	native := Model{Provider: ProviderAnthropic, MaxInputTokens: 1_000_000}
+	if got := native.ContextWindow(); got != 1_000_000 {
+		t.Errorf("a model reporting its window must use it: got %d", got)
+	}
+	// Routed providers list no limits, and hand-added models have none either.
+	// Those must still produce a usable divisor for the session meter.
+	for _, m := range []Model{
+		{Provider: ProviderOllama},
+		{Provider: ProviderOpencodeGo},
+		{Provider: ProviderBedrock},
+	} {
+		if got := m.ContextWindow(); got != DefaultContextWindow {
+			t.Errorf("%s window = %d, want the %d fallback", m.Provider, got, DefaultContextWindow)
+		}
+	}
+}
 
-	if !native.BandByContext() || !oll.BandByContext() {
-		t.Error("anthropic and ollama band by context")
+// The native catalog is the one source that does know its limits; losing them
+// in the hand-off to config would silently restore the old fixed-window meter.
+func TestAnthropicModelsCarryTokenLimits(t *testing.T) {
+	for _, m := range AnthropicModels() {
+		if m.MaxInputTokens <= 0 || m.MaxOutputTokens <= 0 {
+			t.Errorf("%s lost its limits converting from the anthropic catalog: %+v", m.ID, m)
+		}
+		if m.Provider != ProviderAnthropic {
+			t.Errorf("%s provider = %q, want %q", m.ID, m.Provider, ProviderAnthropic)
+		}
 	}
-	if zen.BandByContext() {
-		t.Error("zen bands by cost")
-	}
-	if native.Unpriced() {
-		t.Error("priced anthropic model is not unpriced")
-	}
-	if !oll.Unpriced() {
-		t.Error("ollama discovery adds models at price 0")
+	if len(AnthropicModels()) != len(anthropic.Catalog()) {
+		t.Errorf("AnthropicModels dropped entries: %d vs %d", len(AnthropicModels()), len(anthropic.Catalog()))
 	}
 }
 

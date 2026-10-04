@@ -3,6 +3,7 @@
   import { app, select, swapSession, enableRemoteControl, askLaunch } from "../stores.svelte.js";
   import { listProjects } from "../history.js";
   import { fuzzyFilter } from "../fuzzy.js";
+  import { providerDisplayLabel } from "../modelGroups.js";
   import { listProjectDocs } from "../projectdocs.js";
   import { openDoc } from "../docview.svelte.js";
   import { pickDocRoot, docPaletteItems } from "../docs.js";
@@ -82,7 +83,14 @@
     if (app.sessionKey) {
       const wid = app.sessionKey.split(":")[0];
       for (const m of app.models) {
-        items.push({ label: `Swap to: ${m.label}`, hint: "model", run: () => swapSession(wid, m.id) });
+        // The provider earns the hint slot: "model" told the user nothing
+        // once the catalog spans providers. Full label kept (no header here).
+        items.push({
+          label: `Swap to: ${m.label}`,
+          hint: m.provider ? providerDisplayLabel(m.provider) : "Other",
+          model: true,
+          run: () => swapSession(wid, m.id),
+        });
       }
     }
     if (app.sessionKey) {
@@ -110,7 +118,13 @@
     return items;
   });
 
-  const results = $derived(fuzzyFilter(query, actions, (a) => a.label).slice(0, 12));
+  // The render cap applies to NON-model rows only (12, as before). Model rows
+  // are uncapped: with ~30 models a flat cap truncated them, and a larger flat
+  // cap let them push Settings/Models/About off the list. Ranking is unchanged.
+  const results = $derived.by(() => {
+    let rest = 0;
+    return fuzzyFilter(query, actions, (a) => a.label).filter((a) => a.model || rest++ < 12);
+  });
 
   function pick(a) {
     app.paletteOpen = false;

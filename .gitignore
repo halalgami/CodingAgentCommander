@@ -30,3 +30,6 @@ internal/deps/assets/
 
 # agent scratch (progress ledgers, task briefs, review diffs)
 /.superpowers/
+
+# mkmotion working output (frames/intermediate webp per run)
+scripts/mkmotion/work/

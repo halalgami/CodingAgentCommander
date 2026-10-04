@@ -1,6 +1,7 @@
 <script>
   import { app, confirmLaunch, cancelLaunch } from "../stores.svelte.js";
   import Select from "./Select.svelte";
+  import { pickerGroups, toggleProviderGroup } from "../modelGroupState.svelte.js";
 
   const lc = $derived(app.launchConfirm);
 
@@ -39,7 +40,8 @@
     <label class="lbl">Model</label>
     <Select
       testid="launch-confirm-model"
-      options={app.models.map((m) => ({ value: m.id, label: m.label + (m.routed && !m.ready ? " (needs key)" : "") }))}
+      groups={pickerGroups(app.models)}
+      ontogglegroup={toggleProviderGroup}
       bind:value={model}
       placeholder="model…"
     />

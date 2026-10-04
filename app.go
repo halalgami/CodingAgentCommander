@@ -53,6 +53,11 @@ type ModelInfo struct {
 	// happened to be listed first — never the new models, which merge in at the
 	// end.
 	Default bool `json:"default"`
+	// Provider is the catalog provider id ("anthropic", "ollama-cloud", …).
+	// Present so the picker, the card swap and the palette can group by it —
+	// they read Config(), not Models(), and ModelDetail's copy is unreachable
+	// from there.
+	Provider string `json:"provider"`
 }
 
 // SessionInfo describes a launched session for the sidebar.
@@ -115,6 +120,13 @@ type App struct {
 	// runtimeInstalling guards against overlapping first-run LiteLLM installs
 	// (a double-clicked Install button); a second call no-ops while one runs.
 	runtimeInstalling atomic.Bool
+	// discovering guards the Anthropic model-discovery pass. Three things can
+	// start one — launch, the daily ticker, and the drawer's refresh button —
+	// and two merging concurrently would race on a.cfg between read and persist.
+	discovering atomic.Bool
+	// discoveryStop closes at shutdown to end the daily discovery ticker. Nil
+	// until startup runs, so shutdown must check before closing.
+	discoveryStop chan struct{}
 	// pwshInstalling does the same for the on-demand PowerShell 7 download,
 	// which matters more there: the archive is ~106 MB, so a double click would
 	// otherwise mean downloading it twice into the same staging directory.
@@ -242,13 +254,11 @@ type sessionRec struct {
 
 // SessionStats is the per-session card data.
 type SessionStats struct {
-	ContextTokens  int     `json:"contextTokens"`
-	EstCostPerTurn float64 `json:"estCostPerTurn"`
-	// Unpriced means the catalog carries no rate, so the card must show no
-	// dollar figure. An explicit flag rather than an EstCostPerTurn == 0 check
-	// in the frontend, which would also blank a genuinely free first turn on a
-	// priced model.
-	Unpriced      bool   `json:"unpriced"`
+	ContextTokens int `json:"contextTokens"`
+	// ContextWindow is the model's input window, so the card can render
+	// fullness ("45k / 1M") rather than a bare token count the user has no
+	// scale for. Always nonzero — ContextWindow() substitutes a fallback.
+	ContextWindow int    `json:"contextWindow"`
 	Band          string `json:"band"`
 	Turns         int    `json:"turns"`
 	Model         string `json:"model"`
@@ -327,6 +337,9 @@ func (a *App) settingsPath() string {
 // router, and clean up the generated router files so nothing lingers on disk.
 func (a *App) shutdown(ctx context.Context) {
 	overlayCloseFn()
+	if a.discoveryStop != nil {
+		close(a.discoveryStop)
+	}
 	_ = hookmgr.Remove(a.settingsPath())
 	if a.wsListener != nil {
 		_ = a.wsListener.Close() // stop the local http server (was leaked before)
@@ -424,6 +437,7 @@ func (a *App) startup(ctx context.Context) {
 	// Background: needs the network, and nothing downstream waits on it. Kept
 	// out of refreshAnthropicModels so that stays synchronous and testable.
 	go a.discoverAnthropicModels()
+	a.startDiscoveryLoop()
 	a.masterKey = randomHex(24)
 	a.wsToken = randomHex(24)
 	// Reap any litellm orphaned by a prior unclean exit before starting fresh.
@@ -466,69 +480,145 @@ func (a *App) refreshAnthropicModels() {
 	}
 }
 
-// discoverAnthropicModels merges any models an ANTHROPIC_API_KEY in the
-// environment can see that the build does not know about.
+// discoveryInterval is how often the catalog re-checks upstream while the app
+// is running. A day is matched to how fast the answer actually changes — model
+// launches are a monthly event, so polling hourly would be ~700 requests a year
+// to learn the same thing. Launch, this ticker, and the drawer's refresh button
+// between them mean no long-running install can drift more than a day stale.
+const discoveryInterval = 24 * time.Hour
+
+// startDiscoveryLoop re-runs discovery once a day until shutdown.
+func (a *App) startDiscoveryLoop() {
+	a.discoveryStop = make(chan struct{})
+	stop := a.discoveryStop
+	go func() {
+		t := time.NewTicker(discoveryInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				a.discoverAnthropicModels()
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+// anthropicCredential resolves something to authenticate discovery with.
 //
-// The environment is the only source: Anthropic is not a config Provider — it is
-// the built-in, subscription-authenticated one — so there is no Providers row to
-// paste a key into and nothing ever writes this ref to the keychain. Reading it
-// from there anyway would be dead code dressed as a feature. A persistent user
-// environment variable is inherited by Explorer launches on Windows, and a
-// terminal launch works anywhere; installs with no key at all just keep the
-// built-in catalog, which is the common case and why that catalog carries the
-// weight.
-func (a *App) discoverAnthropicModels() {
-	key := os.Getenv(anthropic.KeyEnv)
-	if key == "" {
-		return
+// An exported ANTHROPIC_API_KEY wins, matching the SDKs' own precedence and
+// letting anyone who wants a specific key force it. Otherwise it falls back to
+// the Claude Code OAuth login — the same keychain item the usage drawer reads,
+// which is what a subscription-only install actually has. Discovery used to
+// require the key and nothing else, which meant it silently never ran for the
+// native users it was written for.
+func (a *App) anthropicCredential() anthropic.Credential {
+	if key := os.Getenv(anthropic.KeyEnv); key != "" {
+		return anthropic.Credential{Token: key}
 	}
-	found, err := anthropic.ListModels(a.ctx, key)
+	// Deliberately not cached. The CLI refreshes this token in place, and a
+	// cached copy would outlive the refresh and start 401ing; re-reading the
+	// keychain once a day costs nothing.
+	if tok, err := oauthTokenFn(); err == nil {
+		return anthropic.Credential{Token: tok, OAuth: true}
+	}
+	return anthropic.Credential{}
+}
+
+// RefreshModels runs discovery now and reports the outcome to the caller.
+// Bound for the models drawer's refresh button, which needs the error in hand
+// rather than fired off as a toast.
+func (a *App) RefreshModels() error {
+	return a.runDiscovery()
+}
+
+// discoverAnthropicModels is the background entry point: same work, errors
+// surfaced as notifications since nobody is waiting on a return value.
+func (a *App) discoverAnthropicModels() {
+	if err := a.runDiscovery(); err != nil {
+		a.reportError(err.Error())
+	}
+}
+
+// runDiscovery merges any models the available credential can see that the
+// catalog does not already carry.
+//
+// Add-only, and the revision is left alone: discovery is not the built-in
+// catalog, and stamping CatalogRev here would suppress the next build's merge.
+func (a *App) runDiscovery() error {
+	// A pass already running is not a failure — the caller gets the result of
+	// that one a moment later, via models:updated.
+	if !a.discovering.CompareAndSwap(false, true) {
+		return nil
+	}
+	defer a.discovering.Store(false)
+
+	cred := a.anthropicCredential()
+	if cred.Empty() {
+		return fmt.Errorf("no Anthropic credential: sign in with `claude` once, or export %s", anthropic.KeyEnv)
+	}
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	found, err := anthropic.ListModels(ctx, cred)
 	if err != nil {
-		a.reportError(fmt.Sprintf("could not check Anthropic for new models: %v", err))
-		return
+		return fmt.Errorf("could not check Anthropic for new models: %w", err)
 	}
 	models := make([]config.Model, 0, len(found))
 	for _, m := range found {
 		models = append(models, config.Model{
 			ID: m.ID, Label: m.Label, Provider: config.ProviderAnthropic,
-			InputPrice: m.InputPrice, OutputPrice: m.OutputPrice,
+			MaxInputTokens: m.MaxInputTokens, MaxOutputTokens: m.MaxOutputTokens,
 		})
 	}
-	// Revision unchanged: discovery is not the built-in catalog, and stamping it
-	// here would suppress the next build's merge.
 	if err := a.mergeAnthropic(models, 0); err != nil {
-		a.reportError(fmt.Sprintf("discovered models could not be saved: %v", err))
-		return
+		return fmt.Errorf("discovered models could not be saved: %w", err)
 	}
 	if a.ctx != nil {
 		wruntime.EventsEmit(a.ctx, "models:updated")
 	}
+	return nil
 }
 
 // mergeAnthropic appends the models whose ids are not already in the catalog and
 // persists before committing, matching every other catalog mutation. A rev of 0
 // leaves AnthropicCatalogRev alone. Returns nil when there is nothing to do.
+//
+// Add-only for everything the user can edit — a renamed model keeps its name —
+// with one exception: an entry carrying no token limits is backfilled from the
+// incoming one. Those limits are new, so a config written by any earlier build
+// has none, and add-only alone would mean every pre-existing model banded
+// against the fallback window forever. Backfilling only the zero case cannot
+// clobber a user's choice, because there was no field to choose.
 func (a *App) mergeAnthropic(models []config.Model, rev int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	have := make(map[string]bool, len(a.cfg.Models))
-	for _, m := range a.cfg.Models {
-		have[m.ID] = true
+	at := make(map[string]int, len(a.cfg.Models))
+	for i, m := range a.cfg.Models {
+		at[m.ID] = i
 	}
 	next := a.cfg
 	next.Models = append([]config.Model{}, a.cfg.Models...)
-	added := 0
+	added, filled := 0, 0
 	for _, m := range models {
-		if have[m.ID] {
+		i, ok := at[m.ID]
+		if !ok {
+			at[m.ID] = len(next.Models)
+			next.Models = append(next.Models, m)
+			added++
 			continue
 		}
-		have[m.ID] = true
-		next.Models = append(next.Models, m)
-		added++
+		if next.Models[i].MaxInputTokens == 0 && m.MaxInputTokens > 0 {
+			next.Models[i].MaxInputTokens = m.MaxInputTokens
+			next.Models[i].MaxOutputTokens = m.MaxOutputTokens
+			filled++
+		}
 	}
 	if rev > next.AnthropicCatalogRev {
 		next.AnthropicCatalogRev = rev
-	} else if added == 0 {
+	} else if added == 0 && filled == 0 {
 		return nil
 	}
 	if a.configPath == "" {
@@ -906,7 +996,7 @@ func (a *App) Config() []ModelInfo {
 		ready, _ := modelReadyWith(m, creds)
 		out = append(out, ModelInfo{
 			ID: m.ID, Label: m.Label, Routed: m.IsRouted(), Ready: ready,
-			Default: m.ID == def,
+			Default: m.ID == def, Provider: m.Provider,
 		})
 	}
 	return out
@@ -1034,29 +1124,29 @@ func (a *App) ClearKey(env string) error { return secrets.Delete(env) }
 
 // ModelInput is the add-model form payload.
 type ModelInput struct {
-	ID          string  `json:"id"`
-	Label       string  `json:"label"`
-	Provider    string  `json:"provider"`
-	Upstream    string  `json:"upstream"`
-	APIBase     string  `json:"apiBase"`
-	KeyEnv      string  `json:"keyEnv"`
-	Region      string  `json:"region"`
-	InputPrice  float64 `json:"inputPrice"`
-	OutputPrice float64 `json:"outputPrice"`
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Provider string `json:"provider"`
+	Upstream string `json:"upstream"`
+	APIBase  string `json:"apiBase"`
+	KeyEnv   string `json:"keyEnv"`
+	Region   string `json:"region"`
 }
 
 // ModelDetail is a full catalog row for the admin panel.
 type ModelDetail struct {
-	ID          string  `json:"id"`
-	Label       string  `json:"label"`
-	Provider    string  `json:"provider"`
-	Routed      bool    `json:"routed"`
-	Upstream    string  `json:"upstream"`
-	APIBase     string  `json:"apiBase"`
-	KeyEnv      string  `json:"keyEnv"`
-	Region      string  `json:"region"`
-	InputPrice  float64 `json:"inputPrice"`
-	OutputPrice float64 `json:"outputPrice"`
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Provider string `json:"provider"`
+	Routed   bool   `json:"routed"`
+	Upstream string `json:"upstream"`
+	APIBase  string `json:"apiBase"`
+	KeyEnv   string `json:"keyEnv"`
+	Region   string `json:"region"`
+	// ContextWindow is the resolved input window (the model's own, or the
+	// fallback), so the panel can show what the meter is measuring against.
+	ContextWindow   int `json:"contextWindow"`
+	MaxOutputTokens int `json:"maxOutputTokens"`
 }
 
 // Models returns the full catalog for the admin panel.
@@ -1068,7 +1158,7 @@ func (a *App) Models() []ModelDetail {
 		out = append(out, ModelDetail{
 			ID: m.ID, Label: m.Label, Provider: m.Provider, Routed: m.IsRouted(),
 			Upstream: m.Upstream, APIBase: m.APIBase, KeyEnv: m.KeyEnv, Region: m.Region,
-			InputPrice: m.InputPrice, OutputPrice: m.OutputPrice,
+			ContextWindow: m.ContextWindow(), MaxOutputTokens: m.MaxOutputTokens,
 		})
 	}
 	return out
@@ -1259,7 +1349,8 @@ func (a *App) AddModel(in ModelInput) error {
 	next.Models = append(append([]config.Model{}, a.cfg.Models...), config.Model{
 		ID: in.ID, Label: in.Label, Provider: in.Provider,
 		Upstream: in.Upstream, APIBase: in.APIBase, KeyEnv: in.KeyEnv, Region: in.Region,
-		InputPrice: in.InputPrice, OutputPrice: in.OutputPrice,
+		// Limits are left unset: a hand-added routed model has none to report,
+		// and ContextWindow() supplies the conservative fallback.
 	})
 	if err := config.Save(a.configPath, next); err != nil {
 		return err
@@ -1548,20 +1639,13 @@ func (a *App) SessionStats(windowID string) SessionStats {
 		st.ContextTokens, st.Turns = a.transcriptStats(tpath)
 	}
 	if m, ok := a.modelByID(model); ok {
-		st.EstCostPerTurn = pricing.TurnInputCost(st.ContextTokens, m)
-		st.Unpriced = m.Unpriced()
-		// Pay-per-token sessions spend real money — band by cost. Subscription
-		// sessions don't, so cost-red is noise; band by how full the context
-		// window is instead. Ollama Cloud is routed AND subscription-billed,
-		// which is why this is no longer an IsRouted() check. An unpriced model
-		// (e.g. Zen/Bedrock cards, which always carry a $0 rate) has no
-		// meaningful dollar band either — Band(0) would always read green — so
-		// context fullness is the only real signal there too.
-		if m.BandByContext() || m.Unpriced() {
-			st.Band = pricing.ContextBand(st.ContextTokens)
-		} else {
-			st.Band = pricing.Band(st.EstCostPerTurn)
-		}
+		// Every session bands by context fullness now. The dollar band it
+		// replaced only ever applied to models carrying a rate, which in
+		// practice meant the hand-written native Anthropic table — sessions
+		// billed by subscription, where a per-turn figure was invented and
+		// cost-red was noise.
+		st.ContextWindow = m.ContextWindow()
+		st.Band = pricing.ContextBand(st.ContextTokens, st.ContextWindow)
 	}
 	return st
 }

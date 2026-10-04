@@ -330,8 +330,8 @@ export namespace main {
 	    apiBase: string;
 	    keyEnv: string;
 	    region: string;
-	    inputPrice: number;
-	    outputPrice: number;
+	    contextWindow: number;
+	    maxOutputTokens: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelDetail(source);
@@ -347,8 +347,8 @@ export namespace main {
 	        this.apiBase = source["apiBase"];
 	        this.keyEnv = source["keyEnv"];
 	        this.region = source["region"];
-	        this.inputPrice = source["inputPrice"];
-	        this.outputPrice = source["outputPrice"];
+	        this.contextWindow = source["contextWindow"];
+	        this.maxOutputTokens = source["maxOutputTokens"];
 	    }
 	}
 	export class ModelInfo {
@@ -357,6 +357,7 @@ export namespace main {
 	    routed: boolean;
 	    ready: boolean;
 	    default: boolean;
+	    provider: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelInfo(source);
@@ -369,6 +370,7 @@ export namespace main {
 	        this.routed = source["routed"];
 	        this.ready = source["ready"];
 	        this.default = source["default"];
+	        this.provider = source["provider"];
 	    }
 	}
 	export class ModelInput {
@@ -379,8 +381,6 @@ export namespace main {
 	    apiBase: string;
 	    keyEnv: string;
 	    region: string;
-	    inputPrice: number;
-	    outputPrice: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ModelInput(source);
@@ -395,8 +395,6 @@ export namespace main {
 	        this.apiBase = source["apiBase"];
 	        this.keyEnv = source["keyEnv"];
 	        this.region = source["region"];
-	        this.inputPrice = source["inputPrice"];
-	        this.outputPrice = source["outputPrice"];
 	    }
 	}
 	export class OllamaModel {
@@ -1045,8 +1043,7 @@ export namespace main {
 	
 	export class SessionStats {
 	    contextTokens: number;
-	    estCostPerTurn: number;
-	    unpriced: boolean;
+	    contextWindow: number;
 	    band: string;
 	    turns: number;
 	    model: string;
@@ -1063,8 +1060,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.contextTokens = source["contextTokens"];
-	        this.estCostPerTurn = source["estCostPerTurn"];
-	        this.unpriced = source["unpriced"];
+	        this.contextWindow = source["contextWindow"];
 	        this.band = source["band"];
 	        this.turns = source["turns"];
 	        this.model = source["model"];

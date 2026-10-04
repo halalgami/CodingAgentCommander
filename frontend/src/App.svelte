@@ -1,6 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import { EventsOn } from "../wailsjs/runtime/runtime.js";
+  import { TitleBarDoubleClick } from "../wailsjs/go/main/App.js";
+  import { onTitlebarDblClick } from "./lib/titlebar.js";
   import { app, loadAll, refresh, markFinished, reloadModels, toast } from "./lib/stores.svelte.js";
   import Sidebar from "./lib/components/Sidebar.svelte";
   import SidebarCompanion from "./lib/companion/SidebarCompanion.svelte";
@@ -74,7 +76,7 @@
 </script>
 
 <div class="shell">
-  <header class="titlebar" data-testid="titlebar" style="--wails-draggable: drag">
+  <header class="titlebar" data-testid="titlebar" style="--wails-draggable: drag" ondblclick={(e) => onTitlebarDblClick(e, () => TitleBarDoubleClick())}>
     <span class="wordmark" data-testid="wordmark">COMMANDER</span>
     <button class="palette-hint" data-testid="open-palette" onclick={() => (app.paletteOpen = true)}>
       <span>Search or jump…</span><kbd>⌘K</kbd>
