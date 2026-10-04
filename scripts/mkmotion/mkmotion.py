@@ -8,23 +8,24 @@ import plan, commands, run as runner
 
 
 def _list_frames(src):
-    if os.path.isdir(src):
-        files = sorted(glob.glob(os.path.join(src, "*.png")))
-    else:
-        files = sorted(glob.glob(src))
-    return files
+    return sorted(glob.glob(os.path.join(glob.escape(src), "*.png")))
 
 
-def _fit_frames(src_dir, dst_dir, w, h):
-    """Scale+pad every PNG in src_dir into dst_dir at exactly WxH (alpha kept)."""
+def _fit_frames(files, dst_dir, w, h):
+    """Scale+pad every PNG in files into dst_dir at exactly WxH (alpha kept)."""
     os.makedirs(dst_dir, exist_ok=True)
     out = []
-    for i, f in enumerate(sorted(glob.glob(os.path.join(src_dir, "*.png")))):
+    for i, f in enumerate(files):
         o = os.path.join(dst_dir, f"f_{i:04d}.png")
         runner.run(["ffmpeg", "-y", "-i", f, "-vf",
                     commands.scale_pad_filter(w, h), o])
         out.append(o)
     return out
+
+
+def _fail(msg, code=2):
+    print(f"mkmotion: {msg}", file=sys.stderr)
+    return code
 
 
 def main(argv):
@@ -44,18 +45,21 @@ def main(argv):
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args(argv)
 
+    try:
+        w, h = plan.validate_options(a.quality, a.fps, a.max_frames, a.canvas)
+        plan.validate_name(a.name)
+        if not os.path.exists(a.input):
+            raise ValueError(f"input not found: {a.input}")
+        kind = plan.detect_input_kind(a.input)
+        if kind == "frames" and not _list_frames(a.input):
+            raise ValueError(f"no .png frames in {a.input} (frame directories are PNG-only)")
+    except ValueError as e:
+        return _fail(e)
+
     missing = runner.check_tools(["ffmpeg", "img2webp"])
     if missing:
-        print(f"missing required tools: {', '.join(missing)} — `brew install ffmpeg webp`", file=sys.stderr)
-        return 2
+        return _fail(f"missing required tools: {', '.join(missing)} — `brew install ffmpeg webp`")
 
-    try:
-        w, h = (int(x) for x in a.canvas.lower().split("x"))
-    except ValueError:
-        print(f"--canvas must be WxH, got {a.canvas!r}", file=sys.stderr)
-        return 2
-
-    kind = plan.detect_input_kind(a.input)
     out = plan.stage_outputs(a.work_dir, a.name)
     raw_frames_dir = out["frames_dir"] + "_raw"
 
@@ -64,6 +68,13 @@ def main(argv):
         return 0
 
     try:
+        # fresh run: stale stage frames from an earlier/failed run must not leak in
+        for d in (raw_frames_dir, out["frames_dir"], out["matte_dir"]):
+            shutil.rmtree(d, ignore_errors=True)
+        for f in (out["webp"], out["poster"]):
+            if os.path.exists(f):
+                os.remove(f)
+
         # 1) get raw frames
         os.makedirs(raw_frames_dir, exist_ok=True)
         if kind == "frames":
@@ -72,25 +83,30 @@ def main(argv):
         else:  # video or gif
             runner.run(commands.ffmpeg_extract_cmd(
                 a.input, os.path.join(raw_frames_dir, "f_%04d.png"), a.fps))
-        raw = sorted(glob.glob(os.path.join(raw_frames_dir, "*.png")))
+        raw = sorted(glob.glob(os.path.join(glob.escape(raw_frames_dir), "*.png")))
         if not raw:
-            print("no frames produced from input", file=sys.stderr)
-            return 1
+            return _fail("no frames produced from input")
 
-        # 2) matte (optional)
-        src_dir = raw_frames_dir
-        if a.matte:
-            import matte  # lazy: only needs rembg when --matte is used
-            src_dir = out["matte_dir"]
-            matte.matte_dir(raw_frames_dir, src_dir)
+        try:
+            sw, sh = plan.png_size(raw[0])
+            if plan.is_upscale(sw, sh, w, h):
+                print(f"note: input is {sw}x{sh}, upscaling to {w}x{h} — expect softness")
+        except (ValueError, OSError):
+            shutil.rmtree(d, ignore_errors=True)
 
-        # 3) canvas fit
-        fitted = _fit_frames(src_dir, out["frames_dir"], w, h)
-
-        # 4) cap + pingpong
-        capped, dropped = plan.cap_frames(fitted, a.max_frames)
+        # 2) cap first so dropped frames are never matted or fitted
+        capped_raw, dropped = plan.cap_frames(raw, a.max_frames)
         if dropped:
             print(f"note: dropped {dropped} frame(s) to stay under --max-frames {a.max_frames}")
+
+        # 3) matte (optional)
+        src_files = capped_raw
+        if a.matte:
+            import matte  # lazy: only needs rembg when --matte is used
+            src_files = matte.matte_files(capped_raw, out["matte_dir"])
+
+        # 4) canvas fit, then pingpong
+        capped = _fit_frames(src_files, out["frames_dir"], w, h)
         order = plan.build_frame_order(capped, a.pingpong)
 
         # 5) encode + poster
@@ -104,8 +120,9 @@ def main(argv):
             print(f"wrote {out['poster']}")
         return 0
     except RuntimeError as e:
-        print(e, file=sys.stderr)
-        return 1
+        return _fail(e, 1)
+    except OSError as e:
+        return _fail(e)
 
 
 if __name__ == "__main__":

@@ -25,3 +25,21 @@ class Commands(unittest.TestCase):
         self.assertIn("-d", cmd); self.assertIn("100", cmd)  # 1000/10 ms
         self.assertEqual(cmd[-2:], ["-o", "out.webp"])
         self.assertIn("a.png", cmd); self.assertIn("b.png", cmd)
+
+
+class Lossy(unittest.TestCase):
+    def test_lossy_precedes_first_frame(self):
+        cmd = img2webp_cmd(["a.png", "b.png"], "out.webp", fps=10, quality=80, loop=0)
+        self.assertIn("-lossy", cmd)
+        self.assertLess(cmd.index("-lossy"), cmd.index("a.png"))
+        self.assertLess(cmd.index("-lossy"), cmd.index("-d"))
+
+
+class FilterAndWebm(unittest.TestCase):
+    def test_filter_converts_to_rgba_before_pad(self):
+        self.assertTrue(scale_pad_filter(8, 8).startswith("format=rgba,"))
+
+    def test_webm_uses_libvpx_decoder_before_input(self):
+        cmd = ffmpeg_extract_cmd("a.WEBM", "o_%04d.png", 12)
+        self.assertLess(cmd.index("libvpx-vp9"), cmd.index("-i"))
+        self.assertNotIn("libvpx-vp9", ffmpeg_extract_cmd("a.mp4", "o_%04d.png", 12))

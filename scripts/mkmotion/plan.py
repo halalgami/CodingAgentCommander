@@ -1,6 +1,54 @@
 """Pure decision logic for mkmotion. No subprocess, no filesystem writes,
 so every function here is unit-testable with the real CLI tools absent."""
-import os
+import os, re, struct
+
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def validate_name(name):
+    """Output name becomes a path component; refuse anything that could
+    escape --work-dir."""
+    if not NAME_RE.fullmatch(name):
+        raise ValueError(f"invalid name {name!r}: use letters, digits, _ or - "
+                         "(1-64 chars, starting with a letter or digit)")
+    return name
+
+
+def png_size(path):
+    """(w, h) from a PNG's IHDR, stdlib only."""
+    with open(path, "rb") as f:
+        head = f.read(24)
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"not a PNG: {path}")
+    return struct.unpack(">II", head[16:24])
+
+
+def is_upscale(src_w, src_h, w, h):
+    """The fit filter uses force_original_aspect_ratio=decrease, so the source
+    is enlarged only when BOTH its dimensions are smaller than the canvas."""
+    return src_w < w and src_h < h
+
+
+def parse_canvas(s):
+    try:
+        w, h = (int(x) for x in s.lower().split("x"))
+    except ValueError:
+        raise ValueError(f"--canvas must be WxH, got {s!r}")
+    if w < 1 or h < 1:
+        raise ValueError(f"--canvas must be positive, got {s!r}")
+    return w, h
+
+
+def validate_options(quality, fps, max_frames, canvas):
+    """Return (w, h); raise ValueError (one-line message) on bad options."""
+    if not 0 <= quality <= 100:
+        raise ValueError(f"--quality must be 0-100, got {quality}")
+    if fps < 1:
+        raise ValueError(f"--fps must be > 0, got {fps}")
+    if max_frames < 1:
+        raise ValueError(f"--max-frames must be >= 1, got {max_frames}")
+    return parse_canvas(canvas)
+
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm"}
 

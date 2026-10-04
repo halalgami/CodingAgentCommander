@@ -72,3 +72,29 @@ class Stages(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NameAndUpscale(unittest.TestCase):
+    def test_validate_name(self):
+        from plan import validate_name
+        self.assertEqual(validate_name("idle_a-1"), "idle_a-1")
+        for bad in ["../evil", "a/b", "", ".", "..", "-x", "a" * 65, "a\n"]:
+            with self.assertRaises(ValueError, msg=bad):
+                validate_name(bad)
+
+    def test_is_upscale(self):
+        from plan import is_upscale
+        self.assertTrue(is_upscale(100, 200, 832, 1216))
+        self.assertFalse(is_upscale(1920, 1080, 832, 1216))  # landscape mp4
+        self.assertFalse(is_upscale(100, 2000, 832, 1216))
+        self.assertFalse(is_upscale(832, 1216, 832, 1216))
+        self.assertFalse(is_upscale(2000, 3000, 832, 1216))
+
+    def test_validate_options(self):
+        from plan import validate_options
+        self.assertEqual(validate_options(80, 12, 24, "832x1216"), (832, 1216))
+        for args in [(150, 12, 24, "8x8"), (-1, 12, 24, "8x8"), (80, 0, 24, "8x8"),
+                     (80, 12, 0, "8x8"), (80, 12, 24, "8"), (80, 12, 24, "0x8"),
+                     (80, 12, 24, "axb")]:
+            with self.assertRaises(ValueError, msg=str(args)):
+                validate_options(*args)

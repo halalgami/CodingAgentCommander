@@ -16,10 +16,15 @@ def _load_rembg():
 
 def matte_dir(src_dir, dst_dir):
     """Write an alpha-cut PNG per frame in src_dir into dst_dir."""
+    return matte_files(sorted(glob.glob(os.path.join(glob.escape(src_dir), "*.png"))), dst_dir)
+
+
+def matte_files(files, dst_dir):
+    """Write an alpha-cut PNG for each file in files into dst_dir."""
     remove = _load_rembg()
     os.makedirs(dst_dir, exist_ok=True)
     outs = []
-    for f in sorted(glob.glob(os.path.join(src_dir, "*.png"))):
+    for f in files:
         o = os.path.join(dst_dir, os.path.basename(f))
         with open(f, "rb") as fh:
             data = remove(fh.read())
