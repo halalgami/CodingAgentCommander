@@ -1,0 +1,79 @@
+[
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/captain-kimi.png",
+  "out": "scripts/fleetart/raw/captain-kimi-2.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same teal twin braids and same eyes as the reference, NO goggles and nothing on her head, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with teal piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/captain-kimi.png",
+  "out": "scripts/fleetart/raw/captain-kimi-3.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same teal twin braids and same eyes as the reference, NO goggles and nothing on her head except a slim teal comms earpiece with a small microphone arm, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with teal piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-sonnet-5.png",
+  "out": "scripts/fleetart/raw/hw-sonnet-5c.png",
+  "style": "",
+  "prompt": "Same ship, same pose, same style and background. Change only the colour of the energy lance between the two bow prongs and its beam from cyan to warm coral-orange, matching the coral trim. Nothing else changes. No text."
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-enc-swarm.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "an alien bug swarm: hundreds of small chitinous insectoid alien fighters with glowing red eyes pouring out of a bulbous organic hive ship, menacing, facing LEFT"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-enc-derelict.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a colossal ancient derelict megastructure, rusted overgrown alien city-ship with broken towers and dead lights, tangled cables drifting, eerie"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-enc-storm.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a violent ion storm: swirling electric-blue nebula vortex with crackling lightning arcs and charged debris"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-enc-anomaly.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a spatial anomaly: a shimmering cyan fractal rift in space with streams of glowing data-like particles and floating geometric shards"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-enc-gate.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "an ancient alien jump gate: a huge ring of dark stone and gold glyphs with a swirling violet portal in its centre"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-station-1.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a small frontier outpost station: a single habitat module with a docking arm, solar wings and a beacon light, modest"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-station-2.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a mid-size space station: a rotating ring habitat around a central hub with docking bays, cargo pods and many lit windows"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-station-3.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines and soft rim light, Homeworld-inspired scale and mood, deep space with a faint nebula, centred, no text, no lettering, no logos, no people",
+  "prompt": "a huge citadel space station: a towering fortress spire with layered rings, defence platforms, shipyards and thousands of lights, majestic"
+ }
+]

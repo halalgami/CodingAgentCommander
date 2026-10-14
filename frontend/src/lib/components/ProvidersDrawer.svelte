@@ -65,11 +65,11 @@
           {@const k = keyInfo(env)}
           {#if k}
             <div class="prov">
-              <label>
+              <div class="keyhead">
                 <span class="env mono">{k.env}</span>
                 {#if k.optional}<span class="opt">optional</span>{/if}
                 <span class="status" class:set={k.set}>{k.set ? "● set" : "○ unset"}</span>
-              </label>
+              </div>
               <div class="row">
                 <input type="password" data-testid="key-input-{k.env}"
                   placeholder={k.optional ? "optional" : "paste key"}
@@ -94,7 +94,7 @@
   .ptype header { display: flex; justify-content: space-between; margin-bottom: var(--sp-2); }
   .ptype .name { color: var(--text-0); font-size: var(--fs-1); letter-spacing: 0.05em; }
   .prov { margin-bottom: var(--sp-4); }
-  label { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: var(--sp-1); font-size: var(--fs-1); }
+  label, .keyhead { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: var(--sp-1); font-size: var(--fs-1); }
   .env { color: var(--text-0); }
   .mono { font-family: var(--font-mono); }
   .opt { color: var(--text-2); font-size: var(--fs-0); }

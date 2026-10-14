@@ -1,0 +1,79 @@
+[
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-opus-a.png",
+  "out": "scripts/fleetart/raw/hw-mother-A1.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier: longer and sleeker hull, the central hangar bay now runs the full length as an open slot, four engine pods instead of two."
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-opus-a.png",
+  "out": "scripts/fleetart/raw/hw-mother-A2.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier: bulkier and taller hull, two stacked hangar decks, a raised command bridge block near the stern, heavier armour plates."
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-mother-d.png",
+  "out": "scripts/fleetart/raw/hw-mother-D1.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier: the front hangar mouth is wider and split into two glowing bays, engine booms are shorter and thicker."
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-mother-d.png",
+  "out": "scripts/fleetart/raw/hw-mother-D2.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier: a narrower, longer wedge with the glowing hangar mouth underneath the bow and three engine booms in a triangle."
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-mother-e.png",
+  "out": "scripts/fleetart/raw/hw-mother-E1.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier with amber engines: fewer, larger armoured modules, the open lattice bay filled with docked small craft."
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-mother-e.png",
+  "out": "scripts/fleetart/raw/hw-mother-E2.png",
+  "style": "",
+  "prompt": "Keep the same cel-shaded painterly anime style with clean ink lines, the same Homeworld-inspired modular hull language, gunmetal and ivory plating with warm amber trim and amber engine glow, bow pointing right, deep space background, no text, no people. Redesign it as a variation of the same carrier with amber engines: modules arranged around a long central keel like vertebrae, radiator fins spread like wings."
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-scout2.png",
+  "aspect": "16:9",
+  "style": ", small craft design inspired by Homeworld fighters and corvettes: compact simple hull with one clear silhouette feature, rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, glowing engine, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space around it, deep space background, no text, no logos, no people",
+  "prompt": "a tiny recon scout drone, teardrop hull with a single large glowing sensor eye at the front and two thin antenna whiskers, gunmetal and ivory with warm amber trim and amber engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-planner2.png",
+  "aspect": "16:9",
+  "style": ", small craft design inspired by Homeworld fighters and corvettes: compact simple hull with one clear silhouette feature, rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, glowing engine, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space around it, deep space background, no text, no logos, no people",
+  "prompt": "a small pathfinder corvette that projects a glowing holographic star-map grid in front of its nose, flat hull with sensor fins, gunmetal and ivory with warm amber trim and amber engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-worker2.png",
+  "aspect": "16:9",
+  "style": ", small craft design inspired by Homeworld fighters and corvettes: compact simple hull with one clear silhouette feature, rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, glowing engine, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space around it, deep space background, no text, no logos, no people",
+  "prompt": "a small utility tug craft with two mechanical grabber arms holding a crate, stubby armoured hull, gunmetal and ivory with warm amber trim and amber engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-reviewer2.png",
+  "aspect": "16:9",
+  "style": ", small craft design inspired by Homeworld fighters and corvettes: compact simple hull with one clear silhouette feature, rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, glowing engine, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space around it, deep space background, no text, no logos, no people",
+  "prompt": "a small sentinel frigate with a big circular scanner lens on its nose casting a fan of light, swept wings, gunmetal and ivory with warm amber trim and amber engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-wing2.png",
+  "aspect": "16:9",
+  "style": ", small craft design inspired by Homeworld fighters and corvettes: compact simple hull with one clear silhouette feature, rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, glowing engine, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space around it, deep space background, no text, no logos, no people",
+  "prompt": "a squadron of three small arrowhead fighters in tight echelon formation, gunmetal and ivory with warm amber trim and amber engine glow"
+ }
+]

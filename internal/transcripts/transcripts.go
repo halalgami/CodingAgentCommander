@@ -59,6 +59,11 @@ type Progress struct {
 	Found  bool // an assistant usage line has been seen at some point
 }
 
+// MaxLine bounds how much of one transcript line Scan will hold. Tool results
+// can be arbitrarily large (a fetched page, a dumped file); a line past this
+// is skipped, its bytes still consumed so the offset stays correct.
+const MaxLine = 8 << 20
+
 // Scan folds a transcript's assistant lines into prev and returns the updated
 // progress. A zero prev reads the whole file; a prev from an earlier call reads
 // only what was appended since.
@@ -102,9 +107,28 @@ func Scan(path string, prev Progress) (Progress, error) {
 		b, readErr := br.ReadSlice('\n')
 		if readErr == bufio.ErrBufferFull {
 			scratch = append(scratch[:0], b...)
+			n, over := len(b), false
 			for readErr == bufio.ErrBufferFull {
 				b, readErr = br.ReadSlice('\n')
-				scratch = append(scratch, b...)
+				n += len(b)
+				if !over && len(scratch)+len(b) <= MaxLine {
+					scratch = append(scratch, b...)
+				} else {
+					over = true
+					scratch = scratch[:0]
+				}
+			}
+			if over {
+				// Consume the over-long line's bytes without keeping them. An
+				// incomplete one stays unconsumed, like any partial tail.
+				if readErr == nil {
+					cur.Offset += int64(n)
+					continue
+				}
+				if readErr == io.EOF {
+					break
+				}
+				return prev, readErr
 			}
 			b = scratch
 		}

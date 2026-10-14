@@ -1,4 +1,5 @@
 <script>
+  import { goHome, setMode } from "../dashboard/dash.svelte.js";
   import { untrack } from "svelte";
   import { app, select, swapSession, enableRemoteControl, askLaunch } from "../stores.svelte.js";
   import { listProjects } from "../history.js";
@@ -6,6 +7,7 @@
   import { providerDisplayLabel } from "../modelGroups.js";
   import { listProjectDocs } from "../projectdocs.js";
   import { openDoc } from "../docview.svelte.js";
+  import { shots, captureInto, lastScreenshotInto, attachFileInto } from "../attachments.svelte.js";
   import { pickDocRoot, docPaletteItems } from "../docs.js";
 
   let query = $state("");
@@ -76,6 +78,16 @@
     for (const s of app.sessions) {
       items.push({ label: `Go: ${s.name}`, hint: "session", run: () => select(s.windowID) });
     }
+    // Attach rows go BEFORE history: with enough history rows they would
+    // otherwise fall past the 12-row non-model cap and never render.
+    if (app.sessionKey) {
+      const wid = app.sessionKey.split(":")[0];
+      if (shots.supported) {
+        items.push({ label: "Attach: capture region", hint: "attach", run: () => captureInto(wid) });
+        items.push({ label: "Attach: last screenshot", hint: "attach", run: () => lastScreenshotInto(wid) });
+      }
+      items.push({ label: "Attach: file…", hint: "attach", run: () => attachFileInto(wid) });
+    }
     for (const r of histItems) {
       const short = r.folder.split("/").slice(-2).join("/");
       items.push({ label: `Open: ${short}`, hint: r.lastModelID, run: () => askLaunch(r.folder, r.lastModelID, r.missing) });
@@ -112,6 +124,15 @@
     items.push({ label: "Providers", hint: "config", run: () => (app.drawer = "providers") });
     items.push({ label: "Models", hint: "config", run: () => (app.drawer = "models") });
     items.push({ label: "About", hint: "app", run: () => (app.about = true) });
+    // After the config rows: a busy palette must still show Settings (doc-viewer spec).
+    items.push({ label: "Dashboard", hint: "view", run: goHome });
+    items.push({ label: "Dashboard: Triage", hint: "view", run: () => setMode("triage") });
+    items.push({ label: "Dashboard: River", hint: "view", run: () => setMode("river") });
+    items.push({ label: "Dashboard: Al Modon", hint: "view", run: () => setMode("city") });
+    items.push({ label: "Dashboard: Raid", hint: "view", run: () => setMode("raid") });
+    items.push({ label: "Dashboard: Fleet Ops", hint: "view", run: () => setMode("fleet") });
+    items.push({ label: "Dashboard: CIC", hint: "view", run: () => setMode("cic") });
+    items.push({ label: "Dashboard: Sector Map", hint: "view", run: () => setMode("sector") });
     // Non-empty query: every doc is offered, still last so it cannot evict a
     // command, and fuzzy scoring alone decides whether it survives the slice.
     if (hasQuery) items.push(...docItems);

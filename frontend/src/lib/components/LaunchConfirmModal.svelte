@@ -30,14 +30,14 @@
 
 {#if lc}
   <div class="backdrop" onclick={cancelLaunch} aria-hidden="true"></div>
-  <div class="modal" data-testid="launch-confirm" role="dialog" aria-modal="true"
+  <div class="modal" data-testid="launch-confirm" role="dialog" aria-modal="true" tabindex="-1"
        aria-label="Confirm launch" {onkeydown}>
     <h2>Launch session</h2>
     <p class="path" data-testid="launch-confirm-path">{lc.folder}</p>
     {#if lc.missing}
       <p class="warn" data-testid="launch-confirm-missing">This folder no longer exists on disk.</p>
     {/if}
-    <label class="lbl">Model</label>
+    <span class="lbl">Model</span>
     <Select
       testid="launch-confirm-model"
       groups={pickerGroups(app.models)}

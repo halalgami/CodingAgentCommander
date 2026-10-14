@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -510,6 +511,9 @@ type captureHost struct {
 	// succeeding — the seam that lets tests exercise startSession's error
 	// path from above (LaunchSession, SwapModel) without a real tmux.
 	launchErr error
+	pasted    []string // windowID+"\x00"+text, one per Paste call
+	// pasteErr, when set, makes every Paste fail.
+	pasteErr error
 }
 
 func (c *captureHost) Launch(s tmux.LaunchSpec) (tmux.WindowState, error) {
@@ -540,6 +544,16 @@ func (c *captureHost) SendKeys(windowID, text string) error {
 	return nil
 }
 
+func (c *captureHost) Paste(windowID, text string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.pasteErr != nil {
+		return c.pasteErr
+	}
+	c.pasted = append(c.pasted, windowID+"\x00"+text)
+	return nil
+}
+
 func TestStartSessionNative(t *testing.T) {
 	keyring.MockInit()
 	a := NewApp()
@@ -557,8 +571,12 @@ func TestStartSessionNative(t *testing.T) {
 		t.Fatalf("expected 1 launch, got %d", len(ch.launched))
 	}
 	spec := ch.launched[0]
-	if len(spec.Command) != 1 || spec.Command[0] != "claude" {
-		t.Errorf("cmd=%v", spec.Command)
+	if len(spec.Command) != 3 || spec.Command[0] != "claude" || spec.Command[1] != "--session-id" ||
+		!uuidRe.MatchString(spec.Command[2]) {
+		t.Fatalf("command = %v, want claude --session-id <uuid>", spec.Command)
+	}
+	if a.sessions[info.WindowID].ClaudeSessionID != spec.Command[2] {
+		t.Fatal("session id not recorded at launch")
 	}
 	if spec.Env["ANTHROPIC_MODEL"] != "claude-opus-4-8" {
 		t.Errorf("env=%v", spec.Env)
@@ -606,6 +624,11 @@ func TestSwapNativeResumesById(t *testing.T) {
 	a.host = ch
 	a.sessions = map[string]*sessionRec{"@1": {Name: "myproj", Cwd: "/tmp/z", Model: "claude-opus-4-8", Provider: "anthropic", ClaudeSessionID: "sid-123", Status: "active"}}
 	a.current = "@1"
+	// The conversation exists on disk, so the swap resumes it.
+	a.ledger.projectsRoot = t.TempDir()
+	tp := a.ledger.transcriptPath("/tmp/z", "sid-123")
+	os.MkdirAll(filepath.Dir(tp), 0o755)
+	os.WriteFile(tp, []byte("{}\n"), 0o600)
 	info, err := a.SwapModel("@1", "claude-sonnet-5")
 	if err != nil {
 		t.Fatalf("SwapModel: %v", err)
@@ -1424,5 +1447,86 @@ func TestConfigCarriesProvider(t *testing.T) {
 	}
 	if !sawNative {
 		t.Error("expected at least one anthropic model from the example config")
+	}
+}
+
+var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+
+func TestResumeLaunchDoesNotAddSessionID(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp()
+	if err := a.loadConfigFrom("example.config.toml"); err != nil {
+		t.Fatal(err)
+	}
+	ch := &captureHost{}
+	a.host = ch
+	m, _ := a.cfg.Model("claude-opus-4-8")
+	if _, err := a.startSession("/tmp/p", m, []string{"--resume", "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := strings.Join(ch.launched[0].Command, " ")
+	if strings.Contains(cmd, "--session-id") || a.sessions["@sw"].ClaudeSessionID != "abc" {
+		t.Fatalf("resume command = %q, sid = %q", cmd, a.sessions["@sw"].ClaudeSessionID)
+	}
+}
+
+func TestStopRoutesBySessionIDInSharedFolder(t *testing.T) {
+	a := NewApp()
+	a.notifier = &fakeNotifier{}
+	a.emitter = &fakeEmitter{}
+	a.sessions = map[string]*sessionRec{
+		"@old": {Name: "old", Cwd: "/tmp/shared", Status: "active"},                           // pre-upgrade: no id
+		"@new": {Name: "new", Cwd: "/tmp/shared", Status: "active", ClaudeSessionID: "s-new"}, // launched with --session-id
+	}
+	a.handleNotify([]byte(`{"session_id":"s-new","cwd":"/tmp/shared","hook_event_name":"Stop"}`))
+	if a.sessions["@new"].Status != "finished" || a.sessions["@old"].Status != "active" {
+		t.Fatalf("by id: new=%s old=%s", a.sessions["@new"].Status, a.sessions["@old"].Status)
+	}
+	a.handleNotify([]byte(`{"session_id":"s-old","cwd":"/tmp/shared","hook_event_name":"Stop"}`))
+	if a.sessions["@old"].Status != "finished" {
+		t.Fatal("pre-upgrade session must still finish via the cwd fallback")
+	}
+	a.handleNotify([]byte(`{"session_id":"s-new","cwd":"/tmp/shared","hook_event_name":"Notification","notification_type":"permission_prompt"}`))
+	if a.finishSeq != 2 {
+		t.Fatalf("a Notification must not count as a finish (finishSeq=%d)", a.finishSeq)
+	}
+}
+
+// Minors round 2 (prompt-attachments review): an error reported during startup
+// (e.g. hooks could not be installed) was emitted before the frontend listened,
+// so the toast was lost. It is held until the frontend takes it.
+func TestStartupErrorsAreHeldForTheFrontend(t *testing.T) {
+	a := NewApp()
+	fe := &fakeEmitter{}
+	a.emitter = fe
+	a.holdStartupErrors() // what startup does first
+	a.reportError("hooks failed")
+	if len(fe.events) != 0 {
+		t.Fatalf("emitted before the UI was ready: %v", fe.events)
+	}
+	if got := a.TakeStartupErrors(); len(got) != 1 || got[0] != "hooks failed" {
+		t.Fatalf("TakeStartupErrors = %v", got)
+	}
+	if got := a.TakeStartupErrors(); len(got) != 0 {
+		t.Fatalf("second take = %v", got)
+	}
+	a.reportError("later")
+	if len(fe.events) != 1 || fe.events[0] != "app:error" {
+		t.Fatalf("after ready: %v", fe.events)
+	}
+}
+
+// Final review I1: on darwin Wails runs OnStartup in a goroutine while the page
+// loads, so the frontend's TakeStartupErrors can come first. The hold must then
+// never start, or every later error is buffered for the whole session.
+func TestTakeBeforeHoldNeverSwallowsErrors(t *testing.T) {
+	a := NewApp()
+	fe := &fakeEmitter{}
+	a.emitter = fe
+	a.TakeStartupErrors()
+	a.holdStartupErrors()
+	a.reportError("after")
+	if len(fe.events) != 1 || fe.events[0] != "app:error" {
+		t.Fatalf("error swallowed: %v", fe.events)
 	}
 }

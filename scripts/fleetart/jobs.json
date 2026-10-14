@@ -1,0 +1,156 @@
+[
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-mother-A1.png",
+  "out": "scripts/fleetart/cut/ship-opus.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-mother-A1.png",
+  "out": "scripts/fleetart/raw/ship-opus-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-opus-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-sonnet-5c.png",
+  "out": "scripts/fleetart/cut/ship-sonnet.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-sonnet-5c.png",
+  "out": "scripts/fleetart/raw/ship-sonnet-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-sonnet-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-haiku-4.png",
+  "out": "scripts/fleetart/cut/ship-haiku.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-haiku-4.png",
+  "out": "scripts/fleetart/raw/ship-haiku-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-haiku-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-glm-1.png",
+  "out": "scripts/fleetart/cut/ship-glm.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-glm-1.png",
+  "out": "scripts/fleetart/raw/ship-glm-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-glm-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-qwen-1.png",
+  "out": "scripts/fleetart/cut/ship-qwen.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-qwen-1.png",
+  "out": "scripts/fleetart/raw/ship-qwen-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-qwen-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-kimi-1.png",
+  "out": "scripts/fleetart/cut/ship-kimi.png"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/fleetart/raw/hw-kimi-1.png",
+  "out": "scripts/fleetart/raw/ship-kimi-damaged.png",
+  "rmbg_to": "scripts/fleetart/cut/ship-kimi-damaged.png",
+  "style": "",
+  "prompt": "Same ship, same hull shape, same colours, same pose and same framing. Add heavy battle damage: scorched and cracked armour plates, a few hull breaches venting sparks and smoke, one engine flickering. Still flying. Same cel-shaded anime style. No text."
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-scout.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-scout.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a tiny recon scout drone, teardrop hull with a single large sensor eye at the front and two thin antenna whiskers, neutral light grey and white plating, no coloured trim, white engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-pathfinder.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-pathfinder.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a small pathfinder corvette that projects a holographic star-map grid in front of its nose, flat hull with sensor fins, neutral light grey and white plating, no coloured trim, white engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-tug.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-tug.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a small utility tug craft with two mechanical grabber arms holding a crate, stubby armoured hull, neutral light grey and white plating, no coloured trim, white engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-sentinel.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-sentinel.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a small sentinel frigate with a big circular scanner lens on its nose casting a fan of light, swept wings, neutral light grey and white plating, no coloured trim, white engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-wing.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-wing.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a squadron of three small arrowhead fighters in tight echelon formation, neutral light grey and white plating, no coloured trim, white engine glow"
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-enc-swarm.png",
+  "out": "scripts/fleetart/cut/enc-swarm.png"
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-enc-derelict.png",
+  "out": "scripts/fleetart/cut/enc-derelict.png"
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-enc-gate.png",
+  "out": "scripts/fleetart/cut/enc-gate.png"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/cut/bg-deep.png",
+  "aspect": "16:9",
+  "style": ", painterly anime sci-fi background art, cel-shaded, wide establishing shot, empty, no ships, no text, no people",
+  "prompt": "deep space panorama, dense starfield with a faint blue galaxy band, very dark, calm"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/cut/bg-nebula.png",
+  "aspect": "16:9",
+  "style": ", painterly anime sci-fi background art, cel-shaded, wide establishing shot, empty, no ships, no text, no people",
+  "prompt": "space panorama with a large soft violet and teal nebula and scattered bright stars"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/cut/bg-planet.png",
+  "aspect": "16:9",
+  "style": ", painterly anime sci-fi background art, cel-shaded, wide establishing shot, empty, no ships, no text, no people",
+  "prompt": "space panorama with a huge ringed gas giant planet low on the horizon, dark sky, stars"
+ }
+]

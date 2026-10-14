@@ -18,6 +18,18 @@ export function CancelPackGen() {
   return window['go']['main']['App']['CancelPackGen']();
 }
 
+export function CaptureScreenshot() {
+  return window['go']['main']['App']['CaptureScreenshot']();
+}
+
+export function ChooseRaidFolder() {
+  return window['go']['main']['App']['ChooseRaidFolder']();
+}
+
+export function CityView() {
+  return window['go']['main']['App']['CityView']();
+}
+
 export function ClearCompanionPack() {
   return window['go']['main']['App']['ClearCompanionPack']();
 }
@@ -30,6 +42,14 @@ export function ClearKey(arg1) {
   return window['go']['main']['App']['ClearKey'](arg1);
 }
 
+export function ClearRaidPack() {
+  return window['go']['main']['App']['ClearRaidPack']();
+}
+
+export function CodeView(arg1) {
+  return window['go']['main']['App']['CodeView'](arg1);
+}
+
 export function CompanionState() {
   return window['go']['main']['App']['CompanionState']();
 }
@@ -38,8 +58,20 @@ export function Config() {
   return window['go']['main']['App']['Config']();
 }
 
+export function DashSnapshot() {
+  return window['go']['main']['App']['DashSnapshot']();
+}
+
 export function DeleteCompanionPack(arg1) {
   return window['go']['main']['App']['DeleteCompanionPack'](arg1);
+}
+
+export function DeleteLedger() {
+  return window['go']['main']['App']['DeleteLedger']();
+}
+
+export function DeleteRaidPack(arg1) {
+  return window['go']['main']['App']['DeleteRaidPack'](arg1);
 }
 
 export function DependencyStatus() {
@@ -70,6 +102,14 @@ export function ExportCompanionPack() {
   return window['go']['main']['App']['ExportCompanionPack']();
 }
 
+export function ExportRaidStarter() {
+  return window['go']['main']['App']['ExportRaidStarter']();
+}
+
+export function ForgetProject(arg1) {
+  return window['go']['main']['App']['ForgetProject'](arg1);
+}
+
 export function GetBuildInfo() {
   return window['go']['main']['App']['GetBuildInfo']();
 }
@@ -88,6 +128,18 @@ export function ImportCompanionPack() {
 
 export function ImportProjects(arg1) {
   return window['go']['main']['App']['ImportProjects'](arg1);
+}
+
+export function ImportRaidPack() {
+  return window['go']['main']['App']['ImportRaidPack']();
+}
+
+export function InsertDroppedPaths(arg1, arg2) {
+  return window['go']['main']['App']['InsertDroppedPaths'](arg1, arg2);
+}
+
+export function InsertPaths(arg1, arg2) {
+  return window['go']['main']['App']['InsertPaths'](arg1, arg2);
 }
 
 export function InspectPackGenBase(arg1) {
@@ -110,8 +162,16 @@ export function KillSession(arg1) {
   return window['go']['main']['App']['KillSession'](arg1);
 }
 
+export function LastScreenshot() {
+  return window['go']['main']['App']['LastScreenshot']();
+}
+
 export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
+}
+
+export function LedgerStatus() {
+  return window['go']['main']['App']['LedgerStatus']();
 }
 
 export function ListCompanionPacks() {
@@ -128,6 +188,10 @@ export function ListProjects() {
 
 export function ListProviders() {
   return window['go']['main']['App']['ListProviders']();
+}
+
+export function ListRaidPacks() {
+  return window['go']['main']['App']['ListRaidPacks']();
 }
 
 export function ListSessionDocs(arg1) {
@@ -178,6 +242,14 @@ export function PackGenStyles() {
   return window['go']['main']['App']['PackGenStyles']();
 }
 
+export function PasteClipboardFiles(arg1) {
+  return window['go']['main']['App']['PasteClipboardFiles'](arg1);
+}
+
+export function PickAttachFiles() {
+  return window['go']['main']['App']['PickAttachFiles']();
+}
+
 export function PickCompanionPack() {
   return window['go']['main']['App']['PickCompanionPack']();
 }
@@ -196,6 +268,22 @@ export function PinProject(arg1, arg2) {
 
 export function PlanUsage() {
   return window['go']['main']['App']['PlanUsage']();
+}
+
+export function PowerState() {
+  return window['go']['main']['App']['PowerState']();
+}
+
+export function Progress() {
+  return window['go']['main']['App']['Progress']();
+}
+
+export function ProjectMetrics(arg1) {
+  return window['go']['main']['App']['ProjectMetrics'](arg1);
+}
+
+export function RaidPackInfo() {
+  return window['go']['main']['App']['RaidPackInfo']();
 }
 
 export function RefreshModels() {
@@ -226,16 +314,48 @@ export function RenderProjectDoc(arg1, arg2) {
   return window['go']['main']['App']['RenderProjectDoc'](arg1, arg2);
 }
 
+export function ReplaceRaidImage(arg1) {
+  return window['go']['main']['App']['ReplaceRaidImage'](arg1);
+}
+
+export function ReplaceRaidImageFrom(arg1, arg2) {
+  return window['go']['main']['App']['ReplaceRaidImageFrom'](arg1, arg2);
+}
+
+export function ResetRaidImage(arg1) {
+  return window['go']['main']['App']['ResetRaidImage'](arg1);
+}
+
+export function SaveClipboardImage(arg1, arg2) {
+  return window['go']['main']['App']['SaveClipboardImage'](arg1, arg2);
+}
+
 export function SavePackGen() {
   return window['go']['main']['App']['SavePackGen']();
+}
+
+export function ScanProject(arg1) {
+  return window['go']['main']['App']['ScanProject'](arg1);
+}
+
+export function ScreenshotSupport() {
+  return window['go']['main']['App']['ScreenshotSupport']();
 }
 
 export function SelectCompanionPack(arg1) {
   return window['go']['main']['App']['SelectCompanionPack'](arg1);
 }
 
+export function SelectRaidPack(arg1) {
+  return window['go']['main']['App']['SelectRaidPack'](arg1);
+}
+
 export function SelectSession(arg1) {
   return window['go']['main']['App']['SelectSession'](arg1);
+}
+
+export function SessionHero(arg1) {
+  return window['go']['main']['App']['SessionHero'](arg1);
 }
 
 export function SessionStats(arg1) {
@@ -254,8 +374,28 @@ export function SetKey(arg1, arg2) {
   return window['go']['main']['App']['SetKey'](arg1, arg2);
 }
 
+export function SetLedgerConsent(arg1, arg2) {
+  return window['go']['main']['App']['SetLedgerConsent'](arg1, arg2);
+}
+
+export function SetLedgerExcluded(arg1) {
+  return window['go']['main']['App']['SetLedgerExcluded'](arg1);
+}
+
+export function SetLiveFocus(arg1) {
+  return window['go']['main']['App']['SetLiveFocus'](arg1);
+}
+
+export function SetModelAutoContinue(arg1, arg2) {
+  return window['go']['main']['App']['SetModelAutoContinue'](arg1, arg2);
+}
+
 export function SetPackVariantFocus(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SetPackVariantFocus'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SetRaidHeroine(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetRaidHeroine'](arg1, arg2, arg3);
 }
 
 export function StartPackGen(arg1) {
@@ -264,6 +404,10 @@ export function StartPackGen(arg1) {
 
 export function SwapModel(arg1, arg2) {
   return window['go']['main']['App']['SwapModel'](arg1, arg2);
+}
+
+export function TakeStartupErrors() {
+  return window['go']['main']['App']['TakeStartupErrors']();
 }
 
 export function TitleBarDoubleClick() {

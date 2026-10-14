@@ -1,0 +1,24 @@
+[
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-station-1.png",
+  "out": "scripts/fleetart/cut/station-1.png"
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-station-2.png",
+  "out": "scripts/fleetart/cut/station-2.png"
+ },
+ {
+  "kind": "rmbg",
+  "src": "scripts/fleetart/raw/hw-station-3.png",
+  "out": "scripts/fleetart/cut/station-3.png"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/cut/bg-galaxy.png",
+  "aspect": "16:9",
+  "style": ", painterly anime sci-fi background art, cel-shaded, wide establishing shot, empty, no ships, no text, no people",
+  "prompt": "a vast spiral galaxy seen at a shallow angle, glowing golden core, blue and violet spiral arms with dust lanes, scattered star clusters, very dark edges and lots of empty dark space"
+ }
+]

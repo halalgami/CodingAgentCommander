@@ -233,3 +233,16 @@ test("with every group collapsed, ArrowDown + Enter leaves the selection unchang
   await expect(sel.locator("button.trigger")).toHaveText(/^Anthropic · Opus 5\.5\s*▾\s*$/);
   expect(errors).toEqual([]);
 });
+
+// Minors round 2: collapsing a group with the list open left the highlight past
+// the end of the shorter list, so Enter did nothing.
+test("after collapsing a group, Enter still picks the highlighted model", async ({ page }) => {
+  await stubModels(page, FLAT);
+  const sel = await openPicker(page);
+  await sel.locator("button.trigger").focus();
+  for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowDown"); // highlight the 4th model (Ollama · qwen)
+  await sel.locator('li[role="presentation"]', { hasText: "Ollama Cloud" }).locator("button").click(); // 2 models left
+  await sel.locator("button.trigger").focus();
+  await page.keyboard.press("Enter");
+  await expect(sel.locator('ul[role="listbox"]')).toHaveCount(0);
+});

@@ -646,7 +646,9 @@
     font-size: 10px; font-weight: 700;
   }
 
-  .saved { border: 1px solid var(--border-0); border-radius: var(--r-1); overflow: hidden; }
+  /* flex: none — a flex child with overflow hidden may otherwise shrink to its
+     border (2 px), hiding every saved scene in the browser */
+  .saved { flex: none; border: 1px solid var(--border-0); border-radius: var(--r-1); overflow: hidden; }
   .savedhead {
     display: flex; align-items: center; gap: var(--sp-2); width: 100%;
     background: none; border: 0; color: inherit; cursor: pointer;

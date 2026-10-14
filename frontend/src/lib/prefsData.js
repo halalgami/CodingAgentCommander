@@ -21,6 +21,9 @@ export const DEFAULTS = Object.freeze({
   // its neighbours. Object.freeze is shallow, so this array is NOT itself
   // frozen: loadPrefs copies it, and writers must replace it, never mutate.
   collapsedProviders: [],
+  // Dashboard (phase 4): last mode, River window in minutes, motion on (Auto)
+  // or off (Still).
+  dashMode: "triage", dashRiverWindow: 10, dashMotion: true,
   // Companion config is Go-owned (companion.json), not a UI pref — see
   // CompanionConfig / GetCompanionConfig.
 });

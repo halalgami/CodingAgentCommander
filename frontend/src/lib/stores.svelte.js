@@ -4,7 +4,7 @@
 import {
   Config, LaunchSession, ListSessions, SelectSession, PickFolder,
   KillSession, RenameSession, SessionStats, KeyStatus, SetKey, ClearKey,
-  Models, AddModel, RemoveModel, SwapModel, DiscoverBedrockModels,
+  Models, AddModel, RemoveModel, SetModelAutoContinue, SwapModel, DiscoverBedrockModels,
   DiscoverZenModels, DiscoverOllamaModels, ListProviders, AddProvider, RemoveProvider,
   EnableRemoteControl, PlanUsage, RefreshModels,
   GetCompanionConfig,
@@ -12,6 +12,7 @@ import {
   CompanionState,
   GetBuildInfo, LitellmRuntimeStatus, InstallLitellmRuntime,
   DependencyStatus, InstallPwsh,
+  LedgerStatus, SetLedgerConsent, SetLedgerExcluded, ForgetProject, DeleteLedger, DashSnapshot, SetLiveFocus,
 } from "../../wailsjs/go/main/App.js";
 import { BrowserOpenURL, EventsOn } from "../../wailsjs/runtime/runtime.js";
 import { migrateHistoryOnce } from "./history.js";
@@ -30,7 +31,8 @@ export const ERROR_TTL_MS = 30000;
 export const app = $state({
   models: [], catalog: [], keys: [], providers: [],
   sessions: [], stats: {}, finished: {},
-  sessionKey: "", selectedModel: "", folder: "",
+  ledger: { status: null, projects: [] },
+  sessionKey: "", view: "home", quotaPct: null, selectedModel: "", folder: "",
   drawer: null,            // null | "providers" | "models" | "settings" | "usage" | "history"
   launchConfirm: null,     // null | { folder, modelID, missing } — drives LaunchConfirmModal
   about: false,            // About modal open?
@@ -156,6 +158,27 @@ export async function loadAll() {
   // Event-first delivery from the four Go push points (finish, startup, launch,
   // kill); refresh() polls the binding as a fallback.
   try { EventsOn("companion:state", (st) => { app.companionState = st; }); } catch {}
+  try {
+    EventsOn("dash:session", (s) => {
+      for (const [wid, st] of Object.entries(app.stats)) {
+        if (st?.sessionID === s.id) {
+          app.stats[wid] = { ...st, title: s.title, activity: s.state, tool: s.tool, target: s.target,
+            summary: s.summary, activitySince: s.sinceMs, unread: s.unread };
+        }
+      }
+    });
+  } catch {}
+  try {
+    EventsOn("ledger:progress", (p) => {
+      if (app.ledger.status) app.ledger.status = { ...app.ledger.status, progress: p };
+    });
+  } catch {}
+  try {
+    const focus = (f) => SetLiveFocus(f).catch(() => {});
+    window.addEventListener("focus", () => focus(true));
+    window.addEventListener("blur", () => focus(false));
+    focus(document.hasFocus());
+  } catch {}
   // Latch the most recent app:error. App.svelte already toasts the same event;
   // this is an independent subscription so App.svelte's delta stays at zero.
   try { EventsOn("app:error", () => { app.errorMs = Date.now(); }); } catch {}
@@ -350,6 +373,7 @@ export async function select(windowID) {
     await SelectSession(windowID);
     app.finished[windowID] = false;
     app.sessionKey = windowID + ":" + Date.now(); // force pane reconnect
+    app.view = "terminal";
     await refresh();
   } catch (e) { toast("" + e, "error"); }
 }
@@ -359,7 +383,7 @@ export async function killSession(windowID) {
     await KillSession(windowID);
     delete app.stats[windowID];
     forget(windowID);
-    if (app.sessionKey.split(":")[0] === windowID) app.sessionKey = "";
+    if (app.sessionKey.split(":")[0] === windowID) { app.sessionKey = ""; app.view = "home"; }
     await refresh();
   } catch (e) { toast("" + e, "error"); }
 }
@@ -435,6 +459,10 @@ export async function removeModel(id) {
   app.models = await Config();
   app.keys = await KeyStatus();
 }
+export async function setModelAutoContinue(id, on) {
+  await SetModelAutoContinue(id, on);
+  app.catalog = await Models();
+}
 export async function discoverBedrock(region) {
   return await DiscoverBedrockModels(region);
 }
@@ -467,3 +495,15 @@ export function markFinished(windowID) {
   toast(`${s?.name ?? windowID} finished`);
   SessionStats(windowID).then((st) => { app.stats[windowID] = st; }).catch(() => {});
 }
+
+export async function refreshLedger() {
+  try { app.ledger.status = await LedgerStatus(); } catch {}
+  try { app.ledger.projects = (await DashSnapshot()).projects; } catch {}
+}
+export async function setLedger(on, titles) {
+  try { app.ledger.status = await SetLedgerConsent(on, titles); } catch (e) { app.launchError = String(e); }
+  await refreshLedger();
+}
+export async function setLedgerExcluded(paths) { try { await SetLedgerExcluded(paths); } catch {} await refreshLedger(); }
+export async function forgetProject(key) { try { await ForgetProject(key); } catch {} await refreshLedger(); }
+export async function deleteLedger() { try { await DeleteLedger(); } catch {} await refreshLedger(); }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -25,11 +26,14 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/halalgami/CodingAgentCommander/internal/anthropic"
+	"github.com/halalgami/CodingAgentCommander/internal/attach"
+	"github.com/halalgami/CodingAgentCommander/internal/autocont"
 	"github.com/halalgami/CodingAgentCommander/internal/bedrock"
 	"github.com/halalgami/CodingAgentCommander/internal/config"
 	"github.com/halalgami/CodingAgentCommander/internal/deps"
 	"github.com/halalgami/CodingAgentCommander/internal/hookmgr"
 	"github.com/halalgami/CodingAgentCommander/internal/launch"
+	"github.com/halalgami/CodingAgentCommander/internal/ledger/live"
 	"github.com/halalgami/CodingAgentCommander/internal/ollama"
 	"github.com/halalgami/CodingAgentCommander/internal/pricing"
 	"github.com/halalgami/CodingAgentCommander/internal/ptybridge"
@@ -93,6 +97,9 @@ type App struct {
 	// sessions is the in-memory registry of launched sessions, keyed by
 	// tmux window id. Guarded by mu.
 	sessions map[string]*sessionRec
+	// ledger owns the live session tracker, transcript ingest and (after
+	// opt-in) the persistent project history.
+	ledger   *ledgerSvc
 	notifier Notifier
 	emitter  Emitter
 	// masterKey is a random per-run secret used to authenticate to the local
@@ -109,6 +116,16 @@ type App struct {
 	// per window — see internal/winstate. Never nil: NewApp gives it a
 	// memory-only store so a not-yet-started App is still usable.
 	windows *winstate.Store
+	// autocont counts auto-continue nudges per Claude session; hookHTTP is
+	// whether the installed Claude Code takes the http Stop hook (≥ 2.1.210).
+	autocont *autocont.Tracker
+	hookHTTP atomic.Bool
+
+	// errors reported during startup wait for the frontend (TakeStartupErrors)
+	errMu       sync.Mutex
+	holdingErrs bool
+	errsTaken   bool
+	heldErrs    []string
 	// router is the lazily-started local LiteLLM proxy used for routed
 	// (non-anthropic) models. Guarded by routerMu.
 	router   *router.Controller
@@ -164,6 +181,22 @@ type App struct {
 	// is replaced wholesale on every load, so the library's pictures would
 	// vanish the moment any pack was chosen. Guarded by packMu.
 	packLibrary map[string]string
+	// raidPaths maps a /media/raid/ id to the real file path it serves; rebuilt
+	// on every raid pack load. raidDir is the active raid pack ("" = bundled).
+	// Guarded by raidMu.
+	raidPaths map[string]string
+	raidDir   string
+	raidMu    sync.Mutex
+	// raidOpMu serialises whole raid pack operations (ensure → store → view):
+	// Wails runs each bound call on its own goroutine (heroine packs review #4).
+	raidOpMu sync.Mutex
+	// attachMedia maps a confirmation thumbnail id to the symlink-resolved
+	// image path it serves (/media/attach/<id>). Same shape and guarantees as
+	// packPaths; ids are hashes, never paths. attachStore is the
+	// pasted/captured-file folder, created lazily by attachments().
+	attachMu    sync.Mutex
+	attachMedia map[string]string
+	attachStore *attach.Store
 	// packGen is the single in-flight-or-unsaved generation run, and packGenMu
 	// is the claim on that slot. A run holds the slot until its art is saved or
 	// explicitly discarded: everything in a staging folder was paid for, so a
@@ -220,10 +253,22 @@ func (w wailsEmitter) Emit(event string, data ...any) {
 	}
 }
 
-type stopPayload struct {
-	SessionID      string `json:"session_id"`
-	Cwd            string `json:"cwd"`
-	TranscriptPath string `json:"transcript_path"`
+// hookPayload is the JSON Claude Code pipes to every hook (see
+// hookmgr.Events). NotificationType and Message are set only for
+// Notification.
+type hookPayload struct {
+	SessionID        string `json:"session_id"`
+	Cwd              string `json:"cwd"`
+	TranscriptPath   string `json:"transcript_path"`
+	HookEventName    string `json:"hook_event_name"`
+	NotificationType string `json:"notification_type"`
+	Message          string `json:"message"`
+	// Stop-only fields (http Stop hook). LastAssistantMessage is a pointer:
+	// absent (older Claude Code) must never be nudged.
+	PromptID             string          `json:"prompt_id"`
+	LastAssistantMessage *string         `json:"last_assistant_message"`
+	PermissionMode       string          `json:"permission_mode"`
+	BackgroundTasks      json.RawMessage `json:"background_tasks"`
 }
 
 // sessionRec is the registry record for one launched session.
@@ -250,6 +295,18 @@ type sessionRec struct {
 	// finishes AGAIN after being acknowledged (bumping LastFinishMs past
 	// AckMs) reasserts Awaiting rather than being muted forever.
 	AckMs int64
+	// AwaitingSession is non-empty while Claude Code shows a permission or
+	// question prompt in this session (a Notification hook): it holds the
+	// Claude session id that raised the prompt ("*" when the payload had none).
+	// Only that session's UserPromptSubmit/PreToolUse/PostToolUse/Stop clear
+	// it, so a sibling session in the same folder cannot clear it. Inserts are
+	// refused while it is set: pasted text could land in the prompt's answer
+	// UI. A relaunch or kill replaces/deletes the record, which clears it.
+	AwaitingSession string
+	// Tag is the random COMMANDER_TAG set in this window's environment at
+	// launch; the http Stop hook echoes it so /stop can tell exactly which
+	// window stopped. Empty for windows launched before this build.
+	Tag string
 }
 
 // SessionStats is the per-session card data.
@@ -267,6 +324,18 @@ type SessionStats struct {
 	Status        string `json:"status"`
 	RemoteControl bool   `json:"remoteControl"`
 	Cwd           string `json:"cwd"`
+	SessionID     string `json:"sessionID"`
+	Title         string `json:"title"`
+	Activity      string `json:"activity"`
+	Tool          string `json:"tool"`
+	Target        string `json:"target"`
+	Summary       string `json:"summary"`
+	ActivitySince int64  `json:"activitySince"`
+	Unread        bool   `json:"unread"`
+	// Hotspot: the current tool is working on a file flagged as a hotspot.
+	Hotspot bool `json:"hotspot"`
+	// AutoContinues counts auto-continue nudges on the current prompt.
+	AutoContinues int `json:"autoContinues"`
 }
 
 // now is a tiny seam so tests don't depend on wall clock.
@@ -280,33 +349,207 @@ func (a *App) projectsRoot() string {
 
 // NewApp constructs the backend.
 func NewApp() *App {
-	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{},
+	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{}, autocont: autocont.NewTracker(),
 		windows: winstate.Open("")}
 	a.emitter = wailsEmitter{a: a}
+	a.ledger = newLedgerSvc(a)
+	a.raidDir = readRaidConfig()
 	return a
 }
 
-// handleNotify processes a Stop-hook payload: update the matching session and,
-// if it isn't the focused pane, desktop-notify + emit the finished event.
+// handleNotify processes one Claude Code hook payload. Every Commander hook
+// posts here (hookmgr.Events) and hook_event_name says which fired. An empty
+// name is a Stop: builds before the guard installed only the Stop hook, and a
+// payload from one of those must keep meaning "finished".
 func (a *App) handleNotify(body []byte) {
-	var p stopPayload
+	var p hookPayload
 	if json.Unmarshal(body, &p) != nil {
 		return
 	}
+	a.learnSession(p)
+	switch p.HookEventName {
+	case "", "Stop":
+		a.setAwaiting(p, false)
+		a.handleStop(p)
+	case "Notification":
+		if asksForAnswer(p) {
+			a.setAwaiting(p, true)
+		}
+		// The dashboard ledger tracks every session, Commander's or not.
+		a.ledger.hook(p.SessionID, p.NotificationType)
+	case "UserPromptSubmit":
+		a.setAwaiting(p, false)
+		a.autocont.Reset(p.SessionID)
+	case "PostToolUse":
+		a.setAwaiting(p, false)
+		a.autocont.Progress(p.SessionID)
+	case "PreToolUse":
+		a.setAwaiting(p, false)
+	}
+}
+
+// asksForAnswer reports whether a Notification is a prompt the user must
+// answer, as opposed to the 60s idle notice or an auth message.
+func asksForAnswer(p hookPayload) bool {
+	switch p.NotificationType {
+	case "permission_prompt", "elicitation_dialog":
+		return true
+	case "":
+		// Claude Code builds before notification_type existed: only the
+		// message tells "Claude needs your permission to use Bash" from
+		// "Claude is waiting for your input".
+		return strings.Contains(strings.ToLower(p.Message), "permission")
+	}
+	return false
+}
+
+// matchRecs returns the Commander sessions a hook payload belongs to. Called
+// with a.mu held. Hook payloads carry no window id, and their cwd is Claude
+// Code's CURRENT directory (it moves when Claude cds), so: first the records
+// whose ClaudeSessionID is the payload's, wherever they live; otherwise the
+// records whose Cwd is the deepest ancestor-or-equal of the payload's cwd
+// (path-component aware: /p/app does not contain /p/app2). More than one
+// record back means the mapping is ambiguous.
+func (a *App) matchRecs(p hookPayload) []*sessionRec {
+	var out []*sessionRec
+	if p.SessionID != "" {
+		for _, r := range a.sessions {
+			if r.ClaudeSessionID == p.SessionID {
+				out = append(out, r)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	best := -1
+	for _, r := range a.sessions {
+		if !cwdContains(r.Cwd, p.Cwd) {
+			continue
+		}
+		d := len(filepath.Clean(r.Cwd))
+		switch {
+		case d > best:
+			best, out = d, []*sessionRec{r}
+		case d == best:
+			out = append(out, r)
+		}
+	}
+	// A known session id that matched no record is a session nobody has
+	// mapped yet: only records without an id are candidates, so a session
+	// launched with --session-id is never finished by someone else's Stop.
+	if p.SessionID != "" && len(out) > 1 {
+		var unmapped []*sessionRec
+		for _, r := range out {
+			if r.ClaudeSessionID == "" {
+				unmapped = append(unmapped, r)
+			}
+		}
+		if len(unmapped) > 0 {
+			return unmapped
+		}
+	}
+	return out
+}
+
+// cwdContains reports whether root is cwd or one of its ancestors. An empty
+// root only matches an empty cwd (tests, and sessions with no folder).
+func cwdContains(root, cwd string) bool {
+	if root == "" || cwd == "" {
+		return root == cwd
+	}
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(cwd))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// learnSession records the Claude session id on the record when the payload
+// identifies it unambiguously (exactly one candidate and none already mapped
+// to this id).
+func (a *App) learnSession(p hookPayload) {
+	if p.SessionID == "" {
+		return
+	}
+	a.mu.Lock()
+	var id, oldSID, cwd string
+	if m := a.matchRecs(p); len(m) == 1 && m[0].ClaudeSessionID != p.SessionID {
+		oldSID, cwd = m[0].ClaudeSessionID, m[0].Cwd
+		m[0].ClaudeSessionID = p.SessionID
+		for wid, r := range a.sessions {
+			if r == m[0] {
+				id = wid
+			}
+		}
+	}
+	a.mu.Unlock()
+	if id == "" {
+		return
+	}
+	// First id seen for an old session, or a new one adopted after /clear:
+	// remember it across restarts and follow its transcript instead.
+	_ = a.windows.Update(id, func(r *winstate.Record) { r.SessionID = p.SessionID })
+	if oldSID != "" {
+		a.ledger.unwatch(cwd, oldSID)
+	}
+	a.ledger.watch(cwd, p.SessionID)
+}
+
+// awaitingKey is the value AwaitingSession holds for payload p.
+func awaitingKey(p hookPayload) string {
+	if p.SessionID == "" {
+		return "*"
+	}
+	return p.SessionID
+}
+
+// setAwaiting raises or clears the guard. Raising marks every record matchRecs
+// returns: the mapped session, or — mapping unknown — every candidate, because
+// refusing an insert into the wrong session is the safe direction to be wrong
+// in. Clearing touches only records whose AwaitingSession is this payload's id
+// (for the id-less "*" key, only the payload's candidates), so a sibling
+// session in the same folder cannot clear another's prompt.
+func (a *App) setAwaiting(p hookPayload, raise bool) {
+	key := awaitingKey(p)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	matched := a.matchRecs(p)
+	if raise {
+		for _, r := range matched {
+			r.AwaitingSession = key
+		}
+		return
+	}
+	for _, r := range a.sessions {
+		if r.AwaitingSession != key {
+			continue
+		}
+		if key == "*" && !slices.Contains(matched, r) {
+			continue
+		}
+		r.AwaitingSession = ""
+	}
+}
+
+// handleStop processes a Stop-hook payload: update the matching session and,
+// if it isn't the focused pane, desktop-notify + emit the finished event.
+func (a *App) handleStop(p hookPayload) {
 	a.mu.Lock()
 	var id string
 	var rec *sessionRec
-	for wid, r := range a.sessions {
-		if r.Cwd == p.Cwd {
-			id, rec = wid, r
-			break
+	// Finish the session the payload belongs to; with several candidates and
+	// no mapping it is ambiguous, and guessing would finish (and re-map) the
+	// wrong one, so skip. A lone candidate is learned by learnSession.
+	if m := a.matchRecs(p); len(m) == 1 {
+		rec = m[0]
+		for wid, r := range a.sessions {
+			if r == rec {
+				id = wid
+			}
 		}
 	}
 	if rec == nil {
 		a.mu.Unlock()
-		return // not a Commander session
+		return // not a Commander session, or ambiguous
 	}
-	rec.ClaudeSessionID = p.SessionID
 	if p.TranscriptPath != "" {
 		rec.TranscriptPath = p.TranscriptPath
 	}
@@ -320,6 +563,7 @@ func (a *App) handleNotify(body []byte) {
 	name := rec.Name
 	a.mu.Unlock()
 
+	a.ledger.hook(p.SessionID, string(live.HookStop))
 	a.emitter.Emit("session:finished", id)
 	if !focused {
 		_ = a.notifier.Notify("Commander", "Claude finished in "+name)
@@ -340,6 +584,7 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.discoveryStop != nil {
 		close(a.discoveryStop)
 	}
+	a.ledger.stop()
 	_ = hookmgr.Remove(a.settingsPath())
 	if a.wsListener != nil {
 		_ = a.wsListener.Close() // stop the local http server (was leaked before)
@@ -412,14 +657,54 @@ func (a *App) loadConfigFrom(path string) error {
 // wailsEmitter.Emit is already nil-ctx guarded (app.go:169-173), and routing
 // through the seam makes the failure paths assertable.
 func (a *App) reportError(msg string) {
+	a.errMu.Lock()
+	if a.holdingErrs {
+		a.heldErrs = append(a.heldErrs, msg)
+		a.errMu.Unlock()
+		return
+	}
+	a.errMu.Unlock()
 	if a.emitter == nil {
 		return
 	}
 	a.emitter.Emit("app:error", msg)
 }
 
+// holdStartupErrors keeps errors reported during startup (before the frontend
+// listens, when an emitted toast would be lost) until TakeStartupErrors.
+//
+// A no-op once the frontend has taken them: on darwin OnStartup runs in a
+// goroutine while the page loads, and a hold started after the take would
+// never be released. A safety release after 20 s covers a frontend that never asks.
+func (a *App) holdStartupErrors() {
+	a.errMu.Lock()
+	if !a.errsTaken {
+		a.holdingErrs = true
+	}
+	a.errMu.Unlock()
+	time.AfterFunc(20*time.Second, func() {
+		for _, m := range a.TakeStartupErrors() {
+			a.reportError(m)
+		}
+	})
+}
+
+// TakeStartupErrors returns the errors held since startup and lets later ones
+// through as app:error events. The frontend calls it once it is listening.
+func (a *App) TakeStartupErrors() []string {
+	a.errMu.Lock()
+	defer a.errMu.Unlock()
+	out := a.heldErrs
+	a.heldErrs, a.holdingErrs, a.errsTaken = nil, false, true
+	if out == nil {
+		out = []string{}
+	}
+	return out
+}
+
 // startup is the Wails OnStartup hook: load config and start the ws server.
 func (a *App) startup(ctx context.Context) {
+	a.holdStartupErrors()
 	a.ctx = ctx
 	// Finder/Dock launches inherit launchd's minimal PATH; make homebrew,
 	// pip-user, and /etc/paths.d locations visible so tmux/claude/litellm
@@ -444,7 +729,21 @@ func (a *App) startup(ctx context.Context) {
 	router.ReapStale(a.litellmConfigPath())
 	a.router = router.NewController(0)
 	a.startWS()
-	_ = hookmgr.Install(a.settingsPath(), a.wsPort, a.wsToken)
+	// Pasted/captured attachments older than a week are this app's to delete;
+	// dropped files were never copied and are untouched.
+	go func() { _, _ = a.attachments().Reap(7 * 24 * time.Hour) }()
+	a.setHookHTTP(autocont.HookReady(deps.ClaudeVersion()))
+	if err := hookmgr.Install(a.settingsPath(), a.wsPort, a.wsToken, a.hookHTTP.Load()); err != nil {
+		// The toast is likely lost: startup runs before the frontend subscribes.
+		log.Printf("hookmgr: %v", err)
+		var se *hookmgr.SkippedError
+		if errors.As(err, &se) {
+			a.reportError(fmt.Sprintf("Couldn't install Commander's Claude Code hooks for: %s — ~/.claude/settings.json has an unexpected shape there", strings.Join(se.Events, ", ")))
+		} else {
+			a.reportError(fmt.Sprintf("Couldn't install Commander's Claude Code hooks: %v", err))
+		}
+	}
+	a.ledger.start(a.ctx)
 	a.windows = winstate.Open(a.winStatePath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
 	a.initCompanion()                 // load config, reconcile the overlay with its kind, push state
@@ -949,6 +1248,7 @@ func (a *App) startWS() {
 		a.handleNotify(body)
 		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc("/stop", a.stopHandler())
 	go func() { _ = http.Serve(ln, mux) }()
 }
 
@@ -1147,6 +1447,12 @@ type ModelDetail struct {
 	// fallback), so the panel can show what the meter is measuring against.
 	ContextWindow   int `json:"contextWindow"`
 	MaxOutputTokens int `json:"maxOutputTokens"`
+	// AutoContinue is the effective setting; AutoContinueSet says the user
+	// chose it (else it is the routed/native default); AutoContinueReady is
+	// whether the installed Claude Code can run it at all.
+	AutoContinue      bool `json:"autoContinue"`
+	AutoContinueSet   bool `json:"autoContinueSet"`
+	AutoContinueReady bool `json:"autoContinueReady"`
 }
 
 // Models returns the full catalog for the admin panel.
@@ -1159,6 +1465,7 @@ func (a *App) Models() []ModelDetail {
 			ID: m.ID, Label: m.Label, Provider: m.Provider, Routed: m.IsRouted(),
 			Upstream: m.Upstream, APIBase: m.APIBase, KeyEnv: m.KeyEnv, Region: m.Region,
 			ContextWindow: m.ContextWindow(), MaxOutputTokens: m.MaxOutputTokens,
+			AutoContinue: m.AutoContinueOn(), AutoContinueSet: m.AutoContinue != nil, AutoContinueReady: a.hookHTTP.Load(),
 		})
 	}
 	return out
@@ -1417,7 +1724,14 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 			name = m.ID
 		}
 	}
+	tag := randomHex(8)
+	env[hookmgr.TagEnv] = tag
 	cmd := append(append([]string{}, launch.Command()...), extraArgs...)
+	sid := resumeID(extraArgs)
+	if sid == "" {
+		sid = newSessionID()
+		cmd = append(cmd, "--session-id", sid)
+	}
 	w, err := a.host.Launch(tmux.LaunchSpec{
 		SessionName: a.cfg.TmuxSession, WindowName: name, Dir: folder, Env: env, Command: cmd,
 		// Every variable Commander can set, not just this launch's: a native
@@ -1430,16 +1744,17 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 	}
 	// A launch is authoritative for this window id, overwriting whatever an
 	// earlier window with the same id left behind.
-	if serr := a.windows.Set(w.ID, winstate.Record{Model: m.ID}); serr != nil {
+	if serr := a.windows.Set(w.ID, winstate.Record{Model: m.ID, SessionID: sid, Tag: tag}); serr != nil {
 		a.reportError(fmt.Sprintf("could not record the model for %s: %v", name, serr))
 	}
 	a.mu.Lock()
 	a.sessions[w.ID] = &sessionRec{
 		Name: name, Cwd: folder, Model: m.ID, Provider: m.Provider, LaunchedAt: a.now(), Status: "active",
-		StatusSinceMs: a.now().UnixMilli(),
+		StatusSinceMs: a.now().UnixMilli(), ClaudeSessionID: sid, Tag: tag,
 	}
 	a.current = w.ID
 	a.mu.Unlock()
+	a.ledger.watch(folder, sid)
 	return SessionInfo{WindowID: w.ID, Name: w.Name, Model: m.ID}, nil
 }
 
@@ -1560,7 +1875,12 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 			}
 		}
 		rec.RemoteControl = known.RemoteControl
+		rec.ClaudeSessionID = known.SessionID
+		rec.Tag = known.Tag
 		a.sessions[w.ID] = rec
+		if known.SessionID != "" {
+			a.ledger.watch(w.Cwd, known.SessionID)
+		}
 	}
 }
 
@@ -1575,10 +1895,15 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 func (a *App) SelectSession(windowID string) error {
 	a.mu.Lock()
 	a.current = windowID
+	sid := ""
 	if r := a.sessions[windowID]; r != nil {
 		r.AckMs = a.now().UnixMilli()
+		sid = r.ClaudeSessionID
 	}
 	a.mu.Unlock()
+	if sid != "" {
+		a.ledger.tracker.Ack(sid, a.now().UnixMilli())
+	}
 	return nil
 }
 
@@ -1588,11 +1913,20 @@ func (a *App) KillSession(windowID string) error {
 		return err
 	}
 	a.mu.Lock()
+	var cwd, sid string
+	if r := a.sessions[windowID]; r != nil {
+		cwd, sid = r.Cwd, r.ClaudeSessionID
+	}
+	a.dropAutoCont(windowID)
 	delete(a.sessions, windowID)
 	if a.current == windowID {
 		a.current = ""
 	}
 	a.mu.Unlock()
+	if sid != "" {
+		a.ledger.unwatch(cwd, sid)
+		a.ledger.tracker.Forget(sid) // gone now, not when it would have timed out
+	}
 	_ = a.windows.Delete(windowID)
 	a.pushCompanion()
 	return nil
@@ -1621,6 +1955,7 @@ func (a *App) SessionStats(windowID string) SessionStats {
 	}
 	model, provider, status := r.Model, r.Provider, r.Status
 	cwd, tpath, launched := r.Cwd, r.TranscriptPath, r.LaunchedAt
+	sid := r.ClaudeSessionID
 	remoteControl := r.RemoteControl
 	a.mu.Unlock()
 
@@ -1630,13 +1965,29 @@ func (a *App) SessionStats(windowID string) SessionStats {
 		RemoteControl: remoteControl,
 		Cwd:           cwd,
 	}
-	if tpath == "" {
-		if p, err := transcripts.NewestTranscript(a.projectsRoot(), cwd); err == nil {
-			tpath = p
-		}
+	st.SessionID = sid
+	if sid != "" {
+		st.AutoContinues = a.autocont.Count(sid)
 	}
-	if tpath != "" {
-		st.ContextTokens, st.Turns = a.transcriptStats(tpath)
+	var ls live.Session
+	ok := false
+	if sid != "" {
+		ls, ok = a.ledger.tracker.Get(sid)
+	}
+	if ok {
+		st.Title, st.Activity, st.Tool, st.Target = ls.Title, string(ls.State), ls.Tool, ls.Target
+		st.Summary, st.ActivitySince, st.Unread = ls.Summary, ls.SinceMs, ls.Unread
+		st.ContextTokens, st.Turns = int(ls.ContextTokens), int(ls.Messages)
+		st.Hotspot = ls.State == live.Tool && a.ledger.isHotspot(cwd, ls.TargetPath)
+	} else {
+		if tpath == "" {
+			if p, err := transcripts.NewestTranscript(a.projectsRoot(), cwd); err == nil {
+				tpath = p
+			}
+		}
+		if tpath != "" {
+			st.ContextTokens, st.Turns = a.transcriptStats(tpath)
+		}
 	}
 	if m, ok := a.modelByID(model); ok {
 		// Every session bands by context fullness now. The dollar band it
@@ -1738,8 +2089,16 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	}
 
 	// Resolve the claude session id: registry, else newest transcript for cwd.
+	// A registry id with no transcript means the session was launched with
+	// --session-id but never prompted: there is nothing to resume.
 	sid := oldSID
-	if sid == "" {
+	neverPrompted := false
+	if sid != "" {
+		if _, err := os.Stat(a.ledger.transcriptPath(cwd, sid)); err != nil {
+			sid, neverPrompted = "", true
+		}
+	}
+	if sid == "" && !neverPrompted {
 		if _, _, path, err := transcripts.StatsForCwd(a.projectsRoot(), cwd); err == nil {
 			sid = strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		}
@@ -1748,6 +2107,7 @@ func (a *App) SwapModel(windowID, newModelID string) (SessionInfo, error) {
 	// Kill the old window and forget it.
 	_ = a.host.Kill(a.cfg.TmuxSession, windowID)
 	a.mu.Lock()
+	a.dropAutoCont(windowID)
 	delete(a.sessions, windowID)
 	if a.current == windowID {
 		a.current = ""

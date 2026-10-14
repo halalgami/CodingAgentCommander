@@ -709,6 +709,8 @@ const mediaPackPrefix = "/media/pack/"
 func (a *App) packMediaHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(mediaPackPrefix, a.servePackMedia)
+	mux.HandleFunc(mediaAttachPrefix, a.serveAttachMedia)
+	mux.HandleFunc(mediaRaidPrefix, a.serveRaidMedia)
 	return mux
 }
 

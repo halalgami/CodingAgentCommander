@@ -3,7 +3,9 @@ package transcripts
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -169,5 +171,36 @@ func TestScanRestartsWhenTheFileShrank(t *testing.T) {
 	}
 	if p.Turns != 1 {
 		t.Fatalf("turns=%d after truncation, want 1: stale progress was reused", p.Turns)
+	}
+}
+
+func TestScanSkipsOverlongLineWithoutBufferingIt(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "big.jsonl")
+	huge := strings.Repeat("x", 10*MaxLine) // far past the cap: unbounded code would allocate ~5x this
+	content := `{"type":"assistant","message":{"usage":{"input_tokens":1,"cache_read_input_tokens":2,"cache_creation_input_tokens":3}}}` + "\n" +
+		`{"type":"user","blob":"` + huge + `"}` + "\n" +
+		`{"type":"assistant","message":{"usage":{"input_tokens":10,"cache_read_input_tokens":20,"cache_creation_input_tokens":30}}}` + "\n"
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	prog, err := Scan(p, Progress{})
+	runtime.ReadMemStats(&after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prog.Turns != 2 || prog.Ctx != 60 {
+		t.Fatalf("turns=%d ctx=%d, want 2 and 60 (lines after the huge one must still count)", prog.Turns, prog.Ctx)
+	}
+	if prog.Offset != int64(len(content)) {
+		t.Fatalf("offset=%d want %d (the skipped line must still be consumed)", prog.Offset, len(content))
+	}
+	// Lines up to MaxLine are legitimately buffered (append growth costs ~5x
+	// MaxLine in total); the bound is that cost must not scale with the line.
+	if grew := after.TotalAlloc - before.TotalAlloc; grew > 8*MaxLine {
+		t.Fatalf("Scan allocated %d bytes for a %d-byte line; memory must stay bounded by MaxLine", grew, len(huge))
 	}
 }

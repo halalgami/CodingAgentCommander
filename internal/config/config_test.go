@@ -609,3 +609,34 @@ api_base = "https://ollama.com"
 		t.Fatalf("provider = %+v, %v", p, ok)
 	}
 }
+
+func TestAutoContinueDefaultAndRoundTrip(t *testing.T) {
+	native := Model{ID: "claude-opus-5-5", Provider: ProviderAnthropic}
+	routed := Model{ID: "glm", Provider: "ollama-cloud"}
+	if native.AutoContinueOn() || !routed.AutoContinueOn() {
+		t.Fatalf("defaults: native %v routed %v", native.AutoContinueOn(), routed.AutoContinueOn())
+	}
+	off, on := false, true
+	routed.AutoContinue, native.AutoContinue = &off, &on
+	if !native.AutoContinueOn() || routed.AutoContinueOn() {
+		t.Fatal("explicit values not honoured")
+	}
+
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.toml")
+	c := Config{Models: []Model{{ID: "a", Provider: "ollama-cloud"}, {ID: "b", Provider: "ollama-cloud", AutoContinue: &off}}}
+	if err := Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	if n := strings.Count(string(b), "auto_continue"); n != 1 {
+		t.Fatalf("auto_continue written %d times, want 1 (unset omitted):\n%s", n, b)
+	}
+	got, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Models[0].AutoContinue != nil || got.Models[1].AutoContinue == nil || *got.Models[1].AutoContinue {
+		t.Fatalf("round trip: %+v", got.Models)
+	}
+}

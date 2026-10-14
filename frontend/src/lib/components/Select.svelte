@@ -23,6 +23,9 @@
     return out;
   });
   const selectable = $derived(rows.filter((r) => r.kind === "option").map((r) => r.o));
+  // The highlight always points into the current list: collapsing a group with
+  // the list open must not leave it past the end (or at -1 when empty).
+  const hic = $derived(Math.min(Math.max(hi, 0), Math.max(selectable.length - 1, 0)));
   // The trigger shows the full label (provider included): there is no header
   // beside it to supply that context. Looked up across ALL groups so it does
   // not depend on what is currently expanded.
@@ -44,9 +47,9 @@
     if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) { e.preventDefault(); open = true; hi = 0; return; }
     if (!open) return;
     if (e.key === "Escape") { e.stopPropagation(); open = false; }
-    if (e.key === "ArrowDown") { e.preventDefault(); hi = Math.min(hi + 1, selectable.length - 1); }
-    if (e.key === "ArrowUp") { e.preventDefault(); hi = Math.max(hi - 1, 0); }
-    if (e.key === "Enter") { e.preventDefault(); if (selectable[hi]) choose(selectable[hi]); }
+    if (e.key === "ArrowDown") { e.preventDefault(); hi = Math.min(hic + 1, Math.max(selectable.length - 1, 0)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); hi = Math.max(hic - 1, 0); }
+    if (e.key === "Enter") { e.preventDefault(); if (selectable[hic]) choose(selectable[hic]); }
   }
   function outside(e) {
     if (root && !root.contains(e.target)) open = false;
@@ -83,7 +86,7 @@
           </li>
         {:else}
           <li role="option" aria-selected={r.o.value === value}>
-            <button class:hi={optionIndex(i) === hi} onclick={() => choose(r.o)}
+            <button class:hi={optionIndex(i) === hic} onclick={() => choose(r.o)}
                     onmouseenter={() => (hi = optionIndex(i))}>{r.o.label}{r.o.suffix ?? ""}</button>
           </li>
         {/if}

@@ -36,6 +36,9 @@ type Model struct {
 	Upstream        string `toml:"upstream,omitempty"` // LiteLLM model string, e.g. "openai/gpt-5.5" or "bedrock/us.anthropic.claude-..."
 	APIBase         string `toml:"api_base,omitempty"` // upstream base URL for routed models
 	Region          string `toml:"region,omitempty"`   // AWS region for bedrock models (not a secret)
+	// AutoContinue: nudge the model when it ends a turn right after announcing
+	// a step. nil = default (on for routed models, off for native Anthropic).
+	AutoContinue *bool `toml:"auto_continue,omitempty"`
 }
 
 // DefaultContextWindow is the window assumed for a model that reports none —
@@ -270,6 +273,14 @@ type Config struct {
 
 // IsRouted reports whether this model must go through the local LiteLLM proxy.
 func (m Model) IsRouted() bool { return m.Provider != ProviderAnthropic }
+
+// AutoContinueOn is the effective auto-continue setting.
+func (m Model) AutoContinueOn() bool {
+	if m.AutoContinue != nil {
+		return *m.AutoContinue
+	}
+	return m.IsRouted()
+}
 
 // Model returns the catalog model with the given ID.
 func (c Config) Model(id string) (Model, bool) {

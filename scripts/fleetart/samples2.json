@@ -1,0 +1,30 @@
+[
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-opus-a.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view facing right, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a colossal mothership-class flagship carrier, vast spine hull with a central hangar bay and flanking engine nacelles, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-opus-b.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view facing right, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a massive battlestar flagship, long armoured hull with flight pods on both flanks and a tall command tower, ivory and gunmetal with warm amber stripes and amber running lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view facing right, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a small fast interceptor frigate, slim dart hull with swept fins and one oversized engine bell, dark hull with lime-green markings and lime glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-qwen.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view facing right, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a long science vessel with a large ring-shaped sensor array and antenna spines, white and charcoal hull with magenta markings and magenta glow"
+ }
+]

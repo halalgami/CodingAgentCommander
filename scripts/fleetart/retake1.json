@@ -1,0 +1,10 @@
+[
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/craft-sentinel.png",
+  "rmbg_to": "scripts/fleetart/cut/craft-sentinel.png",
+  "aspect": "16:9",
+  "style": ", rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light, Homeworld-inspired design, three-quarter view, the nose points to the RIGHT and the engine is on the LEFT, small in frame with lots of empty space, plain dark space background, no text, no logos, no people",
+  "prompt": "a small sentinel frigate with a big circular scanner lens on its nose casting a fan of light, swept wings, neutral light grey and white plating, no coloured trim, white engine glow"
+ }
+]

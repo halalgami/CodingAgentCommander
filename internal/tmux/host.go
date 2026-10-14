@@ -4,9 +4,11 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/halalgami/CodingAgentCommander/internal/proc"
 )
@@ -48,6 +50,8 @@ type Host interface {
 	Kill(session, windowID string) error
 	Rename(session, windowID, name string) error
 	SendKeys(windowID, text string) error
+	// Paste inserts text at the window's input WITHOUT pressing Enter.
+	Paste(windowID, text string) error
 }
 
 // ExecHost implements Host by shelling out to the real tmux binary.
@@ -56,6 +60,13 @@ type ExecHost struct {
 	// the moment it takes to create the window (see Launch), so two concurrent
 	// launches could otherwise hand one window the other's model.
 	launchMu sync.Mutex
+
+	// pasteMu/pasteOK cache a SUCCESSFUL paste-buffer probe. A failure is not
+	// cached: it may only mean the server was down at that moment. psmux
+	// (Windows) cannot be assumed to support buffers at all; see Paste.
+	pasteMu  sync.Mutex
+	pasteOK  bool
+	pasteSeq atomic.Uint64
 }
 
 // NewExecHost returns an ExecHost.
@@ -258,4 +269,62 @@ func (h *ExecHost) SendKeys(windowID, text string) error {
 		return fmt.Errorf("send-keys: %w", err)
 	}
 	return tmuxCmd("send-keys", "-t", windowID, "Enter").Run()
+}
+
+// ErrPasteUnsupported means this tmux cannot hold and paste a buffer. There is
+// deliberately no keystroke fallback: typing the text key by key into a
+// window that is showing a numbered menu could answer it.
+var ErrPasteUnsupported = errors.New("inserting is not supported by this tmux")
+
+// probeText has a leading dash (set-buffer must honour "--") and non-ASCII,
+// so a tmux that mangles either fails the probe instead of a real insert.
+const probeText = "-commander-probe ünï"
+
+// probePasteBuffers round-trips a known string through a named buffer. It is a
+// variable so tests can force the unsupported path.
+var probePasteBuffers = func() bool {
+	if tmuxCmd("set-buffer", "-b", "commander-probe", "--", probeText).Run() != nil {
+		return false
+	}
+	defer func() { _ = tmuxCmd("delete-buffer", "-b", "commander-probe").Run() }()
+	out, err := tmuxCmd("show-buffer", "-b", "commander-probe").Output()
+	return err == nil && string(out) == probeText
+}
+
+func (h *ExecHost) canPaste() bool {
+	h.pasteMu.Lock()
+	defer h.pasteMu.Unlock()
+	if !h.pasteOK {
+		h.pasteOK = probePasteBuffers()
+	}
+	return h.pasteOK
+}
+
+// tmuxErr wraps a failed tmux call with tmux's own stderr, which is the only
+// part that says what went wrong ("can't find window: @9").
+func tmuxErr(what string, out []byte, err error) error {
+	return fmt.Errorf("tmux %s: %s: %w", what, strings.TrimSpace(string(out)), err)
+}
+
+// Paste inserts text into a window's input line without pressing Enter.
+//
+// Bytes written to our pty reach `tmux attach`, not Claude Code, and tmux
+// re-interprets them — so hand-rolled bracket markers would never arrive. tmux
+// already knows the application's DECSET 2004 state: `paste-buffer -p` brackets
+// only when the app asked for it, and replaces LF with CR. set-buffer takes the
+// text as argv (no shell), `--` guards a leading dash, `-d` deletes the buffer.
+// Each call uses its own buffer name so concurrent pastes cannot cross.
+func (h *ExecHost) Paste(windowID, text string) error {
+	if !h.canPaste() {
+		return ErrPasteUnsupported
+	}
+	buf := fmt.Sprintf("commander-attach-%d-%d", os.Getpid(), h.pasteSeq.Add(1))
+	if out, err := tmuxCmd("set-buffer", "-b", buf, "--", text).CombinedOutput(); err != nil {
+		return tmuxErr("set-buffer", out, err)
+	}
+	if out, err := tmuxCmd("paste-buffer", "-b", buf, "-p", "-d", "-t", windowID).CombinedOutput(); err != nil {
+		_ = tmuxCmd("delete-buffer", "-b", buf).Run()
+		return tmuxErr("paste-buffer", out, err)
+	}
+	return nil
 }

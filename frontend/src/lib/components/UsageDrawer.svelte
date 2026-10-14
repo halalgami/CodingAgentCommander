@@ -12,6 +12,8 @@
     loading = true;
     try {
       usage = await fetchPlanUsage();
+      // Al Modon fog (phase 5a): remember the highest window's utilisation.
+      try { app.quotaPct = Math.max(...Object.values(usage || {}).filter((w) => w && typeof w.utilization === "number").map((w) => w.utilization)); } catch {}
       error = "";
     } catch (e) { error = "" + e; }
     loading = false;

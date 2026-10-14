@@ -1,0 +1,86 @@
+[
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sonnet-3.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a heavy cruiser with a long armoured prow like a ram, two broadside gun decks along its flanks and a compact command tower aft, gunmetal and ivory plating with coral-orange trim, coral-orange markings and coral-orange engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sonnet-4.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a heavy cruiser shaped like a long flattened blade, a row of turret domes down the centreline and four engine pods in a square, gunmetal and ivory plating with coral-orange trim, coral-orange markings and coral-orange engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sonnet-5.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a heavy cruiser with a split twin-prong bow cradling a glowing particle lance between the prongs, layered armour hull, gunmetal and ivory plating with coral-orange trim, coral-orange markings and coral-orange engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku-3.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a small fast interceptor frigate with a needle nose, short delta wings and a ring-shaped engine at the stern, gunmetal and ivory plating with lime-green trim, lime-green markings and lime-green engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku-4.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a small fast interceptor frigate with a forward-swept arrowhead hull and two slim engine pods on outriggers, gunmetal and ivory plating with lime-green trim, lime-green markings and lime-green engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku-5.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no lettering, no numbers, no logos, no people",
+  "prompt": "a small fast interceptor frigate shaped like a hawk, folded wing fins and a single bright engine, very compact, gunmetal and ivory plating with lime-green trim, lime-green markings and lime-green engine glow"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/opus-stance.webp",
+  "out": "scripts/fleetart/raw/captain-opus.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with amber piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/sonnet-stance.webp",
+  "out": "scripts/fleetart/raw/captain-sonnet.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with coral piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/haiku-stance.webp",
+  "out": "scripts/fleetart/raw/captain-haiku.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with lime-green piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/glm-stance.webp",
+  "out": "scripts/fleetart/raw/captain-glm.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with violet piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/qwen-stance.webp",
+  "out": "scripts/fleetart/raw/captain-qwen.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with magenta piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/raid/kimi-stance.webp",
+  "out": "scripts/fleetart/raw/captain-kimi.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and same eyes as the reference, now as a starship captain: head-and-shoulders bust portrait facing slightly right, fully clothed in a high-collared dark navy naval officer's uniform coat with teal piping and gold rank insignia on the collar and shoulders, coat buttoned up to the collar, confident expression, same painterly anime style, plain dark blue background, no text"
+ }
+]

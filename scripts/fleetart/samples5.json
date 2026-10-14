@@ -1,0 +1,72 @@
+[
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sonnet-1.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a heavy cruiser warship, long angular wedge hull with two big turret batteries on the spine and a raised armoured bridge, gunmetal and ivory plating with coral-orange trim, coral-orange markings and coral-orange engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sonnet-2.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a heavy cruiser warship, broad hammerhead bow, layered armour skirts along the sides and a long spinal cannon running through the hull, gunmetal and ivory plating with coral-orange trim, coral-orange markings and coral-orange engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku-1.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a small fast interceptor frigate, slim dart hull with swept forward fins and one oversized engine bell, gunmetal and ivory plating with lime-green trim, lime-green markings and lime-green engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-haiku-2.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a fast interceptor frigate, twin-hull catamaran shape joined by a crossbar, two long engine pods, very streamlined, gunmetal and ivory plating with lime-green trim, lime-green markings and lime-green engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-glm-1.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a brutal heavy gunship, compact blocky hull bristling with railgun turrets and thick armour plates, gunmetal and ivory plating with violet trim, violet markings and violet engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-glm-2.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a heavy gunship built around one enormous mass-driver barrel running the length of the hull, with armoured gun shields, gunmetal and ivory plating with violet trim, violet markings and violet engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-qwen-1.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a long science vessel with a large ring-shaped sensor array around the hull and antenna spines, gunmetal and ivory plating with magenta trim, magenta markings and magenta engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-qwen-2.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a science vessel with a glowing crystalline sensor core held in an open frame at the bow and long sensor booms, gunmetal and ivory plating with magenta trim, magenta markings and magenta engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-kimi-1.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a drone carrier with an open hangar spine and rows of small drones docked along the hull, gunmetal and ivory plating with teal trim, teal markings and teal engine glow"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-kimi-2.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, same art style as a sleek ivory-and-gunmetal anime carrier, three-quarter view, the bow points to the RIGHT and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a drone carrier shaped like a broad flat deck with launch rails along both sides and a swarm of tiny drones leaving it, gunmetal and ivory plating with teal trim, teal markings and teal engine glow"
+ }
+]

@@ -18,7 +18,7 @@
 
 {#if s}
   <div class="backdrop" onclick={() => !s.running && closeLitellmInstaller()} aria-hidden="true"></div>
-  <div class="modal" data-testid="litellm-install" role="dialog" aria-modal="true"
+  <div class="modal" data-testid="litellm-install" role="dialog" aria-modal="true" tabindex="-1"
        aria-label="Install LiteLLM runtime" {onkeydown}>
     <h2>LiteLLM runtime needed</h2>
     <p class="lede">

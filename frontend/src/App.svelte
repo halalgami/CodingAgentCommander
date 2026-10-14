@@ -1,14 +1,22 @@
 <script>
   import { onMount } from "svelte";
+  import { onPaste } from "./lib/pasteRoute.js";
+  import { OnFileDrop } from "../wailsjs/runtime/runtime.js";
+  import { handleDrop } from "./lib/dropRoute.js";
   import { EventsOn } from "../wailsjs/runtime/runtime.js";
-  import { TitleBarDoubleClick } from "../wailsjs/go/main/App.js";
+  import { TitleBarDoubleClick, TakeStartupErrors } from "../wailsjs/go/main/App.js";
   import { onTitlebarDblClick } from "./lib/titlebar.js";
+  import { gaveUpText } from "./lib/autocont.js";
   import { app, loadAll, refresh, markFinished, reloadModels, toast } from "./lib/stores.svelte.js";
   import Sidebar from "./lib/components/Sidebar.svelte";
   import SidebarCompanion from "./lib/companion/SidebarCompanion.svelte";
   import PackGenPanel from "./lib/companion/PackGenPanel.svelte";
   import { initPackGen, gen } from "./lib/companion/packgen.svelte.js";
-  import EmptyState from "./lib/components/EmptyState.svelte";
+  import Dashboard from "./lib/dashboard/Dashboard.svelte";
+  import DashNav from "./lib/dashboard/DashNav.svelte";
+  import { initDash, isHome } from "./lib/dashboard/dash.svelte.js";
+  import { initRaidPack } from "./lib/raid/custom.svelte.js";
+  import { initMotion } from "./lib/dashboard/motion.svelte.js";
   import Terminal from "./lib/Terminal.svelte";
   import Toast from "./lib/components/Toast.svelte";
   import ProvidersDrawer from "./lib/components/ProvidersDrawer.svelte";
@@ -37,6 +45,9 @@
     EventsOn("menu:about", () => (app.about = true));
     EventsOn("models:updated", () => reloadModels());
     EventsOn("app:error", (msg) => toast(msg, "error"));
+    EventsOn("session:autocont-gaveup", (e) => toast(gaveUpText(e)));
+    // Errors from startup were held until now (an event then would be lost).
+    try { TakeStartupErrors().then((list) => (list || []).forEach((m) => toast(m, "error"))).catch(() => {}); } catch {}
   } catch {}
 
   onMount(() => {
@@ -48,6 +59,9 @@
     initTheme();
     initPrefs();
     loadAll();
+    initDash();
+    initRaidPack();
+    initMotion();
     window.__prefs = prefs; // exposed so the built-preview smoke can toggle prefs
     window.__app = app;     // ditto: the smokes seed sessions/config with no bindings
     // Leak-assertion seam: openPaneCount() is termbus's own proof that every
@@ -65,8 +79,12 @@
     // Playwright spec opens a document through this instead.
     window.__openDoc = openDoc;
     window.__openDocsList = openDocsList;
+    // Plain-browser test runs have no window.runtime; the shell must still mount.
+    try { OnFileDrop(handleDrop, true); } catch {}
+    // Capture phase: xterm's own textarea handler never sees a claimed paste.
+    window.addEventListener("paste", onPaste, true);
     const iv = setInterval(refresh, 5000);
-    return () => clearInterval(iv);
+    return () => { clearInterval(iv); window.removeEventListener("paste", onPaste, true); };
   });
 
   $effect(() => {
@@ -76,8 +94,10 @@
 </script>
 
 <div class="shell">
+  <!-- svelte-ignore a11y_no_static_element_interactions (double-click zoom mirrors the macOS titlebar; keyboard users have Window → Zoom) -->
   <header class="titlebar" data-testid="titlebar" style="--wails-draggable: drag" ondblclick={(e) => onTitlebarDblClick(e, () => TitleBarDoubleClick())}>
     <span class="wordmark" data-testid="wordmark">COMMANDER</span>
+    <DashNav />
     <button class="palette-hint" data-testid="open-palette" onclick={() => (app.paletteOpen = true)}>
       <span>Search or jump…</span><kbd>⌘K</kbd>
     </button>
@@ -105,8 +125,18 @@
         {/if}
       {/snippet}
     </Sidebar>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (WAI-ARIA window splitter: a focusable separator resized with ←/→) -->
     <div
       class="divider" data-testid="sidebar-divider"
+      role="separator" aria-orientation="vertical" aria-label="Sidebar width" aria-valuemin="240" aria-valuemax="480" tabindex="0"
+      onkeydown={(e) => {
+        // ←/→ resize by 16 px, within the same 240–480 px range as dragging
+        const d = { ArrowLeft: -16, ArrowRight: 16 }[e.key];
+        if (!d) return;
+        e.preventDefault();
+        const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-w")) || 290;
+        document.documentElement.style.setProperty("--sidebar-w", Math.min(480, Math.max(240, cur + d)) + "px");
+      }}
       onpointerdown={(e) => {
         e.preventDefault();
         const move = (ev) => {
@@ -125,9 +155,13 @@
     ></div>
     <section class="pane">
       {#if app.sessionKey}
-        {#key app.sessionKey}<Terminal sessionKey={app.sessionKey} theme={xtermTheme} />{/key}
-      {:else}
-        <EmptyState />
+        <!-- inert while home: Tab or a drawer's focus restore must never reach the hidden xterm. -->
+        <div class="term-layer" data-testid="term-layer" inert={isHome()}>
+          {#key app.sessionKey}<Terminal sessionKey={app.sessionKey} theme={xtermTheme} />{/key}
+        </div>
+      {/if}
+      {#if isHome()}
+        <Dashboard />
       {/if}
     </section>
   </div>
@@ -153,6 +187,8 @@
 </div>
 
 <style>
+  :global(:root) { --wails-drop-target: drop; }
+  .pane:global(.wails-drop-target-active) { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .shell { height: 100vh; display: flex; flex-direction: column; background: var(--surface-0); }
   .titlebar {
     height: var(--titlebar-h); flex: none; display: flex; align-items: center;
@@ -196,5 +232,6 @@
     transition: background var(--t-fast) var(--ease-out);
   }
   .divider:hover, .divider:active { background: var(--accent-dim); }
-  .pane { flex: 1; background: var(--surface-0); min-width: 0; }
+  .pane { flex: 1; background: var(--surface-0); min-width: 0; position: relative; }
+  .term-layer { height: 100%; }
 </style>

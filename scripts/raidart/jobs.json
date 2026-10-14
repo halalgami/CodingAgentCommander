@@ -1,0 +1,94 @@
+[
+ {
+  "kind": "edit",
+  "base": "docs/superpowers/concepts/2026-10-09-dashboard/assets/raid/opus-stance.webp",
+  "out": "scripts/raidart/raw/ally-fox-idle.png",
+  "rmbg_to": "scripts/raidart/cut/ally-fox-idle.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "a small clever scout fox companion with a green scarf, sitting alert"
+ },
+ {
+  "kind": "edit",
+  "base": "docs/superpowers/concepts/2026-10-09-dashboard/assets/raid/opus-stance.webp",
+  "out": "scripts/raidart/raw/ally-fox-cast.png",
+  "rmbg_to": "scripts/raidart/cut/ally-fox-cast.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "the same small scout fox with a green scarf, leaping forward with a glowing trail"
+ },
+ {
+  "kind": "edit",
+  "base": "docs/superpowers/concepts/2026-10-09-dashboard/assets/raid/opus-stance.webp",
+  "out": "scripts/raidart/raw/ally-strategist-idle.png",
+  "rmbg_to": "scripts/raidart/cut/ally-strategist-idle.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "a young strategist in blue robes holding a rolled map, calm stance"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/ally-strategist-idle.png",
+  "out": "scripts/raidart/raw/ally-strategist-cast.png",
+  "rmbg_to": "scripts/raidart/cut/ally-strategist-cast.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "same exact character, same face, outfit and colours, now in an action pose: young strategist in blue robes pointing forward, a glowing tactical rune circle in front"
+ },
+ {
+  "kind": "edit",
+  "base": "docs/superpowers/concepts/2026-10-09-dashboard/assets/raid/opus-stance.webp",
+  "out": "scripts/raidart/raw/ally-cleric-idle.png",
+  "rmbg_to": "scripts/raidart/cut/ally-cleric-idle.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "a gentle cleric in white and gold robes with a short staff, standing"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/ally-cleric-idle.png",
+  "out": "scripts/raidart/raw/ally-cleric-cast.png",
+  "rmbg_to": "scripts/raidart/cut/ally-cleric-cast.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "same exact character, same face, outfit and colours, now in an action pose: cleric in white and gold robes raising the staff, soft golden healing light"
+ },
+ {
+  "kind": "edit",
+  "base": "docs/superpowers/concepts/2026-10-09-dashboard/assets/raid/opus-stance.webp",
+  "out": "scripts/raidart/raw/ally-knight-idle.png",
+  "rmbg_to": "scripts/raidart/cut/ally-knight-idle.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "a sturdy knight in silver plate armour with a round shield, guard stance"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/ally-knight-idle.png",
+  "out": "scripts/raidart/raw/ally-knight-cast.png",
+  "rmbg_to": "scripts/raidart/cut/ally-knight-cast.png",
+  "style": ", same painterly anime fantasy game art style and lighting as the reference, full body, fully clothed, family-friendly, single character centered on a plain light grey background, no text, no logos",
+  "prompt": "same exact character, same face, outfit and colours, now in an action pose: silver knight swinging a sword with a bright arc of light"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/slime-1.png",
+  "rmbg_to": "scripts/raidart/cut/slime-1.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a cute round green slime monster with big eyes, small and bouncy"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/slime-2.png",
+  "rmbg_to": "scripts/raidart/cut/slime-2.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a cute round purple slime monster with a tiny crown, small and bouncy"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/inn.png",
+  "rmbg_to": "scripts/raidart/cut/inn.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a cosy fantasy roadside inn with warm glowing windows and a hanging sign with no writing, small building"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/chest.png",
+  "rmbg_to": "scripts/raidart/cut/chest.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "an open wooden treasure chest overflowing with gold coins and gems"
+ }
+]

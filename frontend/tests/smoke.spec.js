@@ -378,3 +378,14 @@ test("double-clicking the bare titlebar calls Go; double-clicking a nav button d
   await page.waitForTimeout(150);
   expect(await page.evaluate(() => window.__tbDbl)).toBe(1);
 });
+
+// Minors round 2: the sidebar divider is a keyboard window splitter too.
+test("the sidebar divider resizes with ←/→", async ({ page }) => {
+  await page.goto("/?nointro");
+  const w = () => page.evaluate(() => document.querySelector('[data-testid="sidebar-divider"]').getBoundingClientRect().x);
+  const before = await w();
+  await page.getByTestId("sidebar-divider").focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  expect(await w()).toBeGreaterThan(before + 20);
+});

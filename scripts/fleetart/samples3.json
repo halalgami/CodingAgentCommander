@@ -1,0 +1,58 @@
+[
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-mother-c.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a colossal mothership-class carrier shaped like a long vertical-finned spine with a ring of hangar doors along its belly and a cluster of six engine pods at the stern, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-mother-d.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a colossal mothership-class carrier, wide flat wedge hull with a cavernous glowing front hangar mouth, twin outrigger engine booms and docking arms, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-mother-e.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a colossal mothership-class carrier, segmented hull like a stack of armoured modules linked by a central keel, open lattice hangar section in the middle, radiator fins, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-scout.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a small agile recon scout craft for exploration, slim needle hull with a big forward sensor dish and long antenna boom, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-planner.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a mid-size survey and command corvette for planning, wide flat hull with a holographic plotting dome on top and sensor masts, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-worker.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a rugged strike corvette for general work, compact armoured hull with twin engine pods, cargo clamps and a small turret, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-reviewer.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "an escort inspection frigate for code review, angular hull with a bright scanning spotlight array under the bow and a shield emitter, gunmetal and ivory plating with warm amber trim and amber lights"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/fleetart/raw/hw-sub-wing.png",
+  "aspect": "16:9",
+  "style": ", ship design inspired by Homeworld: long modular asymmetric hull, layered armour plates and blocky engine pods, industrial greebles, readable silhouette; rendered in cel-shaded painterly anime sci-fi style with clean ink lines, soft rim light and glowing engine bells, three-quarter view, the bow points to the RIGHT side of the image and the engines are on the LEFT, deep space with a faint nebula, no text, no logos, no people",
+  "prompt": "a tight wing of five tiny fighters flying in V formation, each a small arrowhead fighter, gunmetal and ivory plating with warm amber trim and amber lights"
+ }
+]

@@ -1,0 +1,792 @@
+[
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-attack.png",
+  "out": "scripts/raidart/raw/opus-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair deep auburn, eyes emerald green, outfit trim silver, and add a crescent-moon hair ornament"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-attack.png",
+  "out": "scripts/raidart/raw/opus-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde in a long braid, eyes violet, outfit trim rose gold, and add a feathered circlet"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-attack.png",
+  "out": "scripts/raidart/raw/opus-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/opus-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-await.png",
+  "out": "scripts/raidart/raw/opus-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair deep auburn, eyes emerald green, outfit trim silver, and add a crescent-moon hair ornament"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-await.png",
+  "out": "scripts/raidart/raw/opus-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde in a long braid, eyes violet, outfit trim rose gold, and add a feathered circlet"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-await.png",
+  "out": "scripts/raidart/raw/opus-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/opus-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-hurt.png",
+  "out": "scripts/raidart/raw/opus-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair deep auburn, eyes emerald green, outfit trim silver, and add a crescent-moon hair ornament"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-hurt.png",
+  "out": "scripts/raidart/raw/opus-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde in a long braid, eyes violet, outfit trim rose gold, and add a feathered circlet"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-hurt.png",
+  "out": "scripts/raidart/raw/opus-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/opus-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-stance.png",
+  "out": "scripts/raidart/raw/opus-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair deep auburn, eyes emerald green, outfit trim silver, and add a crescent-moon hair ornament"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-stance.png",
+  "out": "scripts/raidart/raw/opus-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde in a long braid, eyes violet, outfit trim rose gold, and add a feathered circlet"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-stance.png",
+  "out": "scripts/raidart/raw/opus-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/opus-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-victory.png",
+  "out": "scripts/raidart/raw/opus-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair deep auburn, eyes emerald green, outfit trim silver, and add a crescent-moon hair ornament"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-victory.png",
+  "out": "scripts/raidart/raw/opus-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/opus-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde in a long braid, eyes violet, outfit trim rose gold, and add a feathered circlet"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/opus-victory.png",
+  "out": "scripts/raidart/raw/opus-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/opus-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-attack.png",
+  "out": "scripts/raidart/raw/sonnet-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes sapphire blue, outfit trim gold filigree, and add a small red plume on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-attack.png",
+  "out": "scripts/raidart/raw/sonnet-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair jet black, eyes amber, outfit trim silver, and add a jewelled ear cuff"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-attack.png",
+  "out": "scripts/raidart/raw/sonnet-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-await.png",
+  "out": "scripts/raidart/raw/sonnet-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes sapphire blue, outfit trim gold filigree, and add a small red plume on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-await.png",
+  "out": "scripts/raidart/raw/sonnet-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair jet black, eyes amber, outfit trim silver, and add a jewelled ear cuff"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-await.png",
+  "out": "scripts/raidart/raw/sonnet-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-hurt.png",
+  "out": "scripts/raidart/raw/sonnet-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes sapphire blue, outfit trim gold filigree, and add a small red plume on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-hurt.png",
+  "out": "scripts/raidart/raw/sonnet-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair jet black, eyes amber, outfit trim silver, and add a jewelled ear cuff"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-hurt.png",
+  "out": "scripts/raidart/raw/sonnet-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-stance.png",
+  "out": "scripts/raidart/raw/sonnet-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes sapphire blue, outfit trim gold filigree, and add a small red plume on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-stance.png",
+  "out": "scripts/raidart/raw/sonnet-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair jet black, eyes amber, outfit trim silver, and add a jewelled ear cuff"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-stance.png",
+  "out": "scripts/raidart/raw/sonnet-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-victory.png",
+  "out": "scripts/raidart/raw/sonnet-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes sapphire blue, outfit trim gold filigree, and add a small red plume on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-victory.png",
+  "out": "scripts/raidart/raw/sonnet-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair jet black, eyes amber, outfit trim silver, and add a jewelled ear cuff"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/sonnet-victory.png",
+  "out": "scripts/raidart/raw/sonnet-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/sonnet-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-attack.png",
+  "out": "scripts/raidart/raw/haiku-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes golden, outfit trim black lacquer, and add a fox-mask hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-attack.png",
+  "out": "scripts/raidart/raw/haiku-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark crimson, eyes jade, outfit trim bronze, and add a long headband with trailing tails"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-attack.png",
+  "out": "scripts/raidart/raw/haiku-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-await.png",
+  "out": "scripts/raidart/raw/haiku-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes golden, outfit trim black lacquer, and add a fox-mask hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-await.png",
+  "out": "scripts/raidart/raw/haiku-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark crimson, eyes jade, outfit trim bronze, and add a long headband with trailing tails"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-await.png",
+  "out": "scripts/raidart/raw/haiku-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-hurt.png",
+  "out": "scripts/raidart/raw/haiku-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes golden, outfit trim black lacquer, and add a fox-mask hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-hurt.png",
+  "out": "scripts/raidart/raw/haiku-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark crimson, eyes jade, outfit trim bronze, and add a long headband with trailing tails"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-hurt.png",
+  "out": "scripts/raidart/raw/haiku-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-stance.png",
+  "out": "scripts/raidart/raw/haiku-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes golden, outfit trim black lacquer, and add a fox-mask hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-stance.png",
+  "out": "scripts/raidart/raw/haiku-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark crimson, eyes jade, outfit trim bronze, and add a long headband with trailing tails"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-stance.png",
+  "out": "scripts/raidart/raw/haiku-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-victory.png",
+  "out": "scripts/raidart/raw/haiku-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes golden, outfit trim black lacquer, and add a fox-mask hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-victory.png",
+  "out": "scripts/raidart/raw/haiku-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark crimson, eyes jade, outfit trim bronze, and add a long headband with trailing tails"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/haiku-victory.png",
+  "out": "scripts/raidart/raw/haiku-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/haiku-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-attack.png",
+  "out": "scripts/raidart/raw/glm-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes teal, outfit trim brass, and add a small feather on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-attack.png",
+  "out": "scripts/raidart/raw/glm-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair black with violet streaks, eyes gold, outfit trim silver, and add tinted round glasses pushed up on her head"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-attack.png",
+  "out": "scripts/raidart/raw/glm-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/glm-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-await.png",
+  "out": "scripts/raidart/raw/glm-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes teal, outfit trim brass, and add a small feather on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-await.png",
+  "out": "scripts/raidart/raw/glm-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair black with violet streaks, eyes gold, outfit trim silver, and add tinted round glasses pushed up on her head"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-await.png",
+  "out": "scripts/raidart/raw/glm-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/glm-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-hurt.png",
+  "out": "scripts/raidart/raw/glm-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes teal, outfit trim brass, and add a small feather on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-hurt.png",
+  "out": "scripts/raidart/raw/glm-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair black with violet streaks, eyes gold, outfit trim silver, and add tinted round glasses pushed up on her head"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-hurt.png",
+  "out": "scripts/raidart/raw/glm-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/glm-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-stance.png",
+  "out": "scripts/raidart/raw/glm-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes teal, outfit trim brass, and add a small feather on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-stance.png",
+  "out": "scripts/raidart/raw/glm-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair black with violet streaks, eyes gold, outfit trim silver, and add tinted round glasses pushed up on her head"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-stance.png",
+  "out": "scripts/raidart/raw/glm-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/glm-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-victory.png",
+  "out": "scripts/raidart/raw/glm-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair platinum blonde, eyes teal, outfit trim brass, and add a small feather on a hair clip"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-victory.png",
+  "out": "scripts/raidart/raw/glm-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/glm-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair black with violet streaks, eyes gold, outfit trim silver, and add tinted round glasses pushed up on her head"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/glm-victory.png",
+  "out": "scripts/raidart/raw/glm-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/glm-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-attack.png",
+  "out": "scripts/raidart/raw/kimi-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair pink, eyes cyan, outfit trim orange hazard-stripe, and add a headset with a small antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-attack.png",
+  "out": "scripts/raidart/raw/kimi-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark navy, eyes amber, outfit trim chrome, and add a star decal on her goggles"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-attack.png",
+  "out": "scripts/raidart/raw/kimi-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-await.png",
+  "out": "scripts/raidart/raw/kimi-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair pink, eyes cyan, outfit trim orange hazard-stripe, and add a headset with a small antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-await.png",
+  "out": "scripts/raidart/raw/kimi-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark navy, eyes amber, outfit trim chrome, and add a star decal on her goggles"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-await.png",
+  "out": "scripts/raidart/raw/kimi-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-hurt.png",
+  "out": "scripts/raidart/raw/kimi-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair pink, eyes cyan, outfit trim orange hazard-stripe, and add a headset with a small antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-hurt.png",
+  "out": "scripts/raidart/raw/kimi-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark navy, eyes amber, outfit trim chrome, and add a star decal on her goggles"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-hurt.png",
+  "out": "scripts/raidart/raw/kimi-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-stance.png",
+  "out": "scripts/raidart/raw/kimi-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair pink, eyes cyan, outfit trim orange hazard-stripe, and add a headset with a small antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-stance.png",
+  "out": "scripts/raidart/raw/kimi-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark navy, eyes amber, outfit trim chrome, and add a star decal on her goggles"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-stance.png",
+  "out": "scripts/raidart/raw/kimi-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-victory.png",
+  "out": "scripts/raidart/raw/kimi-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair pink, eyes cyan, outfit trim orange hazard-stripe, and add a headset with a small antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-victory.png",
+  "out": "scripts/raidart/raw/kimi-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair dark navy, eyes amber, outfit trim chrome, and add a star decal on her goggles"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/kimi-victory.png",
+  "out": "scripts/raidart/raw/kimi-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/kimi-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-attack.png",
+  "out": "scripts/raidart/raw/qwen-v1-attack.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v1-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes crimson, outfit trim gold, and add a kanzashi flower hairpin"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-attack.png",
+  "out": "scripts/raidart/raw/qwen-v2-attack.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v2-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair chestnut brown, eyes violet, outfit trim red cord, and add small bells on a hair ribbon"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-attack.png",
+  "out": "scripts/raidart/raw/qwen-legend-attack.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-legend-attack.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-await.png",
+  "out": "scripts/raidart/raw/qwen-v1-await.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v1-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes crimson, outfit trim gold, and add a kanzashi flower hairpin"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-await.png",
+  "out": "scripts/raidart/raw/qwen-v2-await.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v2-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair chestnut brown, eyes violet, outfit trim red cord, and add small bells on a hair ribbon"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-await.png",
+  "out": "scripts/raidart/raw/qwen-legend-await.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-legend-await.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-hurt.png",
+  "out": "scripts/raidart/raw/qwen-v1-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v1-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes crimson, outfit trim gold, and add a kanzashi flower hairpin"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-hurt.png",
+  "out": "scripts/raidart/raw/qwen-v2-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v2-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair chestnut brown, eyes violet, outfit trim red cord, and add small bells on a hair ribbon"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-hurt.png",
+  "out": "scripts/raidart/raw/qwen-legend-hurt.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-legend-hurt.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-stance.png",
+  "out": "scripts/raidart/raw/qwen-v1-stance.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v1-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes crimson, outfit trim gold, and add a kanzashi flower hairpin"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-stance.png",
+  "out": "scripts/raidart/raw/qwen-v2-stance.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v2-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair chestnut brown, eyes violet, outfit trim red cord, and add small bells on a hair ribbon"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-stance.png",
+  "out": "scripts/raidart/raw/qwen-legend-stance.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-legend-stance.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-victory.png",
+  "out": "scripts/raidart/raw/qwen-v1-victory.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v1-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair silver-white, eyes crimson, outfit trim gold, and add a kanzashi flower hairpin"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-victory.png",
+  "out": "scripts/raidart/raw/qwen-v2-victory.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-v2-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; recolour only: hair chestnut brown, eyes violet, outfit trim red cord, and add small bells on a hair ribbon"
+ },
+ {
+  "kind": "edit",
+  "base": "scripts/raidart/raw/qwen-victory.png",
+  "out": "scripts/raidart/raw/qwen-legend-victory.png",
+  "rmbg_to": "scripts/raidart/cut/qwen-legend-victory.png",
+  "style": "",
+  "prompt": "same character, same adult woman, same face shape, same pose, same weapon, same outfit design with the same neckline and full coverage, same huge exaggerated anime-style bust and voluptuous hourglass build as the reference, fully clothed, tasteful fantasy game art; same painterly anime style, full body, plain light grey background, no text; her outfit upgraded to a legendary version of the same design: richer embroidery, gold filigree, glowing runes in her signature colour and a flowing cape; no added skin, nothing removed"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-opus.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-opus.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny amber fire-spirit owl familiar floating, glowing softly"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-sonnet.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-sonnet.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny coral phoenix chick familiar floating, glowing softly"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-haiku.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-haiku.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny green spirit wisp shaped like a fox kit, floating, glowing softly"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-glm.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-glm.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny violet mechanical drone familiar with a single lens, floating"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-qwen.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-qwen.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny magenta glowing butterfly spirit familiar, floating"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-familiar-kimi.png",
+  "rmbg_to": "scripts/raidart/cut/gear-familiar-kimi.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a tiny teal round robot orb familiar with antenna, floating"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-banner.png",
+  "rmbg_to": "scripts/raidart/cut/gear-banner.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a small heraldic war banner on a pole with a gold star emblem on deep blue cloth"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-weapon.png",
+  "rmbg_to": "scripts/raidart/cut/gear-weapon.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "an ornate glowing fantasy sword floating point-down, vertical"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-halo.png",
+  "rmbg_to": "scripts/raidart/cut/gear-halo.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a glowing golden halo ring of light, seen slightly from the front"
+ },
+ {
+  "kind": "t2i",
+  "out": "scripts/raidart/raw/gear-wings.png",
+  "rmbg_to": "scripts/raidart/cut/gear-wings.png",
+  "style": ", painterly anime fantasy game art style, single object centered on a plain light grey background, no people, no characters, no text, no logos",
+  "prompt": "a pair of large luminous feathered spirit wings spread wide, symmetrical, no body"
+ }
+]

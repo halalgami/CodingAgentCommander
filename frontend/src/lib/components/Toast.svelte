@@ -1,10 +1,12 @@
 <script>
   import { toasts } from "../stores.svelte.js";
+  import AttachConfirm from "./AttachConfirm.svelte";
 </script>
 
 <div class="toasts" data-testid="toasts">
+  <AttachConfirm />
   {#each toasts as t (t.id)}
-    <div class="toast {t.kind}" role="status">{t.msg}</div>
+    <div class="toast {t.kind}" role="status" data-testid="toast">{t.msg}</div>
   {/each}
 </div>
 

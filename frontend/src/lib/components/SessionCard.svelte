@@ -1,6 +1,8 @@
 <script>
   import { openDocsList } from "../docview.svelte.js";
   import { groupByProvider } from "../modelGroups.js";
+  import { activityText } from "../activity.js";
+  import { shots, captureInto, lastScreenshotInto, attachFileInto } from "../attachments.svelte.js";
 
   let {
     session, stat, isActive = false, isFinished, isErrored = false,
@@ -14,6 +16,21 @@
   let renameVal = $state("");
   let killArmed = $state(false);
   let killTimer;
+
+  let attachOpen = $state(false);
+  function runAttach(fn) { attachOpen = false; fn(session.windowID); }
+  // Close on Escape or a pointer press outside the menu, while it is open.
+  $effect(() => {
+    if (!attachOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); attachOpen = false; } };
+    const onDown = (e) => { if (!e.target.closest || !e.target.closest(".attach")) attachOpen = false; };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onDown, true);
+    };
+  });
 
   function startRename() { renaming = true; renameVal = session.name; }
   function commitRename() {
@@ -44,10 +61,11 @@
   const running = $derived(stat?.status === "active" && !isFinished);
   // Project folder, shown unless the window name already is the folder.
   const folder = $derived(stat?.cwd ? (stat.cwd.split("/").filter(Boolean).pop() ?? "") : "");
+  const activity = $derived(activityText(stat));
 </script>
 
 <li class="card" class:active={isActive} class:finished={isFinished} class:errored={isErrored}
-  data-testid="session-card" aria-current={isActive ? "true" : undefined}>
+  data-testid="session-card" data-window-id={session.windowID} aria-current={isActive ? "true" : undefined}>
   <div class="row">
     <span class="led" class:running class:done={isFinished} class:error={isErrored}
       title={isErrored ? "Errored" : undefined} aria-hidden="true"></span>
@@ -63,6 +81,20 @@
       </button>
     {/if}
     <span class="actions">
+      {#if isActive && shots.supported}
+        <span class="attach">
+          <button class="icon" data-testid="attach-{session.windowID}" aria-label="Attach to this session"
+            aria-haspopup="menu" aria-expanded={attachOpen} title="Attach a screenshot or file"
+            onclick={() => (attachOpen = !attachOpen)}>📎</button>
+          {#if attachOpen}
+            <span class="menu" role="menu">
+              <button role="menuitem" onclick={() => runAttach(captureInto)}>Capture region…</button>
+              <button role="menuitem" onclick={() => runAttach(lastScreenshotInto)}>Last screenshot</button>
+              <button role="menuitem" onclick={() => runAttach(attachFileInto)}>Attach file…</button>
+            </span>
+          {/if}
+        </span>
+      {/if}
       <button
         class="icon" data-testid="docs-open-{session.windowID}"
         title="Documents in this project"
@@ -80,6 +112,12 @@
       >{killArmed ? "confirm?" : "✕"}</button>
     </span>
   </div>
+  {#if stat?.title}
+    <div class="title" data-testid="session-title" title={stat.title}>{stat.title}</div>
+  {/if}
+  {#if activity}
+    <div class="activity mono" class:attn={stat?.activity === "permission"} data-testid="session-activity">{activity}</div>
+  {/if}
   {#if folder && folder !== session.name}
     <div class="folder mono" title={stat.cwd} data-testid="session-folder">{folder}</div>
   {/if}
@@ -90,6 +128,7 @@
     <div class="telemetry">
       <span class="mono">{tokens(stat.contextTokens)} / {tokens(stat.contextWindow || 200_000)}</span>
       <span class="detail mono">{stat.turns}t · {Math.floor(stat.uptimeSeconds / 60)}m</span>
+      {#if stat.autoContinues > 0}<span class="auto mono" data-testid="card-autocont" title="Auto-continued {stat.autoContinues} times on this prompt">↻ {stat.autoContinues}</span>{/if}
       {#if stat.remoteControl}<span class="rc" title="Remote control enabled">📱</span>{/if}
     </div>
     <div class="detail more">
@@ -118,6 +157,19 @@
 </li>
 
 <style>
+  .attach { position: relative; }
+  .menu {
+    position: absolute; top: 100%; right: 0; z-index: var(--layer-chrome);
+    display: flex; flex-direction: column; min-width: 160px; padding: var(--sp-1);
+    background: var(--surface-1); border: 1px solid var(--border-1); border-radius: var(--r-2);
+    box-shadow: 0 8px 24px oklch(0% 0 0 / 0.4);
+  }
+  .menu button {
+    background: none; border: 0; color: var(--text-0); text-align: left; cursor: pointer;
+    padding: var(--sp-1) var(--sp-2); border-radius: var(--r-1); font-size: var(--fs-1);
+  }
+  .menu button:hover, .menu button:focus-visible { background: var(--accent-faint); }
+  .card:global(.wails-drop-target-active) { outline: 2px dashed var(--accent); outline-offset: -2px; }
   .card {
     background: var(--surface-2); border: 1px solid var(--border-0);
     border-radius: var(--r-2); padding: var(--sp-2) var(--sp-3);
@@ -179,6 +231,7 @@
   .fill.amber { background: var(--warn); }
   .fill.red { background: var(--crit); }
 
+  .auto { color: var(--accent); }
   .telemetry {
     display: flex; gap: var(--sp-3); margin-top: var(--sp-1);
     font-size: var(--fs-0); color: var(--text-1);
@@ -197,4 +250,7 @@
     background: var(--surface-1); color: var(--text-1); font-size: var(--fs-0);
     border: 1px solid var(--border-0); border-radius: var(--r-1); padding: 1px 4px;
   }
+  .title { font-size: var(--fs-1); color: var(--text-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .activity { font-size: var(--fs-0); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .activity.attn { color: var(--warn); }
 </style>

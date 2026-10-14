@@ -1,0 +1,219 @@
+[
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/tower-4.webp",
+  "out": "scripts/cityart/raw/tower-v1.png",
+  "rmbg_to": "scripts/cityart/cut/tower-v1.png",
+  "prompt": "same completed glass office tower, same camera and scale, teal glass facade with a rooftop helipad"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/tower-4.webp",
+  "out": "scripts/cityart/raw/tower-v2.png",
+  "rmbg_to": "scripts/cityart/cut/tower-v2.png",
+  "prompt": "same completed office tower, same camera and scale, bronze facade with a spire antenna"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/tower-4.webp",
+  "out": "scripts/cityart/raw/tower-v3.png",
+  "rmbg_to": "scripts/cityart/cut/tower-v3.png",
+  "prompt": "same completed office tower, same camera and scale, white stone facade with a roof garden"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/tower-4.webp",
+  "out": "scripts/cityart/raw/tower-v4.png",
+  "rmbg_to": "scripts/cityart/cut/tower-v4.png",
+  "prompt": "same completed office tower, same camera and scale, dark blue glass facade with a rooftop billboard frame without text"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/block-4.webp",
+  "out": "scripts/cityart/raw/block-v1.png",
+  "rmbg_to": "scripts/cityart/cut/block-v1.png",
+  "prompt": "same completed apartment block, same camera and scale, sage green facade with striped awnings"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/block-4.webp",
+  "out": "scripts/cityart/raw/block-v2.png",
+  "rmbg_to": "scripts/cityart/cut/block-v2.png",
+  "prompt": "same completed apartment block, same camera and scale, brick red facade with roof solar panels"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/block-4.webp",
+  "out": "scripts/cityart/raw/block-v3.png",
+  "rmbg_to": "scripts/cityart/cut/block-v3.png",
+  "prompt": "same completed apartment block, same camera and scale, pale yellow facade with a rooftop water tank"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/block-4.webp",
+  "out": "scripts/cityart/raw/block-v4.png",
+  "rmbg_to": "scripts/cityart/cut/block-v4.png",
+  "prompt": "same completed apartment block, same camera and scale, white facade with blue shutters"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/hall-4.webp",
+  "out": "scripts/cityart/raw/hall-v1.png",
+  "rmbg_to": "scripts/cityart/cut/hall-v1.png",
+  "prompt": "same completed civic hall, same camera and scale, copper green dome"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/hall-4.webp",
+  "out": "scripts/cityart/raw/hall-v2.png",
+  "rmbg_to": "scripts/cityart/cut/hall-v2.png",
+  "prompt": "same completed civic hall, same camera and scale, sandstone with tall arched windows"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/hall-4.webp",
+  "out": "scripts/cityart/raw/hall-v3.png",
+  "rmbg_to": "scripts/cityart/cut/hall-v3.png",
+  "prompt": "same completed civic hall, same camera and scale, glass atrium roof"
+ },
+ {
+  "kind": "edit",
+  "base": "frontend/src/assets/city/hall-4.webp",
+  "out": "scripts/cityart/raw/hall-v4.png",
+  "rmbg_to": "scripts/cityart/cut/hall-v4.png",
+  "prompt": "same completed civic hall, same camera and scale, terracotta roof with a clock tower without numbers"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/block-low-1.png",
+  "rmbg_to": "scripts/cityart/cut/block-low-1.png",
+  "prompt": "row of small two-storey shops with colourful awnings"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/block-low-2.png",
+  "rmbg_to": "scripts/cityart/cut/block-low-2.png",
+  "prompt": "small cluster of low townhouses with tiled roofs"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/oldtown-1.png",
+  "rmbg_to": "scripts/cityart/cut/oldtown-1.png",
+  "prompt": "dense old town quarter of tiny stone houses and narrow lanes on one square block"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/oldtown-2.png",
+  "rmbg_to": "scripts/cityart/cut/oldtown-2.png",
+  "prompt": "dense old market quarter with tiny domed roofs on one square block"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "2:3",
+  "out": "scripts/cityart/raw/crane.png",
+  "rmbg_to": "scripts/cityart/cut/crane.png",
+  "prompt": "yellow tower crane, slim"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/worker-work.png",
+  "rmbg_to": "scripts/cityart/cut/worker-work.png",
+  "prompt": "single tiny construction worker in orange vest and hard hat carrying a plank"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/worker-lunch.png",
+  "rmbg_to": "scripts/cityart/cut/worker-lunch.png",
+  "prompt": "single tiny construction worker in orange vest sitting on a crate eating a sandwich"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/worker-nap.png",
+  "rmbg_to": "scripts/cityart/cut/worker-nap.png",
+  "prompt": "single tiny construction worker in orange vest napping in a hammock between two posts"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/foreman.png",
+  "rmbg_to": "scripts/cityart/cut/foreman.png",
+  "prompt": "single tiny construction foreman in white hard hat holding up a red stop sign without text"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/mixer.png",
+  "rmbg_to": "scripts/cityart/cut/mixer.png",
+  "prompt": "small concrete mixer truck"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/firetruck.png",
+  "rmbg_to": "scripts/cityart/cut/firetruck.png",
+  "prompt": "a single small red fire truck vehicle on its own, isolated object, no buildings, no ground tile, no people, plain empty background"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/inspector.png",
+  "rmbg_to": "scripts/cityart/cut/inspector.png",
+  "prompt": "a single tiny standing building inspector figure in a white hard hat and hi-vis vest holding a clipboard, full body, isolated character, no buildings, no ground tile, no scenery, plain empty background"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "2:3",
+  "out": "scripts/cityart/raw/scaffold.png",
+  "rmbg_to": "scripts/cityart/cut/scaffold.png",
+  "prompt": "empty metal scaffolding frame wrapped in green safety mesh, mid-rise"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "3:2",
+  "out": "scripts/cityart/raw/ribbon.png",
+  "rmbg_to": "scripts/cityart/cut/ribbon.png",
+  "prompt": "red ribbon on two small posts with a big bow, ribbon-cutting ceremony"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/park.png",
+  "rmbg_to": "scripts/cityart/cut/park.png",
+  "prompt": "one square tile of park with grass, two round trees and a bench"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/plaque.png",
+  "rmbg_to": "scripts/cityart/cut/plaque.png",
+  "prompt": "small bronze commemorative plaque on a stone plinth, blank plate"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "2:3",
+  "out": "scripts/cityart/raw/statue.png",
+  "rmbg_to": "scripts/cityart/cut/statue.png",
+  "prompt": "small bronze statue of an architect holding a rolled blueprint, on a stone plinth"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/ruins-1.png",
+  "rmbg_to": "scripts/cityart/cut/ruins-1.png",
+  "prompt": "crumbling ruins of a small building, broken walls, overgrown with ivy"
+ },
+ {
+  "kind": "t2i",
+  "aspect": "1:1",
+  "out": "scripts/cityart/raw/ruins-2.png",
+  "rmbg_to": "scripts/cityart/cut/ruins-2.png",
+  "prompt": "ruined foundation with a few standing columns and rubble, overgrown"
+ }
+]

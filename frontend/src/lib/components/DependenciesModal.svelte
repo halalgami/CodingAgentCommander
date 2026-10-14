@@ -26,7 +26,7 @@
 
 {#if s}
   <div class="backdrop" onclick={() => !s.running && closeDependencies()} aria-hidden="true"></div>
-  <div class="modal" data-testid="deps-preflight" role="dialog" aria-modal="true"
+  <div class="modal" data-testid="deps-preflight" role="dialog" aria-modal="true" tabindex="-1"
        aria-label="External dependencies" {onkeydown}>
     <h2>{missing.length ? "Missing dependencies" : "Dependencies"}</h2>
     <p class="lede">

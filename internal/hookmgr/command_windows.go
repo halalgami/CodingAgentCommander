@@ -21,9 +21,12 @@ import "fmt"
 //   - The trailing `#` sentinel comment is a line comment in bash and
 //     PowerShell alike, so it stays identifiable without breaking either.
 //
+// `; exit 0` keeps the hook from ever failing: on PreToolUse exit code 2 would
+// block the tool call. It is valid in Git Bash and PowerShell alike.
+//
 // curl.exe has shipped in Windows since 1803, so it needs no install.
 func command(port int, token string) string {
 	return fmt.Sprintf(
-		`curl.exe -s -m 2 -o NUL -X POST "http://localhost:%d/notify?token=%s" -H "Content-Type: application/json" -d "@-" # %s`,
+		`curl.exe -s -m 2 -o NUL -X POST "http://localhost:%d/notify?token=%s" -H "Content-Type: application/json" -d "@-"; exit 0 # %s`,
 		port, token, Sentinel)
 }

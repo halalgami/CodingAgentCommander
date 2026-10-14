@@ -6,6 +6,8 @@
   import { theme, applyAccent, resetAccent } from "../theme/theme.svelte.js";
   import { prefs, setPref } from "../prefs.svelte.js";
   import { replayIntro } from "./BootIntro.svelte";
+  import HistorySettings from "./HistorySettings.svelte";
+  import RaidHeroines from "../raid/RaidHeroines.svelte";
 
   const scrollbackOpts = [1000, 5000, 10000, 50000].map((n) => ({ value: n, label: n >= 1000 ? `${n / 1000}k lines` : `${n}` }));
   const maxColsOpts = [
@@ -60,6 +62,8 @@
     <span class="dim">native Anthropic sessions only</span>
   </label>
 
+  <HistorySettings />
+
   <h3>Companion</h3>
   <!-- Mutually exclusive, and the exclusivity is enforced in Go at
        overlay-creation time: a frontend-only check would allow two pollers
@@ -80,13 +84,13 @@
   </div>
 
   {#if app.companionCfg.kind === "panel"}
-    <label class="row">Pack
+    <div class="row">Pack
       <span class="dim mono">
         {app.companionPack?.name || (app.companionCfg.packPath
           ? app.companionCfg.packPath.split("/").pop()
           : "none")}
       </span>
-    </label>
+    </div>
     <div class="row">
       <!-- Generating opens a NON-MODAL panel, so this drawer closing does not
            interrupt anything: the run lives in Go. -->
@@ -121,6 +125,12 @@
     Ambient motion
     <span class="dim">off leaves transition-only motion</span>
   </label>
+  <label class="check">
+    <input type="checkbox" data-testid="dash-motion-toggle" checked={prefs.dashMotion}
+      onchange={(e) => setPref("dashMotion", e.target.checked)} />
+    Dashboard motion
+    <span class="dim">off keeps the dashboard still; Auto also stills on Low Power and reduced motion</span>
+  </label>
   <label>
     Notice dwell <span class="mono">{prefs.noticeSeconds.toFixed(1)}s</span>
     <input type="range" min="2" max="15" step="0.5" value={prefs.noticeSeconds}
@@ -133,6 +143,9 @@
     Scanlines
     <span class="dim">off by default</span>
   </label>
+
+  <h3>Raid heroines</h3>
+  <RaidHeroines />
 
   <footer>
     <p class="dim">Commander — Claude Code fleet control</p>

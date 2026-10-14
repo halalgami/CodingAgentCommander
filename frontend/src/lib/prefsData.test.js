@@ -48,6 +48,8 @@ test("defaults are the spec values", () => {
     // adjustable. Only a drag makes it fixed.
     dockH: 0,
     collapsedProviders: [],
+    // Dashboard (phase 4).
+    dashMode: "triage", dashRiverWindow: 10, dashMotion: true,
   });
 });
 

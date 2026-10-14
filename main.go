@@ -56,6 +56,10 @@ func main() {
 			// CORS question and no loopback port for the page to discover.
 			Handler: app.mediaHandler(),
 		},
+		// Real filesystem paths for dropped files (prompt attachments). The
+		// webview's own drop is disabled so a stray drop never navigates the
+		// app to the file.
+		DragAndDrop:      &options.DragAndDrop{EnableFileDrop: true, DisableWebViewDrop: true},
 		BackgroundColour: &options.RGBA{R: 20, G: 17, B: 13, A: 1}, // matches --surface-0
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),

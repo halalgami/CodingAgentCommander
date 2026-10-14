@@ -29,6 +29,9 @@ func TestWindowsCommandIsShellPortable(t *testing.T) {
 	if !strings.HasSuffix(got, "# "+Sentinel) {
 		t.Errorf("must end with the `#` sentinel comment (a line comment in both shells); got %q", got)
 	}
+	if !strings.Contains(got, `-d "@-"; exit 0 # `) {
+		t.Error("must end with `; exit 0` so a curl failure can never block a PreToolUse")
+	}
 	if !strings.Contains(got, "token=tok") {
 		t.Error("notify command missing auth token")
 	}

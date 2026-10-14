@@ -170,6 +170,16 @@ func claudeTool() Tool {
 	return t
 }
 
+// ClaudeVersion is `claude --version`'s first line ("2.1.296 (Claude Code)"),
+// or "" when claude is missing or does not answer within probeVersion's timeout.
+func ClaudeVersion() string {
+	p, ok := lookPath("claude")
+	if !ok {
+		return ""
+	}
+	return probeVersion(p, "--version")
+}
+
 // Missing returns the required tools that are absent, in Status order — the
 // list the UI turns into a blocking prompt.
 func Missing() []Tool {

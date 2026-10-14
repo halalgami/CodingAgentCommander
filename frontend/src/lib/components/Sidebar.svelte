@@ -1,4 +1,5 @@
 <script>
+  import { goHome, isHome } from "../dashboard/dash.svelte.js";
   import {
     app, select, killSession, renameSession, swapSession, enableRemoteControl, ERROR_TTL_MS,
   } from "../stores.svelte.js";
@@ -81,6 +82,7 @@
 
 <aside data-testid="sidebar" bind:this={aside}>
   <LaunchPanel />
+  <button class="dash-entry" class:on={isHome()} data-testid="sidebar-dashboard" onclick={goHome}>▦ Dashboard</button>
   <ul class="sessions" data-testid="session-list">
     {#each app.sessions as s (s.windowID)}
       <SessionCard
@@ -172,4 +174,10 @@
   .dock-handle:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
   /* No band, no handle: the {#if dock} guard above is what enforces this — the
      public build passes no dock snippet, so neither element is rendered. */
+  .dash-entry {
+    display: block; width: calc(100% - 2 * var(--sp-2)); margin: var(--sp-2); text-align: left;
+    background: var(--surface-1); border: 1px solid var(--border-0); border-radius: var(--r-2);
+    color: var(--text-1); padding: 6px 10px; cursor: pointer; font-size: var(--fs-1);
+  }
+  .dash-entry:hover, .dash-entry.on { color: var(--text-0); border-color: var(--accent-dim); }
 </style>

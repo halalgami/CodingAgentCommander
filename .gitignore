@@ -33,3 +33,20 @@ internal/deps/assets/
 
 # mkmotion working output (frames/intermediate webp per run)
 scripts/mkmotion/work/
+
+# CodeGraph local index (machine-specific, rebuilt by `codegraph init`)
+/.codegraph/
+
+# city art pipeline scratch (phase 5a)
+scripts/cityart/raw/
+scripts/cityart/cut/
+scripts/cityart/contact-sheet.png
+scripts/raidart/raw/
+scripts/raidart/cut/
+scripts/raidart/contact-sheet.png
+scripts/raidart/samples-*.png
+scripts/raidart/looks.log
+scripts/fleetart/raw/
+scripts/fleetart/cut/
+scripts/fleetart/*.jpg
+scripts/fleetart/*.log

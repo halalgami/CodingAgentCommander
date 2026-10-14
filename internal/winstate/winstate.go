@@ -26,6 +26,12 @@ import (
 type Record struct {
 	Model         string `json:"model,omitempty"`
 	RemoteControl bool   `json:"remoteControl,omitempty"`
+	// SessionID is the Claude Code session id Commander launched (or adopted)
+	// for this window, so it survives a Commander restart.
+	SessionID string `json:"sessionID,omitempty"`
+	// Tag is the COMMANDER_TAG this window was launched with (auto-continue
+	// identifies the stopping window by it), so it survives a restart too.
+	Tag string `json:"tag,omitempty"`
 }
 
 // Store is a window id -> Record map persisted to path. A Store with an empty

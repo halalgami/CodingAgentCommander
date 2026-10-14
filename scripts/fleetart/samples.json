@@ -1,0 +1,8 @@
+[
+ {"kind": "t2i", "out": "scripts/fleetart/raw/sample-opus-anime.png", "aspect": "16:9", "style": "",
+  "prompt": "a massive flagship space battleship, sleek elegant anime mecha-space design in the style of Macross and Space Battleship Yamato, long white and gunmetal hull with warm amber trim and glowing amber engine bells, flight decks on both flanks, cel-shaded painterly anime sci-fi art, dramatic three-quarter view facing right, starfield and soft nebula background, no text, no logos, no people"},
+ {"kind": "t2i", "out": "scripts/fleetart/raw/sample-opus-blueprint.png", "aspect": "16:9", "style": "",
+  "prompt": "a massive flagship space battleship drawn as a clean holographic tactical blueprint, glowing amber line art on deep navy, side elevation with crisp technical callout lines and grid, minimal vector style, no text, no logos, no people"},
+ {"kind": "edit", "base": "frontend/src/assets/raid/opus-stance.webp", "out": "scripts/fleetart/raw/sample-opus-captain.png", "style": "",
+  "prompt": "same character, same adult woman, same face, same hair and eyes, now as a starship captain: head-and-shoulders bust portrait, fully clothed in a high-collared dark naval officer's uniform coat with amber trim and gold rank insignia, confident calm expression, same painterly anime style, plain dark blue background, no text"}
+]

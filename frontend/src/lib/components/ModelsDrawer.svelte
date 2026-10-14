@@ -2,7 +2,8 @@
   import GroupCaret from "./GroupCaret.svelte";
   import Drawer from "./Drawer.svelte";
   import { catalogGroups, toggleProviderGroup } from "../modelGroupState.svelte.js";
-  import { app, addModel, removeModel, discoverBedrock, discoverZen, discoverOllama, refreshNativeModels, providerLabel } from "../stores.svelte.js";
+  import { app, addModel, removeModel, setModelAutoContinue, toast, discoverBedrock, discoverZen, discoverOllama, refreshNativeModels, providerLabel } from "../stores.svelte.js";
+  import { autoTitle } from "../autocont.js";
 
   // per-section state, keyed by provider type
   let disc = $state({});        // type -> [{id,label,upstream?,region?}]
@@ -118,7 +119,12 @@
         {#each g.models as m (m.id)}
           <li class="model">
             <span>{m.displayLabel || m.id}</span>
-            <button class="icon" title="Remove" onclick={() => remove(m.id)}>✕</button>
+            <span class="acts">
+              <button class="icon auto" class:default={!m.autoContinueSet} data-testid="model-autocont-{m.id}"
+                aria-pressed={m.autoContinue} disabled={!m.autoContinueReady} title={autoTitle(m)}
+                onclick={() => setModelAutoContinue(m.id, !m.autoContinue).catch((e) => toast("" + e, "error"))}>↻</button>
+              <button class="icon" title="Remove" onclick={() => remove(m.id)}>✕</button>
+            </span>
           </li>
         {/each}
       {/if}
@@ -207,6 +213,11 @@
   .catalog .grouphdr .name { flex: 1; text-align: left; }
   .catalog .grouphdr .count { font-variant-numeric: tabular-nums; }
   .catalog li.model { padding-left: var(--sp-2); }
+  .acts { display: flex; gap: var(--sp-1); }
+  .icon.auto, .icon.auto:hover { color: var(--text-2); }
+  .icon.auto[aria-pressed="true"] { color: var(--accent); }
+  .icon.auto.default { opacity: 0.55; }
+  .icon.auto:disabled { opacity: 0.3; cursor: default; }
   h3 { font-size: var(--fs-1); letter-spacing: 0.1em; color: var(--text-1); margin: 0 0 var(--sp-2); }
   section { margin-bottom: var(--sp-4); }
   .hint { margin: var(--sp-2) 0; }
