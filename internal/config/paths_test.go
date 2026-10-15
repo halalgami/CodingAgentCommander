@@ -8,6 +8,7 @@ import (
 
 func TestUserPath(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
+	t.Setenv("USERPROFILE", "/home/tester") // os.UserHomeDir reads this on Windows
 	got := UserPath()
 	want := filepath.Join("/home/tester", ".config", "commander", "config.toml")
 	if got != want {
