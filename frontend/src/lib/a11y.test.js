@@ -4,9 +4,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compile } from "svelte/compiler";
 
-const root = new URL("..", import.meta.url).pathname; // frontend/src
+const root = fileURLToPath(new URL("..", import.meta.url)); // frontend/src
 function svelteFiles(dir) {
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
