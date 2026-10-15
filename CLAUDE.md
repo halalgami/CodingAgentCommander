@@ -72,7 +72,22 @@ is generated, never hand-edited. Backend→frontend messages go through `wruntim
 | `~/.config/commander/projects.json` | recent-project history |
 | `~/.local/state/commander/windows.json` | per-window model + Remote Control flag |
 | `~/.local/state/commander/litellm.yaml`, `strip_thinking.py` | generated proxy config and pre-call hook |
+| `~/.local/state/commander/litellm.log` | the proxy's stdout/stderr, kept until the next start — read this when LiteLLM fails to boot |
+| `~/.config/commander/ledger/` | opt-in project history (`internal/ledger/store`) — aggregates only |
 | OS keychain (`internal/secrets`) | provider API keys — never on disk |
+
+**The dashboard** (Triage, River, Al Modon, CodeCity, Raid, Fleet Ops…) is fed by `internal/ledger`:
+`parse` turns transcript lines from `~/.claude/projects` into typed events, `ingest` is the single
+owner of transcript reads and feeds both `live` (what each open session is doing now) and, after the
+user opts in, `store` (permanent, aggregate-only history — never prompts, commands or file
+contents). `repoid` decides which project a cwd belongs to (root commit, else the cleaned path).
+`progress`, `city` and `codecity` are pure transforms of those aggregates for the frontend;
+`metrics/*` scans working trees, with all git access through `safegit`.
+
+**Child processes need real stdio on Windows.** Launched from Explorer, Commander has no std
+handles, so a child handed `os.Stdout`/`os.Stderr` gets a dead handle — this is why LiteLLM never
+started from the GUI before v0.13.1. Give long-lived children a file (as `router` does with
+`litellm.log`), and reproduce from Explorer, not a terminal, which hides the bug.
 
 ## psmux is not tmux
 
@@ -125,10 +140,28 @@ the exit code.
   `Hide` is a no-op elsewhere, which is why the unix- and darwin-only files call `exec.Command`
   directly.
 
+## Tests must pass on Windows
+
+CI is Windows-only, but much of the suite is written on macOS. Through v0.13.0 about 20 tests had
+never passed on Windows, and that is why v0.13.0's release has no exe. The traps that caused them:
+
+- **Paths spliced into JSON fixtures** must escape backslashes (`jsonPath` in
+  `internal/ledger/ingest`). A raw `C:\Users\...` is an invalid JSON escape and the line silently
+  fails to parse.
+- **No Unix-only literal paths.** `/code/app` is not absolute on Windows and doesn't match
+  `filepath.Separator`. Use `filepath.FromSlash`, `filepath.Join(t.TempDir(), ...)`.
+- **`os.UserHomeDir` reads `USERPROFILE` on Windows.** A test that fakes `HOME` must set both.
+- **No local-time-dependent fixtures.** Epoch-ms timestamps like `At: 1` are before 04:00 local
+  in UTC and east of it, and trip `night_owl`. Use a fixed local-noon time.
+- **Frontend tests:** build paths with `fileURLToPath(new URL(..., import.meta.url))`, never
+  `.pathname`, which yields `/D:/...` on Windows.
+
 ## CI and releases
 
 `ci.yml` runs build/vet/test on `windows-latest` only, on purpose: every Windows-specific path
-(psmux hosting, the pty bridge, the bundled tmux) is the part that actually breaks.
+(psmux hosting, the pty bridge, the bundled tmux) is the part that actually breaks. Step order is
+Build → frontend `npm test` → Vet → Go Test, so **a red frontend test hides every Go failure
+behind it**. After fixing one, expect the next step to surface more.
 
 **Green CI is not evidence the session paths work.** The psmux-backed integration tests skip on the
 runner — no psmux on `PATH`, no `pwsh` where they probe — so a passing run proves it compiles, vets,
@@ -138,3 +171,9 @@ encode the confirmed sequence in Go, and say in the PR that CI skips those tests
 `release.yml` fires only on a `v*` tag and publishes the exe with a GitHub-signed provenance
 attestation — the point of building in CI rather than on a laptop. Cutting a release: merge to main,
 bump the version in `build.ps1`, `Makefile` and `wails.json`, then tag. Never tag before the merge.
+`release.yml` passes `-Version` from the tag, so a stale `build.ps1` default doesn't mis-stamp a
+release, only local and CI builds. Keep all three in sync anyway.
+
+**A tag can publish a release with no Windows exe.** The macOS `.dmg` is uploaded separately, so a
+release whose Windows job failed still exists (v0.13.0 did exactly this). After tagging, check
+the release's assets for `commander-gui.exe` and `.sha256`, not just that the release exists.
