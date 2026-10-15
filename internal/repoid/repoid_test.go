@@ -89,6 +89,7 @@ func TestMissingFolderInsideRepoWalksUpToRepo(t *testing.T) {
 func TestMissingFolderNeverWalksUpToHome(t *testing.T) {
 	home := newRepo(t) // a dotfiles repo at $HOME must not swallow deleted projects
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads this on Windows
 	gone := filepath.Join(home, "old-project")
 	if g := NewResolver().Resolve(context.Background(), gone); !strings.HasPrefix(g.Identity, "path:") || g.Gone != "" {
 		t.Fatalf("missing folder under a home repo = %+v", g)

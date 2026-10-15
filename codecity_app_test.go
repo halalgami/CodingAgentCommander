@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/live"
@@ -28,9 +29,9 @@ func TestCodeViewFromTheStore(t *testing.T) {
 
 // Review Focus 1 + 2.
 func TestTargetRelOnlyInsideTheProject(t *testing.T) {
-	roots := map[string]string{"a": "/code", "b": "/code/app"}
-	s := live.Session{Cwd: "/code/app/web", TargetPath: "/code/app/web/x.go",
-		Crew: []live.Agent{{ID: "1", TargetPath: "/code/app/lib/y.go"}, {ID: "2", TargetPath: "/Users/me/.zshrc"}}}
+	roots := map[string]string{"a": filepath.FromSlash("/code"), "b": filepath.FromSlash("/code/app")}
+	s := live.Session{Cwd: filepath.FromSlash("/code/app/web"), TargetPath: filepath.FromSlash("/code/app/web/x.go"),
+		Crew: []live.Agent{{ID: "1", TargetPath: filepath.FromSlash("/code/app/lib/y.go")}, {ID: "2", TargetPath: filepath.FromSlash("/Users/me/.zshrc")}}}
 	got := relTargets(s, roots)
 	if got.TargetRel != "web/x.go" || got.Crew[0].TargetRel != "lib/y.go" || got.Crew[1].TargetRel != "" {
 		t.Fatalf("lead %q crew %q %q", got.TargetRel, got.Crew[0].TargetRel, got.Crew[1].TargetRel)
@@ -38,7 +39,7 @@ func TestTargetRelOnlyInsideTheProject(t *testing.T) {
 	if s.Crew[0].TargetRel != "" {
 		t.Fatal("relTargets must not mutate the input crew")
 	}
-	out := relTargets(live.Session{Cwd: "/elsewhere", TargetPath: "/elsewhere/z.go"}, roots)
+	out := relTargets(live.Session{Cwd: filepath.FromSlash("/elsewhere"), TargetPath: filepath.FromSlash("/elsewhere/z.go")}, roots)
 	if out.TargetRel != "" {
 		t.Fatal("no project root → no rel")
 	}
@@ -46,16 +47,16 @@ func TestTargetRelOnlyInsideTheProject(t *testing.T) {
 
 // Final review I3: a session in a nested project adds no live files to the parent's CodeView.
 func TestLiveTargetsOnlyFromSessionsWhoseDeepestRootIsThisProject(t *testing.T) {
-	roots := map[string]string{"a": "/code", "b": "/code/app"}
+	roots := map[string]string{"a": filepath.FromSlash("/code"), "b": filepath.FromSlash("/code/app")}
 	sess := []live.Session{
-		{Cwd: "/code/app", TargetPath: "/code/app/x.go"},
-		{Cwd: "/code/tools", TargetPath: "/code/tools/y.go", Crew: []live.Agent{{ID: "1", TargetPath: "/code/z.go"}}},
+		{Cwd: filepath.FromSlash("/code/app"), TargetPath: filepath.FromSlash("/code/app/x.go")},
+		{Cwd: filepath.FromSlash("/code/tools"), TargetPath: filepath.FromSlash("/code/tools/y.go"), Crew: []live.Agent{{ID: "1", TargetPath: filepath.FromSlash("/code/z.go")}}},
 	}
-	got := liveTargets(sess, roots, "/code")
+	got := liveTargets(sess, roots, filepath.FromSlash("/code"))
 	if len(got) != 2 || got[0] != "tools/y.go" || got[1] != "z.go" {
 		t.Fatalf("parent targets %q", got)
 	}
-	if got := liveTargets(sess, roots, "/code/app"); len(got) != 1 || got[0] != "x.go" {
+	if got := liveTargets(sess, roots, filepath.FromSlash("/code/app")); len(got) != 1 || got[0] != "x.go" {
 		t.Fatalf("child targets %q", got)
 	}
 }

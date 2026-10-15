@@ -40,10 +40,12 @@ func attachTestStore(t *testing.T, a *App) *store.Store {
 var nowFn = func() time.Time { return time.Now() }
 
 func applyCommit(st *store.Store, root, sid string) string {
+	// Local noon, not the epoch: a turn before 04:00 local time also unlocks night_owl.
+	noon := time.Date(2026, 10, 9, 12, 0, 0, 0, time.Local).UnixMilli()
 	id := repoid.ID{Key: repoid.KeyOf("path:" + root), Identity: "path:" + root, Root: root, Label: "p"}
 	st.Apply(id, "/t/"+sid+".jsonl", store.Cursor{SessionID: sid}, false, []parse.Event{
-		{Kind: parse.ToolUse, At: 1, ToolID: "c", ToolName: "Bash", Command: "git commit -m x"},
-		{Kind: parse.TurnDuration, At: 2, UUID: sid + "t", Ms: 120 * 60000},
+		{Kind: parse.ToolUse, At: noon + 1, ToolID: "c", ToolName: "Bash", Command: "git commit -m x"},
+		{Kind: parse.TurnDuration, At: noon + 2, UUID: sid + "t", Ms: 120 * 60000},
 	}, 0)
 	return id.Key
 }
