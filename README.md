@@ -58,6 +58,8 @@ Common to both platforms:
   `litellm[proxy]` pulls an incompatible FastAPI and the proxy won't boot:
   `python3.12 -m pip install --user 'litellm[proxy]==1.83.9' 'fastapi==0.124.4'`
   (or point `COMMANDER_LITELLM` at an existing litellm)
+  If the proxy fails to start, its output is in
+  `~/.local/state/commander/litellm.log` (kept until the next start).
 - For Remote Control: a claude.ai subscription plan that includes it
 - To build: Go 1.25+, Node 20+, [Wails v2](https://wails.io) CLI
   (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0`)
