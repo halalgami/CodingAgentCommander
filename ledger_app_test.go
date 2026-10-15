@@ -36,7 +36,7 @@ func TestLedgerOptInLifecycleAndStatsFields(t *testing.T) {
 	tp := filepath.Join(l.projectsRoot, "enc", sid+".jsonl")
 	os.MkdirAll(filepath.Dir(tp), 0o755)
 	os.WriteFile(tp, []byte(`{"type":"ai-title","aiTitle":"Fix <b>VAT</b>","sessionId":"`+sid+`"}`+"\n"+
-		`{"type":"assistant","timestamp":"2026-10-09T09:00:00Z","sessionId":"`+sid+`","cwd":"`+cwd+`","message":{"model":"m","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"go test ./..."}}]}}`+"\n"), 0o600)
+		`{"type":"assistant","timestamp":"2026-10-09T09:00:00Z","sessionId":"`+sid+`","cwd":"`+strings.ReplaceAll(cwd, `\`, `\\`)+`","message":{"model":"m","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"go test ./..."}}]}}`+"\n"), 0o600)
 	a.sessions["@1"] = &sessionRec{Name: "p", Cwd: cwd, Status: "active", ClaudeSessionID: sid, LaunchedAt: time.Now()}
 	l.ing.Watch(tp)
 	l.ing.Tail(t.Context())

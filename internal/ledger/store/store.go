@@ -170,6 +170,7 @@ func (s *Store) SetConsent(c Consent) error {
 }
 
 func (s *Store) isExcluded(root string) bool {
+	root = filepath.Clean(root)
 	for _, ex := range s.consent.Excluded {
 		ex = filepath.Clean(ex)
 		if root == ex || strings.HasPrefix(root, ex+string(filepath.Separator)) {

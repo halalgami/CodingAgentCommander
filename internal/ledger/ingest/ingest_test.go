@@ -16,8 +16,13 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/repoid"
 )
 
+// jsonPath escapes a path for splicing into a JSON string literal: Windows
+// paths carry backslashes, which would otherwise read as escapes.
+func jsonPath(p string) string { return strings.ReplaceAll(p, `\`, `\\`) }
+
 // cwd is a folder that is not a git repo, so identity is path-based and no git runs matter.
 func fixture(cwd string) []string {
+	cwd = jsonPath(cwd)
 	ts := func(s int) string { return time.Date(2026, 10, 9, 9, 0, s, 0, time.UTC).Format(time.RFC3339Nano) }
 	return []string{
 		`{"type":"ai-title","aiTitle":"Fix VAT rounding","sessionId":"s1"}`,
@@ -242,7 +247,7 @@ func TestOnEditReportsLiveEditActivity(t *testing.T) {
 		t.Fatal("backfill read reported live edits")
 	}
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	f.WriteString(`{"type":"assistant","timestamp":"2026-10-09T09:00:09Z","sessionId":"s1","cwd":"` + cwd + `","message":{"model":"m","content":[{"type":"tool_use","id":"t9","name":"Write","input":{"file_path":"` + cwd + `/b.go","content":"x"}}]}}` + "\n")
+	f.WriteString(`{"type":"assistant","timestamp":"2026-10-09T09:00:09Z","sessionId":"s1","cwd":"` + jsonPath(cwd) + `","message":{"model":"m","content":[{"type":"tool_use","id":"t9","name":"Write","input":{"file_path":"` + jsonPath(cwd) + `/b.go","content":"x"}}]}}` + "\n")
 	f.Close()
 	in.ReadFile(context.Background(), path, true)
 	if len(got) != 2 || got[0] != cwd {

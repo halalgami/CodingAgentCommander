@@ -325,7 +325,7 @@ func TestPasteFailureMessageNamesTheRefusedFiles(t *testing.T) {
 	addSession(a, "@1", "W1", "")
 	h.pasteErr = errors.New("tmux paste-buffer: can't find window: @1: exit status 1")
 	ok := touch(t, filepath.Join(t.TempDir(), "ok.pdf"))
-	_, err := a.InsertPaths("@1", []string{ok, "/nope/gone.txt"})
+	_, err := a.InsertPaths("@1", []string{ok, filepath.Join(t.TempDir(), "nope", "gone.txt")})
 	want := "could not insert into W1: tmux paste-buffer: can't find window: @1: exit status 1; also refused: gone.txt (" + attach.ErrMissing.Error() + ")"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v\nwant  %s", err, want)

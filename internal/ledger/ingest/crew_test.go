@@ -14,6 +14,7 @@ import (
 
 func agentLines(cwd string) string {
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
+	cwd = jsonPath(cwd)
 	return strings.Join([]string{
 		`{"type":"user","isSidechain":true,"agentId":"a1","timestamp":"` + ts + `","sessionId":"s1","cwd":"` + cwd + `","message":{"role":"user","content":"look"}}`,
 		`{"type":"assistant","isSidechain":true,"agentId":"a1","timestamp":"` + ts + `","sessionId":"s1","cwd":"` + cwd + `","message":{"model":"claude-haiku","content":[{"type":"tool_use","id":"g1","name":"Grep","input":{"pattern":"Classify"}}]}}`,
