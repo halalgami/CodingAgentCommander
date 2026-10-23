@@ -8,27 +8,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // Stamp returns a fingerprint of root's HEAD reflog that changes whenever HEAD
-// moves. ok is false when there is no reflog to read (not a repo, reflogs
-// disabled, reftable storage); callers then fall back to asking git.
+// moves (and on some rewrites that don't move it: stash, reflog expire, so
+// treat a change as "ask git", not as proof). ok is false when there is no
+// reflog to read (not a repo, reflogs disabled, reftable storage).
 func Stamp(root string) (string, bool) {
 	fi, ok := reflog(root)
 	if !ok {
 		return "", false
 	}
 	return fmt.Sprintf("%d:%d", fi.Size(), fi.ModTime().UnixNano()), true
-}
-
-// Moved returns when root's HEAD last moved, per the reflog.
-func Moved(root string) (time.Time, bool) {
-	fi, ok := reflog(root)
-	if !ok {
-		return time.Time{}, false
-	}
-	return fi.ModTime(), true
 }
 
 func reflog(root string) (os.FileInfo, bool) {

@@ -64,7 +64,7 @@ func TestNotARepo(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".git"), []byte("garbage\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := Moved(dir); ok {
+	if _, ok := Stamp(dir); ok {
 		t.Fatal("stamp from a malformed .git file")
 	}
 }
