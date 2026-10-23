@@ -125,7 +125,7 @@ func FindPython() string {
 // window. It asks the interpreter itself (a version baked into a path name can
 // lie), tolerating a missing/incompatible interpreter by returning false.
 func pythonUsable(c string) bool {
-	out, err := exec.Command(c, "-c", "import sys;print(sys.version_info[0],sys.version_info[1])").Output()
+	out, err := proc.Hide(exec.Command(c, "-c", "import sys;print(sys.version_info[0],sys.version_info[1])")).Output()
 	if err != nil {
 		return false
 	}

@@ -232,6 +232,6 @@ func (a *App) ScanProject(key string) error {
 	if _, err := os.Stat(root); err != nil {
 		return fmt.Errorf("project folder is missing")
 	}
-	a.ledger.sched.HeadMoved(root)
+	a.ledger.sched.ScanNow(root)
 	return nil
 }

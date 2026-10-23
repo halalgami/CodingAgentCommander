@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/halalgami/CodingAgentCommander/internal/codecity"
+	"github.com/halalgami/CodingAgentCommander/internal/gitstamp"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/ingest"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/live"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/store"
@@ -395,10 +396,42 @@ func (l *ledgerSvc) isHotspot(cwd, targetPath string) bool {
 	return l.flagged[root][filepath.ToSlash(rel)]
 }
 
+// headCache resolves HEAD with git only when root's reflog stamp changed
+// since the last ask, so an idle repo costs a stat, not a process. Without a
+// reflog to stamp it asks git every time. Not safe for concurrent use.
+type headCache struct {
+	stamp, sha map[string]string
+}
+
+func newHeadCache() *headCache {
+	return &headCache{stamp: map[string]string{}, sha: map[string]string{}}
+}
+
+func (h *headCache) head(ctx context.Context, root string) (string, bool) {
+	st, stamped := gitstamp.Stamp(root)
+	if sha, ok := h.sha[root]; ok && stamped && h.stamp[root] == st {
+		return sha, true
+	}
+	sha, err := safegit.Run(ctx, root, "rev-parse", "HEAD")
+	if err != nil {
+		return "", false
+	}
+	if stamped {
+		h.stamp[root] = st
+	} else {
+		delete(h.stamp, root)
+	}
+	h.sha[root] = sha
+	return sha, true
+}
+
 // metricsLoop: every minute, a HEAD check for projects with live sessions;
-// every hour, the weekly rule for quiet projects.
+// every hour, the weekly rule for quiet projects. headCache keeps both off
+// git unless a reflog moved — a bare rev-parse per session per minute was
+// ~60 processes an hour per live repo.
 func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 	heads := map[string]string{}
+	hc := newHeadCache()
 	tick := time.NewTicker(time.Minute)
 	defer tick.Stop()
 	n := 0
@@ -409,16 +442,18 @@ func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 		case <-tick.C:
 		}
 		n++
+		checked := map[string]bool{}
 		for _, s := range l.tracker.Snapshot() {
 			if s.Cwd == "" {
 				continue
 			}
 			root := l.resolver.Toplevel(ctx, s.Cwd)
-			if root == "" {
+			if root == "" || checked[root] {
 				continue
 			}
-			head, err := safegit.Run(ctx, root, "rev-parse", "HEAD")
-			if err != nil {
+			checked[root] = true
+			head, ok := hc.head(ctx, root)
+			if !ok {
 				continue
 			}
 			if old, seen := heads[root]; !seen || old != head {
@@ -437,7 +472,7 @@ func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 			if p.Missing || time.Since(time.UnixMilli(p.ScannedAt)) < 7*24*time.Hour {
 				continue
 			}
-			if head, err := safegit.Run(ctx, p.Root, "rev-parse", "HEAD"); err == nil && head != p.ScanHead {
+			if head, ok := hc.head(ctx, p.Root); ok && head != p.ScanHead {
 				l.sched.Queue(p.Root)
 			}
 		}
