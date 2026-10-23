@@ -15,7 +15,7 @@ func TestDebounceAndGap(t *testing.T) {
 	s := New(c.now)
 	s.Touch("/r")
 	if _, ok := s.Next(); ok {
-		t.Fatal("scanned before 10 s of quiet")
+		t.Fatal("scanned before Quiet elapsed")
 	}
 	c.add(Quiet)
 	root, ok := s.Next()

@@ -11,9 +11,12 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/metrics/scan"
 )
 
+// A scan re-reads the whole tree and runs git three times, and what it feeds
+// (90-day churn hotspots, one snapshot per day) moves slowly: wait for the
+// agent to pause, and refresh a project at most every MinGap.
 const (
-	Quiet  = 10 * time.Second
-	MinGap = 2 * time.Minute
+	Quiet  = time.Minute
+	MinGap = 10 * time.Minute
 )
 
 type project struct {

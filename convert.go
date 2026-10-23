@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"github.com/halalgami/CodingAgentCommander/internal/proc"
 )
 
 // convertTimeout bounds every external converter: a wedged one must not hang
@@ -26,7 +28,7 @@ func runConverter(name string, args ...string) error {
 func runConverterEnv(env []string, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), convertTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := proc.Hide(exec.CommandContext(ctx, name, args...))
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/halalgami/CodingAgentCommander/internal/codecity"
+	"github.com/halalgami/CodingAgentCommander/internal/gitstamp"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/ingest"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/live"
 	"github.com/halalgami/CodingAgentCommander/internal/ledger/store"
@@ -396,7 +397,9 @@ func (l *ledgerSvc) isHotspot(cwd, targetPath string) bool {
 }
 
 // metricsLoop: every minute, a HEAD check for projects with live sessions;
-// every hour, the weekly rule for quiet projects.
+// every hour, the weekly rule for quiet projects. Both stat the HEAD reflog
+// (gitstamp) rather than spawn git, which cost ~60 processes an hour per live
+// repo; git runs only where there is no reflog to read.
 func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 	heads := map[string]string{}
 	tick := time.NewTicker(time.Minute)
@@ -417,9 +420,13 @@ func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 			if root == "" {
 				continue
 			}
-			head, err := safegit.Run(ctx, root, "rev-parse", "HEAD")
-			if err != nil {
-				continue
+			head, ok := gitstamp.Stamp(root)
+			if !ok {
+				h, err := safegit.Run(ctx, root, "rev-parse", "HEAD")
+				if err != nil {
+					continue
+				}
+				head = h
 			}
 			if old, seen := heads[root]; !seen || old != head {
 				heads[root] = head
@@ -435,6 +442,12 @@ func (l *ledgerSvc) metricsLoop(ctx context.Context) {
 		}
 		for _, p := range st.Projects() {
 			if p.Missing || time.Since(time.UnixMilli(p.ScannedAt)) < 7*24*time.Hour {
+				continue
+			}
+			if moved, ok := gitstamp.Moved(p.Root); ok {
+				if moved.UnixMilli() > p.ScannedAt {
+					l.sched.Queue(p.Root)
+				}
 				continue
 			}
 			if head, err := safegit.Run(ctx, p.Root, "rev-parse", "HEAD"); err == nil && head != p.ScanHead {

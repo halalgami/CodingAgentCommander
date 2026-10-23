@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/halalgami/CodingAgentCommander/internal/proc"
 )
 
 var ErrNotAllowed = errors.New("safegit: subcommand not allowed")
@@ -76,7 +78,7 @@ func RunTimeout(ctx context.Context, timeout time.Duration, dir, sub string, arg
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", Args(sub, args...)...)
+	cmd := proc.Hide(exec.CommandContext(ctx, "git", Args(sub, args...)...))
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
 	out := &capped{max: MaxOutput}
