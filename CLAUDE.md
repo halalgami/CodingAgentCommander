@@ -82,7 +82,11 @@ owner of transcript reads and feeds both `live` (what each open session is doing
 user opts in, `store` (permanent, aggregate-only history — never prompts, commands or file
 contents). `repoid` decides which project a cwd belongs to (root commit, else the cleaned path).
 `progress`, `city` and `codecity` are pure transforms of those aggregates for the frontend;
-`metrics/*` scans working trees, with all git access through `safegit`.
+`metrics/*` scans working trees, with all git access through `safegit`. `metrics/scheduler` runs
+one scan at a time: after a minute of edit quiet, at most every 10 minutes per project, and anyway
+once a project has been dirty that long, so a never-quiet agent still gets scanned. HEAD moves
+trigger scans too: `metricsLoop` checks live repos each minute through `headCache`, which stats the
+HEAD reflog (`gitstamp`) and runs `git rev-parse` only when the reflog changed.
 
 **Child processes need real stdio on Windows.** Launched from Explorer, Commander has no std
 handles, so a child handed `os.Stdout`/`os.Stderr` gets a dead handle — this is why LiteLLM never
@@ -135,10 +139,16 @@ the exit code.
   table, not the document.
 - **Don't use `log`.** This is a GUI binary with no console; failures the user should know about go
   through `App.reportError`, which emits `app:error` and renders as a toast.
-- Wrap any child process that can run on Windows in `proc.Hide`. Commander is a GUI app with no
-  console, so an unwrapped console child flashes a window — and `internal/tmux` polls constantly.
-  `Hide` is a no-op elsewhere, which is why the unix- and darwin-only files call `exec.Command`
-  directly.
+- Wrap any child process that can run on Windows in `proc.Hide`, shared helpers included. Commander
+  is a GUI app with no console, so an unwrapped console child flashes a window — and `internal/tmux`
+  polls constantly. Through v0.13.1 `safegit` skipped it, and users saw a "git" cmd window pop up
+  every minute. `Hide` is a no-op elsewhere, which is why the unix- and darwin-only files call
+  `exec.Command` directly. To check, run
+  `grep -rn 'exec.Command' --include=*.go . | grep -v _test | grep -v proc.Hide`: only unix/darwin
+  files should be listed.
+- **Nothing on a timer should start a process every tick.** Hidden or not, a per-minute
+  `git rev-parse` per live repo added up to ~60 processes an hour per repo, and users noticed.
+  Poll with a stat (see `gitstamp`/`headCache`), and spawn only when the cheap signal changes.
 
 ## Tests must pass on Windows
 
