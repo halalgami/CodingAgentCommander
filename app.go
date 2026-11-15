@@ -39,6 +39,7 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/ptybridge"
 	"github.com/halalgami/CodingAgentCommander/internal/router"
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
+	"github.com/halalgami/CodingAgentCommander/internal/sidebar"
 	"github.com/halalgami/CodingAgentCommander/internal/tmux"
 	"github.com/halalgami/CodingAgentCommander/internal/transcripts"
 	"github.com/halalgami/CodingAgentCommander/internal/winstate"
@@ -116,6 +117,8 @@ type App struct {
 	// per window — see internal/winstate. Never nil: NewApp gives it a
 	// memory-only store so a not-yet-started App is still usable.
 	windows *winstate.Store
+	sidebar *sidebar.Store
+	stats   statsState // Al Asturlab (stats_bindings.go)
 	// autocont counts auto-continue nudges per Claude session; hookHTTP is
 	// whether the installed Claude Code takes the http Stop hook (≥ 2.1.210).
 	autocont *autocont.Tracker
@@ -350,7 +353,7 @@ func (a *App) projectsRoot() string {
 // NewApp constructs the backend.
 func NewApp() *App {
 	a := &App{host: tmux.NewExecHost(), sessions: map[string]*sessionRec{}, notifier: nativeNotifier{}, autocont: autocont.NewTracker(),
-		windows: winstate.Open("")}
+		windows: winstate.Open(""), sidebar: sidebar.Open("")}
 	a.emitter = wailsEmitter{a: a}
 	a.ledger = newLedgerSvc(a)
 	a.raidDir = readRaidConfig()
@@ -745,6 +748,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.ledger.start(a.ctx)
 	a.windows = winstate.Open(a.winStatePath())
+	a.sidebar = sidebar.Open(a.sidebarPath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
 	a.initCompanion()                 // load config, reconcile the overlay with its kind, push state
 }
@@ -1836,7 +1840,13 @@ func (a *App) EnableRemoteControl(windowID string) error {
 
 // ListSessions returns the live windows of the commander tmux session.
 func (a *App) ListSessions() []SessionInfo {
-	ws, _ := a.host.List(a.cfg.TmuxSession)
+	ws, err := a.host.List(a.cfg.TmuxSession)
+	if err != nil {
+		// Not "every window is gone": reconciling an empty list here would
+		// prune winstate and wipe the user's sidebar arrangement on one
+		// transient failure. Skip this tick; the next poll retries.
+		return nil
+	}
 	a.reconcile(ws)
 	var out []SessionInfo
 	for _, w := range ws {
@@ -1862,6 +1872,13 @@ func (a *App) reconcile(ws []tmux.WindowState) {
 	}
 	if _, err := a.windows.Prune(live); err != nil {
 		a.reportError(fmt.Sprintf("could not prune window state: %v", err))
+	}
+	lw := make([]sidebar.Window, 0, len(ws))
+	for _, w := range ws {
+		lw = append(lw, sidebar.Window{ID: w.ID, Cwd: w.Cwd})
+	}
+	if _, err := a.sidebar.Merge(lw); err != nil {
+		a.reportError(fmt.Sprintf("could not save the sidebar layout: %v", err))
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()

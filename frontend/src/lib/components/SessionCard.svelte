@@ -7,6 +7,7 @@
   let {
     session, stat, isActive = false, isFinished, isErrored = false,
     models, onselect, onrename, onkill, onswap, onrc,
+    oncontext, onkeymove, onpointerdown,
   } = $props();
   const native = $derived(stat?.provider === "anthropic");
   // Native <select> cannot collapse, so this is grouped but always open.
@@ -64,8 +65,11 @@
   const activity = $derived(activityText(stat));
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <li class="card" class:active={isActive} class:finished={isFinished} class:errored={isErrored}
-  data-testid="session-card" data-window-id={session.windowID} aria-current={isActive ? "true" : undefined}>
+  data-testid="session-card" data-window-id={session.windowID} data-drop-kind="card" aria-current={isActive ? "true" : undefined}
+  oncontextmenu={(e) => { if (oncontext) { e.preventDefault(); oncontext(e, session.windowID); } }}
+  onpointerdown={(e) => onpointerdown?.(e, session.windowID)}>
   <div class="row">
     <span class="led" class:running class:done={isFinished} class:error={isErrored}
       title={isErrored ? "Errored" : undefined} aria-hidden="true"></span>
@@ -76,7 +80,8 @@
         onblur={commitRename}
       />
     {:else}
-      <button class="name" data-testid="session-name" onclick={() => onselect(session.windowID)}>
+      <button class="name" data-testid="session-name" onclick={() => onselect(session.windowID)}
+        onkeydown={(e) => { if (e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); onkeymove?.(session.windowID, e.key === "ArrowUp" ? -1 : 1); } }}>
         {session.name}
       </button>
     {/if}

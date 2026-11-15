@@ -50,3 +50,5 @@ scripts/fleetart/raw/
 scripts/fleetart/cut/
 scripts/fleetart/*.jpg
 scripts/fleetart/*.log
+
+test-results/

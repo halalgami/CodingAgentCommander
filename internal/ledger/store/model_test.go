@@ -110,3 +110,50 @@ func TestSplitAssistantLinesCountTokensOnce(t *testing.T) {
 		t.Fatalf("models[m] = %d, want 2 messages", got)
 	}
 }
+
+func atm(h, m int) int64 { return time.Date(2026, 10, 9, h, m, 0, 0, time.Local).UnixMilli() }
+
+func TestFoldTokensByModelPerDay(t *testing.T) {
+	p := &Project{Key: "k", Root: "/repo"}
+	s := p.session("s1")
+	p.fold(s, parse.Event{Kind: parse.Assistant, At: at(9), MessageID: "m1", Model: "A", HasUsage: true, Usage: parse.Usage{In: 10}}, false, true)
+	p.fold(s, parse.Event{Kind: parse.Assistant, At: at(10), MessageID: "m2", Model: "B", HasUsage: true, Usage: parse.Usage{In: 5}}, false, true)
+	p.recompute()
+	d := time.UnixMilli(at(9)).Format("2006-01-02")
+	for name, c := range map[string]Counters{"session": s.Days[d], "project": p.Days[d], "totals": p.Totals} {
+		if c.TokensByModel["A"].In != 10 || c.TokensByModel["B"].In != 5 || len(c.TokensByModel) != 2 {
+			t.Fatalf("%s: %+v", name, c.TokensByModel)
+		}
+	}
+}
+
+func TestFoldHourBuckets(t *testing.T) {
+	p := &Project{Key: "k", Root: "/repo"}
+	s := p.session("s1")
+	p.fold(s, parse.Event{Kind: parse.TurnDuration, At: atm(9, 30), UUID: "u1", Ms: 1000}, false, true)
+	p.fold(s, parse.Event{Kind: parse.Assistant, At: atm(9, 40), MessageID: "m1", Model: "A", HasUsage: true, Usage: parse.Usage{Out: 7}}, false, true)
+	p.fold(s, parse.Event{Kind: parse.Assistant, At: atm(23, 10), MessageID: "m2", Model: "A", HasUsage: true, Usage: parse.Usage{In: 3}}, false, true)
+	p.recompute()
+	d := time.UnixMilli(at(9)).Format("2006-01-02")
+	h := p.Days[d].Hours
+	if len(h) != 24 || h[9] != (HourCounters{Turns: 1, ActiveMs: 1000, Tokens: 7}) || h[23].Tokens != 3 {
+		t.Fatalf("hours: %+v", h)
+	}
+}
+
+func TestMergeSumsHoursAndModels(t *testing.T) {
+	a := Counters{}
+	b := Counters{TokensByModel: map[string]TokenCounts{"A": {In: 2}}, Hours: make([]HourCounters, 24)}
+	b.Hours[3].Turns = 2
+	a.merge(b)
+	a.merge(b)
+	if len(a.Hours) != 24 || a.Hours[3].Turns != 4 || a.TokensByModel["A"].In != 4 {
+		t.Fatalf("merge: %+v", a)
+	}
+	if b.Hours[3].Turns != 2 || b.TokensByModel["A"].In != 2 {
+		t.Fatal("merge aliased its argument")
+	}
+	if (TokenCounts{In: 1, Out: 2, CacheRead: 3, CacheWrite: 4}).Total() != 10 {
+		t.Fatal("Total")
+	}
+}

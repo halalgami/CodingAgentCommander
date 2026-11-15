@@ -205,3 +205,21 @@ func TestCorruptProfileKeptAsideAndReported(t *testing.T) {
 		t.Fatal("unreadable profile not kept aside")
 	}
 }
+
+func TestGenBumpsOnChange(t *testing.T) {
+	s, err := Create(t.TempDir(), Consent{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := s.Gen()
+	s.Apply(repoid.ID{Key: "k", Root: "/r"}, "/t/s1.jsonl", Cursor{SessionID: "s1"}, false,
+		[]parse.Event{{Kind: parse.TurnDuration, At: time.Now().UnixMilli(), UUID: "u", Ms: 5}}, 0)
+	if s.Gen() == g {
+		t.Fatal("Apply did not bump Gen")
+	}
+	g = s.Gen()
+	_ = s.Forget("k")
+	if s.Gen() == g {
+		t.Fatal("Forget did not bump Gen")
+	}
+}

@@ -17,7 +17,7 @@ test("one switcher button names the current mode; the menu is grouped with ⌘ k
   const menu = page.getByTestId("dash-mode-menu");
   await expect(menu).toBeVisible();
   await expect(menu.locator(".hd")).toHaveText(["VIEWS", "WORLDS", "FLEET"]);
-  await expect(menu.getByRole("menuitemradio")).toHaveCount(7);
+  await expect(menu.getByRole("menuitemradio")).toHaveCount(8);
   await expect(page.getByTestId("dash-mode-triage")).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("dash-mode-cic")).toContainText("⌘6");
 });

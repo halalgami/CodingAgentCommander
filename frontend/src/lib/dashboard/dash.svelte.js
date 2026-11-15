@@ -138,6 +138,7 @@ export const MODE_GROUPS = ["Views", "Worlds", "Fleet"];
 export const modes = [
   { id: "triage", label: "Triage", key: "1", group: "Views" },
   { id: "river", label: "River", key: "2", group: "Views" },
+  { id: "asturlab", label: "Al Asturlab", key: "8", group: "Views" },
   { id: "city", label: "Al Modon", key: "3", group: "Worlds" },
   { id: "raid", label: "Raid", key: "4", group: "Worlds" },
   { id: "fleet", label: "Fleet Ops", key: "5", group: "Fleet" },

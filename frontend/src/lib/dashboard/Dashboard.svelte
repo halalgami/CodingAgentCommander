@@ -9,6 +9,7 @@
   import FleetMode from "../fleet/FleetMode.svelte";
   import CicMode from "../fleet/CicMode.svelte";
   import SectorMode from "../fleet/SectorMode.svelte";
+  import AsturlabMode from "../asturlab/AsturlabMode.svelte";
   import { prefs } from "../prefs.svelte.js";
   import { motion, motionAllowed } from "./motion.svelte.js";
   import { zoomFrom } from "./zoom.js";
@@ -53,7 +54,9 @@
 <!-- Keyboard delegation for the tiles/lanes inside (spec §3); each target is itself focusable. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="home" class:still={!animate} bind:this={homeEl} data-testid="dash-home" tabindex="-1" role="region" aria-label="Dashboard" onkeydown={onkey}>
-  {#if rows.length === 0 && !(currentMode() === "city" && dash.city.districts.length)}
+  {#if currentMode() === "asturlab"}
+    <AsturlabMode />
+  {:else if rows.length === 0 && !(currentMode() === "city" && dash.city.districts.length)}
     <div data-testid="dash-empty" class="empty"><EmptyState /></div>
   {:else if currentMode() === "city"}
     {#if dash.zoom}

@@ -163,6 +163,23 @@ func TestParserVersionBumpRederivesWithoutDoubling(t *testing.T) {
 	}
 }
 
+func TestBumpRederivesPerModelDaysWithoutDoubling(t *testing.T) {
+	_, cwd, st, in, _ := setup(t)
+	path := filepath.Join(in.Root, "enc", "s1.jsonl")
+	os.WriteFile(path, []byte(strings.Join(fixture(cwd), "\n")+"\n"), 0o600)
+	in.ReadFile(context.Background(), path, false)
+	once := projectTotals(t, st).TokensByModel["m"]
+	c, _ := st.Cursor(path)
+	c.ParserVersion = 0
+	id := repoid.NewResolver().Resolve(context.Background(), cwd)
+	st.Apply(id, path, c, false, nil, 0)
+	in.ReadFile(context.Background(), path, false)
+	got := projectTotals(t, st).TokensByModel["m"]
+	if once.In == 0 || got != once {
+		t.Fatalf("per-model totals after bump: once %+v, now %+v", once, got)
+	}
+}
+
 func TestTrackerGetsLiveStateAndTitle(t *testing.T) {
 	_, cwd, _, in, tr := setup(t)
 	path := filepath.Join(in.Root, "enc", "s1.jsonl")

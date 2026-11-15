@@ -55,6 +55,20 @@ type Store struct {
 
 	account      []Unlock // account-wide unlocks (profile.json)
 	profileDirty bool
+	gen          uint64 // bumped on every change; stats caches key on it
+}
+
+// markDirty records a change to a project. Caller holds s.mu.
+func (s *Store) markDirty(key string) {
+	s.dirty[key] = true
+	s.gen++
+}
+
+// Gen changes whenever any project's data changes.
+func (s *Store) Gen() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.gen
 }
 
 // Enabled reports whether the user opted in. It never creates anything.
@@ -127,7 +141,7 @@ func (s *Store) load(key string) {
 			return
 		}
 		s.lastErr = fmt.Sprintf("project history for %s was unreadable; restored from its daily backup — activity since then is re-read from transcripts still on disk", p.Label)
-		s.dirty[key] = true
+		s.markDirty(key)
 	}
 	s.projects[key] = &p
 	for path := range p.Cursors {
@@ -153,7 +167,7 @@ func (s *Store) SetConsent(c Consent) error {
 			for i := range p.Sessions {
 				if p.Sessions[i].Title != "" {
 					p.Sessions[i].Title = ""
-					s.dirty[key] = true
+					s.markDirty(key)
 				}
 			}
 		}
@@ -205,7 +219,7 @@ func (s *Store) Apply(id repoid.ID, path string, cur Cursor, subagent bool, evs 
 	p.Cursors[path] = cur
 	s.byPath[path] = id.Key
 	p.recompute()
-	s.dirty[id.Key] = true
+	s.markDirty(id.Key)
 	return true
 }
 
@@ -227,7 +241,7 @@ func (s *Store) DropCursor(path string) {
 	if key, ok := s.byPath[path]; ok {
 		delete(s.projects[key].Cursors, path)
 		delete(s.byPath, path)
-		s.dirty[key] = true
+		s.markDirty(key)
 	}
 }
 
@@ -244,7 +258,7 @@ func (s *Store) ResetSession(key, sessionID string) {
 		}
 	}
 	p.resetSession(sessionID)
-	s.dirty[key] = true
+	s.markDirty(key)
 }
 
 func (s *Store) KeyByRoot(root string) (repoid.ID, bool) {
@@ -325,7 +339,7 @@ func (s *Store) Merge(fromKey string, to repoid.ID) {
 		}
 	}
 	dst.recompute()
-	s.dirty[to.Key] = true
+	s.markDirty(to.Key)
 	from.Cursors = nil // now owned by dst; forgetLocked must not unmap them
 	s.forgetLocked(fromKey)
 }
@@ -346,6 +360,7 @@ func (s *Store) forgetLocked(key string) error {
 	}
 	delete(s.projects, key)
 	delete(s.dirty, key)
+	s.gen++
 	if s.readOnly {
 		return nil
 	}
@@ -495,7 +510,7 @@ func (s *Store) ApplyMetrics(root string, r scan.Result) bool {
 		} else {
 			p.Snapshots = append(p.Snapshots, r.Snapshot)
 		}
-		s.dirty[key] = true
+		s.markDirty(key)
 		return true
 	}
 	return false
@@ -536,7 +551,7 @@ func (s *Store) RecordUnlocks(key string, us []Unlock) []Unlock {
 		}
 	}
 	if len(added) > 0 {
-		s.dirty[key] = true
+		s.markDirty(key)
 	}
 	return added
 }
@@ -645,7 +660,7 @@ func (s *Store) assignPlotsLocked() {
 	})
 	for _, p := range todo {
 		p.Plot = s.nextPlotLocked()
-		s.dirty[p.Key] = true
+		s.markDirty(p.Key)
 	}
 }
 

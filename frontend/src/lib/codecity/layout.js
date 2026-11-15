@@ -37,7 +37,7 @@ function need(n) {
 
 // Ordered squarify: lay items (in order) into rows along the short side,
 // closing a row when the next item would worsen its worst aspect ratio.
-function squarify(items, x, y, w, h) {
+export function squarify(items, x, y, w, h) {
   const total = items.reduce((s, it) => s + it.weight, 0) || 1;
   const scale = (w * h) / total;
   const out = [];

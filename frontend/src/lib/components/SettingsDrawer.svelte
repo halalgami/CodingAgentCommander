@@ -7,6 +7,7 @@
   import { prefs, setPref } from "../prefs.svelte.js";
   import { replayIntro } from "./BootIntro.svelte";
   import HistorySettings from "./HistorySettings.svelte";
+  import AsturlabSettings from "./AsturlabSettings.svelte";
   import RaidHeroines from "../raid/RaidHeroines.svelte";
 
   const scrollbackOpts = [1000, 5000, 10000, 50000].map((n) => ({ value: n, label: n >= 1000 ? `${n / 1000}k lines` : `${n}` }));
@@ -63,6 +64,8 @@
   </label>
 
   <HistorySettings />
+
+  <AsturlabSettings />
 
   <h3>Companion</h3>
   <!-- Mutually exclusive, and the exclusivity is enforced in Go at

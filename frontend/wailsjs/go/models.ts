@@ -1937,6 +1937,38 @@ export namespace main {
 	        this.autoContinues = source["autoContinues"];
 	    }
 	}
+	export class StatsOverviewView {
+	    locked: boolean;
+	    overview: stats.Overview;
+	
+	    static createFrom(source: any = {}) {
+	        return new StatsOverviewView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.locked = source["locked"];
+	        this.overview = this.convertValues(source["overview"], stats.Overview);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -2020,6 +2052,75 @@ export namespace raidpack {
 	        this.name = source["name"];
 	        this.tint = source["tint"];
 	    }
+	}
+
+}
+
+export namespace rates {
+	
+	export class Plan {
+	    name: string;
+	    monthlyUSD: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Plan(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.monthlyUSD = source["monthlyUSD"];
+	    }
+	}
+	export class Rate {
+	    in: number;
+	    out: number;
+	    cacheRead: number;
+	    cacheWrite: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Rate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.in = source["in"];
+	        this.out = source["out"];
+	        this.cacheRead = source["cacheRead"];
+	        this.cacheWrite = source["cacheWrite"];
+	    }
+	}
+	export class Settings {
+	    overrides?: Record<string, Rate>;
+	    plans?: Record<string, Plan>;
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.overrides = this.convertValues(source["overrides"], Rate, true);
+	        this.plans = this.convertValues(source["plans"], Plan, true);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
@@ -2114,8 +2215,263 @@ export namespace scan {
 
 }
 
+export namespace sidebar {
+	
+	export class Group {
+	    id: string;
+	    name: string;
+	    collapsed?: boolean;
+	    remember?: boolean;
+	    folders?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Group(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.collapsed = source["collapsed"];
+	        this.remember = source["remember"];
+	        this.folders = source["folders"];
+	    }
+	}
+	export class Layout {
+	    groups: Group[];
+	    order: Record<string, Array<string>>;
+	
+	    static createFrom(source: any = {}) {
+	        return new Layout(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.groups = this.convertValues(source["groups"], Group);
+	        this.order = source["order"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace stats {
+	
+	export class ModelRow {
+	    model: string;
+	    provider: string;
+	    tokens: number;
+	    turns: number;
+	    errors: number;
+	    compactions: number;
+	    testRuns: number;
+	    testFails: number;
+	    commits: number;
+	    lines: number;
+	    costUSD: number;
+	    priced: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.model = source["model"];
+	        this.provider = source["provider"];
+	        this.tokens = source["tokens"];
+	        this.turns = source["turns"];
+	        this.errors = source["errors"];
+	        this.compactions = source["compactions"];
+	        this.testRuns = source["testRuns"];
+	        this.testFails = source["testFails"];
+	        this.commits = source["commits"];
+	        this.lines = source["lines"];
+	        this.costUSD = source["costUSD"];
+	        this.priced = source["priced"];
+	    }
+	}
+	export class Tiles {
+	    tokens: number;
+	    activeMs: number;
+	    commits: number;
+	    costUSD: number;
+	    unpricedTokens: number;
+	    planUSD: number;
+	    planX: number;
+	    cacheShare: number;
+	    cacheSavedUSD: number;
+	    pricedAt: string;
+	    stale: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Tiles(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tokens = source["tokens"];
+	        this.activeMs = source["activeMs"];
+	        this.commits = source["commits"];
+	        this.costUSD = source["costUSD"];
+	        this.unpricedTokens = source["unpricedTokens"];
+	        this.planUSD = source["planUSD"];
+	        this.planX = source["planX"];
+	        this.cacheShare = source["cacheShare"];
+	        this.cacheSavedUSD = source["cacheSavedUSD"];
+	        this.pricedAt = source["pricedAt"];
+	        this.stale = source["stale"];
+	    }
+	}
+	export class Overview {
+	    cur: Tiles;
+	    prev: Tiles;
+	
+	    static createFrom(source: any = {}) {
+	        return new Overview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cur = this.convertValues(source["cur"], Tiles);
+	        this.prev = this.convertValues(source["prev"], Tiles);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Query {
+	    from: string;
+	    to: string;
+	    groupBy: string;
+	    split?: string;
+	    metric: string;
+	    project?: string;
+	    model?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Query(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.from = source["from"];
+	        this.to = source["to"];
+	        this.groupBy = source["groupBy"];
+	        this.split = source["split"];
+	        this.metric = source["metric"];
+	        this.project = source["project"];
+	        this.model = source["model"];
+	    }
+	}
+	export class Row {
+	    key: string;
+	    label?: string;
+	    split?: string;
+	    value: number;
+	    unpriced?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Row(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	        this.split = source["split"];
+	        this.value = source["value"];
+	        this.unpriced = source["unpriced"];
+	    }
+	}
+	export class Result {
+	    rows: Row[];
+	    pricedAt: string;
+	    stale: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rows = this.convertValues(source["rows"], Row);
+	        this.pricedAt = source["pricedAt"];
+	        this.stale = source["stale"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+
+}
+
 export namespace store {
 	
+	export class HourCounters {
+	    turns: number;
+	    activeMs: number;
+	    tokens: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HourCounters(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.turns = source["turns"];
+	        this.activeMs = source["activeMs"];
+	        this.tokens = source["tokens"];
+	    }
+	}
 	export class TokenCounts {
 	    in: number;
 	    out: number;
@@ -2149,6 +2505,8 @@ export namespace store {
 	    subagents: number;
 	    skipped: number;
 	    tokens: TokenCounts;
+	    tokensByModel?: Record<string, TokenCounts>;
+	    hours?: HourCounters[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Counters(source);
@@ -2170,6 +2528,8 @@ export namespace store {
 	        this.subagents = source["subagents"];
 	        this.skipped = source["skipped"];
 	        this.tokens = this.convertValues(source["tokens"], TokenCounts);
+	        this.tokensByModel = this.convertValues(source["tokensByModel"], TokenCounts, true);
+	        this.hours = this.convertValues(source["hours"], HourCounters);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2190,6 +2550,7 @@ export namespace store {
 		    return a;
 		}
 	}
+	
 	export class ProjectInfo {
 	    key: string;
 	    label: string;

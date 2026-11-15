@@ -10,7 +10,7 @@ const MaxLine = 8 << 20
 // ParserVersion is stored with cursors and session summaries. Bump it when a
 // Classify change alters what is counted: ingest re-derives every session whose
 // transcript still exists.
-const ParserVersion = 5 // 2: usage once per message id; 3: progress counters; 4: re-read so ghost projects fold into their repo; 5: task notifications are not prompts
+const ParserVersion = 6 // 2: usage once per message id; 3: progress counters; 4: re-read so ghost projects fold into their repo; 5: task notifications are not prompts; 6: per-day tokens by model + hour buckets
 
 type Kind uint8
 

@@ -26,6 +26,16 @@ func (t *TokenCounts) add(u parse.Usage) {
 	t.CacheWrite += u.CacheWrite
 }
 
+// Total is every token the model processed or produced.
+func (t TokenCounts) Total() int64 { return t.In + t.Out + t.CacheRead + t.CacheWrite }
+
+// HourCounters is one local clock hour of a day (parser v6).
+type HourCounters struct {
+	Turns    int64 `json:"turns"`
+	ActiveMs int64 `json:"activeMs"`
+	Tokens   int64 `json:"tokens"`
+}
+
 func (t *TokenCounts) merge(o TokenCounts) {
 	t.In += o.In
 	t.Out += o.Out
@@ -48,6 +58,26 @@ type Counters struct {
 	Subagents    int64            `json:"subagents"`
 	Skipped      int64            `json:"skipped"`
 	Tokens       TokenCounts      `json:"tokens"`
+	// Parser v6, day buckets only (a session's own totals keep
+	// SessionSummary.TokensByModel, which shadows this field in JSON).
+	TokensByModel map[string]TokenCounts `json:"tokensByModel,omitempty"`
+	Hours         []HourCounters         `json:"hours,omitempty"` // nil or 24, index = local hour
+}
+
+func (c *Counters) addModel(model string, u TokenCounts) {
+	if c.TokensByModel == nil {
+		c.TokensByModel = map[string]TokenCounts{}
+	}
+	t := c.TokensByModel[model]
+	t.merge(u)
+	c.TokensByModel[model] = t
+}
+
+func (c *Counters) hour(h int) *HourCounters {
+	if c.Hours == nil {
+		c.Hours = make([]HourCounters, 24)
+	}
+	return &c.Hours[h]
 }
 
 func (c *Counters) merge(o Counters) {
@@ -64,6 +94,15 @@ func (c *Counters) merge(o Counters) {
 	c.Subagents += o.Subagents
 	c.Skipped += o.Skipped
 	c.Tokens.merge(o.Tokens)
+	for k, v := range o.TokensByModel {
+		c.addModel(k, v)
+	}
+	for h, v := range o.Hours {
+		x := c.hour(h)
+		x.Turns += v.Turns
+		x.ActiveMs += v.ActiveMs
+		x.Tokens += v.Tokens
+	}
 	for k, v := range o.Tools {
 		if c.Tools == nil {
 			c.Tools = map[string]int64{}
@@ -180,6 +219,22 @@ func (p *Project) fold(s *SessionSummary, e parse.Event, subagent, storeTitles b
 			s.EndedAt = e.At
 		}
 	}
+	// dayOnly: per-model and per-hour buckets live in day counters only.
+	dayOnly := func(f func(c *Counters)) {
+		if day == "" {
+			return
+		}
+		if s.Days == nil {
+			s.Days = map[string]Counters{}
+		}
+		c := s.Days[day]
+		f(&c)
+		s.Days[day] = c
+	}
+	hr := 0
+	if e.At > 0 {
+		hr = time.UnixMilli(e.At).Hour()
+	}
 	both := func(f func(c *Counters)) {
 		f(&s.Counters)
 		if day != "" {
@@ -243,6 +298,14 @@ func (p *Project) fold(s *SessionSummary, e parse.Event, subagent, storeTitles b
 		}
 		if e.HasUsage {
 			both(func(c *Counters) { c.Tokens.add(u) })
+			var tc TokenCounts
+			tc.add(u)
+			dayOnly(func(c *Counters) {
+				if e.Model != "" && e.Model != "<synthetic>" {
+					c.addModel(e.Model, tc)
+				}
+				c.hour(hr).Tokens += tc.Total()
+			})
 		}
 	case parse.ToolUse:
 		isTest := e.ToolName == "Bash" && testRe.MatchString(e.Command)
@@ -296,6 +359,7 @@ func (p *Project) fold(s *SessionSummary, e parse.Event, subagent, storeTitles b
 			p.SeenTurns[e.UUID] = s.ID
 		}
 		both(func(c *Counters) { c.ActiveMs += e.Ms; c.Turns++ })
+		dayOnly(func(c *Counters) { x := c.hour(hr); x.Turns++; x.ActiveMs += e.Ms })
 		if e.At > 0 && time.UnixMilli(e.At).Hour() < 4 {
 			s.NightTurns++
 		}
@@ -348,6 +412,9 @@ func (p *Project) recompute() {
 	p.FirstSeen, p.LastSeen = 0, 0
 	for _, s := range p.Sessions {
 		p.Totals.merge(s.Counters)
+		for m, t := range s.TokensByModel {
+			p.Totals.addModel(m, t)
+		}
 		for d, c := range s.Days {
 			x := p.Days[d]
 			x.merge(c)

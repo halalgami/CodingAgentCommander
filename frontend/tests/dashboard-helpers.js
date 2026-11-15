@@ -28,6 +28,15 @@ export async function stubDash(page, { live = [], timeline = {}, windows = [{ wi
       PlanUsage: async () => window.__usage || null,
       RaidPackInfo: async () => window.__raidPack || { dir: "", name: "", files: {}, heroines: {}, warnings: [] },
       SetLiveFocus: async () => {},
+      // Al Asturlab: fixtures in window.__ast (see asturlab-fixtures.js), calls in __calls.
+      Stats: async (q) => { window.__calls.push(["Stats", q]); const f = window.__ast; if (!f) return { rows: [], pricedAt: "2026-10-06", stale: false };
+        return { rows: (f.rows[q.groupBy + (q.split ? ":" + q.split : "")] || []).map((r) => ({ ...r })), pricedAt: f.pricedAt || "2026-10-06", stale: !!f.stale }; },
+      StatsOverview: async (from, to) => { window.__calls.push(["StatsOverview", from, to]); return window.__ast?.overview || { locked: true, overview: { cur: {}, prev: {} } }; },
+      StatsModels: async (from, to, project) => { window.__calls.push(["StatsModels", from, to, project]); return window.__ast?.models || []; },
+      ProjectMetrics: async (key) => { window.__calls.push(["ProjectMetrics", key]); return window.__metrics || { files: {}, snapshots: [] }; },
+      AsturlabSettings: async () => window.__astSettings || {},
+      SetAsturlabSettings: async (s) => { window.__calls.push(["SetAsturlabSettings", s]); window.__astSettings = s; },
+      ExportStats: async (...a) => { window.__calls.push(["ExportStats", ...a]); return "/tmp/x"; },
     } } };
   }, { live, timeline, windows, stats, projects, progress });
 }

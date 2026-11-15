@@ -9,7 +9,7 @@
   function onkey(e) {
     if (!e.metaKey || e.altKey || e.ctrlKey) return;
     if (e.key === "d" || e.key === "D") { e.preventDefault(); e.stopPropagation(); toggleHome(); return; }
-    const mode = { "1": "triage", "2": "river", "3": "city", "4": "raid", "5": "fleet", "6": "cic", "7": "sector" }[e.key];
+    const mode = { "1": "triage", "2": "river", "3": "city", "4": "raid", "5": "fleet", "6": "cic", "7": "sector", "8": "asturlab" }[e.key];
     if (mode) { e.preventDefault(); e.stopPropagation(); setMode(mode); return; }
     let next = null;
     if (e.key === "=" || e.key === "+") next = Math.min(prefs.fontSize + 1, 20);

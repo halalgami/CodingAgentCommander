@@ -10,6 +10,10 @@ export function AddProvider(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddProvider'](arg1, arg2, arg3);
 }
 
+export function AsturlabSettings() {
+  return window['go']['main']['App']['AsturlabSettings']();
+}
+
 export function BrowseCompanionPack() {
   return window['go']['main']['App']['BrowseCompanionPack']();
 }
@@ -104,6 +108,10 @@ export function ExportCompanionPack() {
 
 export function ExportRaidStarter() {
   return window['go']['main']['App']['ExportRaidStarter']();
+}
+
+export function ExportStats(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['ExportStats'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function ForgetProject(arg1) {
@@ -362,6 +370,10 @@ export function SessionStats(arg1) {
   return window['go']['main']['App']['SessionStats'](arg1);
 }
 
+export function SetAsturlabSettings(arg1) {
+  return window['go']['main']['App']['SetAsturlabSettings'](arg1);
+}
+
 export function SetCompanionKind(arg1) {
   return window['go']['main']['App']['SetCompanionKind'](arg1);
 }
@@ -398,8 +410,28 @@ export function SetRaidHeroine(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRaidHeroine'](arg1, arg2, arg3);
 }
 
+export function SetSidebarLayout(arg1) {
+  return window['go']['main']['App']['SetSidebarLayout'](arg1);
+}
+
+export function SidebarLayout() {
+  return window['go']['main']['App']['SidebarLayout']();
+}
+
 export function StartPackGen(arg1) {
   return window['go']['main']['App']['StartPackGen'](arg1);
+}
+
+export function Stats(arg1) {
+  return window['go']['main']['App']['Stats'](arg1);
+}
+
+export function StatsModels(arg1, arg2, arg3) {
+  return window['go']['main']['App']['StatsModels'](arg1, arg2, arg3);
+}
+
+export function StatsOverview(arg1, arg2) {
+  return window['go']['main']['App']['StatsOverview'](arg1, arg2);
 }
 
 export function SwapModel(arg1, arg2) {
