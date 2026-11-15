@@ -85,14 +85,14 @@ test("badges: this session's unlocks, newest first, then +N", async ({ page }) =
 });
 
 test("pouch dims when quota is at 85 %", async ({ page }) => {
-  await page.addInitScript(() => { window.__usage = { five_hour: { utilization: 85 } }; });
+  await page.addInitScript(() => { window.__usage = { five_hour: { utilization: 85 } }; window.__ast = { rows: { "project|tokens": [{ key: "k1", value: 1000000 }], "project|cost": [{ key: "k1", value: 12.4 }] } }; });
   await openRaid(page, { live: [{ ...S1, state: "idle" }], progress: prog({ level: 4, tier: 0 }) });
   await expect(page.getByTestId("raid-pouch")).toHaveAttribute("data-dim", "true");
-  await expect(page.getByTestId("raid-pouch")).toHaveAttribute("title", "Quota used 85%");
+  await expect(page.getByTestId("raid-pouch")).toHaveAttribute("title", "≈ $12.40 this week · quota 85%");
 });
 
-test("pouch hidden when usage cannot be read", async ({ page }) => {
-  await page.addInitScript(() => { window.__usage = null; });
+test("pouch hidden when the project has no usage this week", async ({ page }) => {
+  await page.addInitScript(() => { window.__usage = { five_hour: { utilization: 85 } }; window.__ast = undefined; });
   await openRaid(page, { live: [{ ...S1, state: "idle" }], progress: prog({ level: 4, tier: 0 }) });
   await expect(page.getByTestId("raid-card")).toHaveCount(1);
   await expect(page.getByTestId("raid-pouch")).toHaveCount(0);
@@ -112,7 +112,7 @@ test("Quest Clear without loot keeps the 6a turns line", async ({ page }) => {
 });
 
 test("compact density: badges and pouch only — no gear, radar or halo", async ({ page }) => {
-  await page.addInitScript(() => { window.__usage = { five_hour: { utilization: 10 } }; });
+  await page.addInitScript(() => { window.__usage = { five_hour: { utilization: 10 } }; window.__ast = { rows: { "project|tokens": [{ key: "k1", value: 1000000 }], "project|cost": [{ key: "k1", value: 12.4 }] } }; });
   const windows = Array.from({ length: 15 }, (_, i) => ({ windowID: "@" + (i + 1), name: "p" + i }));
   const unlocks = [{ id: "first_blood", at: 1, sessionID: "s1" }];
   await openRaid(page, { windows, live: [{ ...S1, state: "idle" }], progress: prog({ level: 20, tier: 3, mix: { Blade: 1 } }, unlocks) });

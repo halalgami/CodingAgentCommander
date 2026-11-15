@@ -63,3 +63,25 @@ export function treemap(items, { w, h }) {
   if (!its.length) return [];
   return squarify(its, 0, 0, w, h).map(({ it, x, y, w, h }) => ({ key: it.key, x, y, w, h }));
 }
+
+// burnGeom: quota samples {t (ms), u (0-100)} → an SVG path over [fromMs, toMs].
+// y is 0 % at the bottom; points outside the range are dropped. With forecastMs
+// a segment runs from the last point to (forecastMs, 100 %), clipped at w.
+export function burnGeom(points, fromMs, toMs, w, h, forecastMs = null) {
+  const span = toMs - fromMs;
+  if (!(span > 0)) return { path: "", forecast: null };
+  const x = (t) => ((t - fromMs) / span) * w;
+  const y = (u) => h - (Math.max(0, Math.min(100, u)) / 100) * h;
+  const pts = points.filter((p) => p.t >= fromMs && p.t <= toMs).sort((a, b) => a.t - b.t);
+  const r = (n) => Math.round(n * 100) / 100;
+  const path = pts.map((p, i) => (i ? "L" : "M") + r(x(p.t)) + "," + r(y(p.u))).join("");
+  let forecast = null;
+  if (forecastMs != null && pts.length) {
+    const l = pts[pts.length - 1];
+    const x1 = x(l.t), y1 = y(l.u);
+    let x2 = x(forecastMs), y2 = 0;
+    if (x2 > w && x2 > x1) { y2 = y1 + (0 - y1) * ((w - x1) / (x2 - x1)); x2 = w; }
+    forecast = { x1: r(x1), y1: r(y1), x2: r(x2), y2: r(y2) };
+  }
+  return { path, forecast };
+}

@@ -156,6 +156,12 @@ export function Progress():Promise<main.ProgressView>;
 
 export function ProjectMetrics(arg1:string):Promise<main.ProjectMetricsView>;
 
+export function QuotaHistory(arg1:string,arg2:number):Promise<main.QuotaHistoryView>;
+
+export function QuotaNow():Promise<main.QuotaNowView>;
+
+export function QuotaRefresh():Promise<main.QuotaNowView>;
+
 export function RaidPackInfo():Promise<main.RaidPackView>;
 
 export function RefreshModels():Promise<void>;

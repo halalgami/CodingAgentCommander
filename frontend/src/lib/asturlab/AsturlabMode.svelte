@@ -9,6 +9,8 @@
   import { colorOf, SEQ, MARK } from "./palette.js";
   import Chart from "./Chart.svelte";
   import ProjectPage from "./ProjectPage.svelte";
+  import QuotaCard from "./QuotaCard.svelte";
+  import { quota } from "./quota.svelte.js";
 
   const RANGES = [["today", "Today"], ["7d", "7 d"], ["30d", "30 d"], ["all", "All"]];
   const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -113,7 +115,7 @@
     <div class="locked" data-testid="ast-locked">
       <p>Al Asturlab reads your project history, and history is off.</p>
       <p class="dim">Live now: {app.sessions?.length ?? 0} sessions.
-        {#each ast.usage?.windows || [] as w}<span class="pill">{w.label} {Math.round(w.utilization)}%</span>{/each}</p>
+        {#each (quota.now?.providers || []).filter((p) => p.supported).flatMap((p) => p.windows || []) as w}<span class="pill">{w.label} {Math.round(w.util)}%</span>{/each}</p>
       <button class="primary" onclick={() => (app.drawer = "settings")}>Turn on history</button>
     </div>
   {:else}
@@ -185,15 +187,7 @@
       </div>
 
       <div class="col">
-        <section class="chart quota" data-testid="ast-quota">
-          <h3>Quota</h3>
-          {#if ast.usage?.windows?.length}
-            {#each ast.usage.windows as w}
-              <div class="qrow"><span>{w.label}</span><span class="qbar"><i style:width={Math.min(100, w.utilization) + "%"} class:hot={w.utilization >= 80}></i></span><span class="num">{Math.round(w.utilization)}%</span></div>
-            {/each}
-            <p class="dim small">Live from Anthropic. Burn history and forecast arrive with quota sampling.</p>
-          {:else}<p class="dim small">No live quota available.</p>{/if}
-        </section>
+        <QuotaCard seen={ast.providers.map((r) => r.key)} />
 
         <Chart id="calendar" title="Calendar" sub={`${weeks} weeks · tokens`} tip={tips.calendar}
           columns={[{ key: "key", label: "Day" }, { label: "Tokens", num: true, fmt: (x) => fmtTokens(x.value) }]} rows={ast.calendar}
@@ -269,13 +263,9 @@
   .axis { fill: var(--text-2); font-size: 10px; }
   .tlabel { fill: #fff; font-size: 11px; pointer-events: none; }
   .empty, .dim { color: var(--text-2); }
-  .small { font-size: var(--fs-0); }
-  .chart.quota { background: var(--surface-1); border: 1px solid var(--border-0); border-radius: var(--r-2); padding: var(--sp-3); }
-  .quota h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-1); }
-  .qrow, .hb { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: var(--sp-2); align-items: center; font-size: var(--fs-0); color: var(--text-1); margin: 3px 0; }
-  .qbar, .track { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-  .qbar i, .track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
-  .qbar i.hot { background: var(--warn); }
+  .hb { display: grid; grid-template-columns: 9em 1fr 3.5em; gap: var(--sp-2); align-items: center; font-size: var(--fs-0); color: var(--text-1); margin: 3px 0; }
+  .track { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+  .track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .tbl { overflow: auto; max-height: 260px; }
   table { width: 100%; border-collapse: collapse; font-size: var(--fs-0); }

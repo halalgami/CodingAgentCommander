@@ -1,7 +1,7 @@
 // frontend/src/lib/fleet/fleet.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { shipOf, shipName, encounterOf, actionOf, craftOf, wingOf, stateOf, veteranOf, fuelOf, spaceOf, fleetMotion, CLASSES } from "./fleet.js";
+import { shipOf, shipName, encounterOf, actionOf, craftOf, wingOf, stateOf, veteranOf, fuelOf, spaceOf, fleetMotion, CLASSES, hullGlowOf } from "./fleet.js";
 
 test("shipOf: class, tint and captain per model; pack name override", () => {
   const s = shipOf({ model: "claude-opus-5-5" });
@@ -99,4 +99,13 @@ test("shipArt: a damaged ship falls back to the intact sprite", async () => {
   const { shipArt } = await import("./art.js");
   const s = shipArt("opus", true);
   assert.ok(Array.isArray(s) && s[0].includes("ship-opus-damaged") && s[1].includes("ship-opus.") && !s[1].includes("damaged"));
+});
+
+test("hullGlowOf: levels at 10 / 30 / 60 % of this week's tokens", () => {
+  assert.equal(hullGlowOf(0.05).level, 0);
+  assert.equal(hullGlowOf(0.1).level, 1);
+  assert.equal(hullGlowOf(0.3).level, 2);
+  assert.equal(hullGlowOf(0.6).level, 3);
+  assert.equal(hullGlowOf(0.42).title, "42% of this week's tokens");
+  assert.equal(hullGlowOf(undefined).level, 0);
 });

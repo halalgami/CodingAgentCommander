@@ -74,3 +74,9 @@ export function fleetMotion(state, vet, animate) {
   if (glowPulse) used++;
   return { glowPulse, escortDrift: vet.includes("escort") && used < 3 };
 }
+
+// hullGlowOf: a flagship glows with its model's share of this week's tokens (spec §6).
+export function hullGlowOf(share) {
+  const x = Number(share) || 0;
+  return { level: x >= 0.6 ? 3 : x >= 0.3 ? 2 : x >= 0.1 ? 1 : 0, title: `${Math.round(x * 100)}% of this week's tokens` };
+}

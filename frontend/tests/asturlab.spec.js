@@ -164,3 +164,59 @@ test("Settings: an override with no in/out rate is not saved as $0", async ({ pa
   expect(saved?.overrides?.["glm-5.3"]).toBeUndefined();
   await expect(s).toContainText("needs an in or out rate");
 });
+
+// ---- phase 2: quota card ----
+const hist = (from, to, resetsInMs, forecast) => {
+  const now = Date.now(), pts = [];
+  for (let i = 0; i <= 12; i++) pts.push({ t: new Date(now - 2 * 36e5 + i * 6e5).toISOString(), u: from + ((to - from) * i) / 12 });
+  return { locked: false, windows: [{ key: "seven_day", label: "Week", weekly: true, resetsAt: new Date(now + resetsInMs).toISOString(), points: pts, forecast, note: forecast ? "" : "resets first" }] };
+};
+
+test("quota card shows burn and forecast", async ({ page }) => {
+  const reset = 5 * 864e5;
+  await page.addInitScript(({ h }) => {
+    window.__usage = { seven_day: { utilization: 22, resets_at: h.windows[0].resetsAt } };
+    window.__quotaHist = { anthropic: h };
+  }, { h: hist(10, 22, reset, new Date(Date.now() + 40 * 36e5).toISOString()) });
+  await open(page);
+  await expect(page.getByTestId("ast-quota-row")).toHaveCount(1);
+  await expect(page.getByTestId("ast-quota-forecast")).toContainText("At this pace: limit");
+  await expect(page.locator('[data-testid="ast-quota"] svg.burn path.line')).toHaveCount(1);
+  await expect(page.locator('[data-testid="ast-quota"] svg.burn line.fc')).toHaveCount(1);
+});
+
+test("quota card without an endpoint says so", async ({ page }) => {
+  await open(page);
+  await expect(page.getByTestId("ast-quota-none")).toHaveCount(1);
+  await expect(page.getByTestId("ast-quota-none")).toContainText("Ollama Cloud");
+  await expect(page.getByTestId("ast-quota-none")).toContainText("No official quota");
+});
+
+test("a quota sample feeds app.quotaPct for every mode", async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => (window.__handlers["quota:sample"] || []).forEach((cb) => cb({ provider: "anthropic", maxUtil: 85 })));
+  await expect.poll(() => page.evaluate(() => window.__app.quotaPct)).toBe(85);
+});
+
+test("history off shows quota bars only, with the invitation", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__usage = { five_hour: { utilization: 40 } };
+    window.__quotaHist = { anthropic: { locked: true, windows: [{ key: "five_hour", label: "Session", points: [{ t: new Date().toISOString(), u: 40 }], forecast: "", note: "not enough samples" }] } };
+  });
+  await open(page);
+  await expect(page.getByTestId("ast-quota-row")).toHaveCount(1);
+  await expect(page.getByTestId("ast-quota-locked")).toBeVisible();
+  await expect(page.getByTestId("ast-quota-forecast")).toHaveCount(0);
+});
+
+test("quota is checked only when a quota view opens, never at startup", async ({ page }) => {
+  await stubDash(page, { live: [S1] });
+  await page.addInitScript((ast) => { window.__ast = ast; }, AST);
+  await page.goto("/?nointro");
+  await expect(page.getByTestId("dash-mode-switch")).toBeVisible();
+  await page.waitForTimeout(500);
+  expect((await calls(page, "QuotaRefresh")).length).toBe(0);
+  await pickMode(page, "asturlab");
+  await expect(page.getByTestId("ast-quota")).toBeVisible();
+  await expect.poll(async () => (await calls(page, "QuotaRefresh")).length).toBe(1);
+});

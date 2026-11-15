@@ -37,6 +37,7 @@ import (
 	"github.com/halalgami/CodingAgentCommander/internal/ollama"
 	"github.com/halalgami/CodingAgentCommander/internal/pricing"
 	"github.com/halalgami/CodingAgentCommander/internal/ptybridge"
+	"github.com/halalgami/CodingAgentCommander/internal/quota"
 	"github.com/halalgami/CodingAgentCommander/internal/router"
 	"github.com/halalgami/CodingAgentCommander/internal/secrets"
 	"github.com/halalgami/CodingAgentCommander/internal/sidebar"
@@ -103,6 +104,7 @@ type App struct {
 	ledger   *ledgerSvc
 	notifier Notifier
 	emitter  Emitter
+	quota    *quota.Sampler
 	// masterKey is a random per-run secret used to authenticate to the local
 	// LiteLLM proxy.
 	masterKey string
@@ -747,6 +749,7 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 	a.ledger.start(a.ctx)
+	a.startQuota(a.ctx)
 	a.windows = winstate.Open(a.winStatePath())
 	a.sidebar = sidebar.Open(a.sidebarPath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run

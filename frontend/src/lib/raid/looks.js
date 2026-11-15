@@ -1,4 +1,6 @@
 // frontend/src/lib/raid/looks.js
+import { shareOf } from "../asturlab/worldmath.js";
+import { fmtUSD, fmtTokens } from "../asturlab/format.js";
 // Raid looks (6b spec §4): who she is beyond her class — a stable look, ascension,
 // earned gear, how she works (radar), what she earned (badges), what she brought
 // home (loot) and the account's gold (quota). Pure.
@@ -36,9 +38,16 @@ export function badgesOf(row, progress) {
   return { list, more: Math.max(0, mine.length - 4) };
 }
 
-export function pouchOf(pct) {
-  if (pct == null || Number.isNaN(pct)) return null;
-  return { fill: Math.max(0, Math.round((1 - pct / 100) * 100) / 100), dim: pct >= 80 };
+// pouchOf: the gold pouch holds this project's spend this week (spec §6) —
+// $ against the top project when any of it is priced, tokens otherwise — and
+// dims near the plan's quota.
+export function pouchOf({ cost = 0, tokens = 0, maxCost = 0, maxTokens = 0, quotaPct = null } = {}) {
+  if (!(tokens > 0)) return null;
+  const priced = cost > 0 && maxCost > 0;
+  const fill = Math.round(shareOf(priced ? cost : tokens, priced ? maxCost : maxTokens) * 100) / 100;
+  const q = quotaPct != null && !Number.isNaN(quotaPct);
+  const title = (priced ? fmtUSD(cost) : fmtTokens(tokens) + " tok") + " this week" + (q ? ` · quota ${Math.round(quotaPct)}%` : "");
+  return { fill, dim: q && quotaPct >= 80, title };
 }
 
 export function quotaOf(usage) {

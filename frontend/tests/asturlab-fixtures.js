@@ -11,6 +11,7 @@ export const AST = {
     project: [{ key: "k1", label: "Ayina", value: 9_000_000 }, { key: "k2", label: "Commander", value: 3_400_000 }],
     "weekday-hour": [{ key: "3-9", value: 4 }, { key: "0-14", value: 1 }],
     tool: [{ key: "Edit", value: 40 }, { key: "Bash", value: 22 }],
+    provider: [{ key: "anthropic", value: 11_000_000 }, { key: "ollama-cloud", value: 1_400_000 }],
   },
   models: [
     { model: "claude-opus-5-5", provider: "anthropic", tokens: 11_000_000, turns: 80, errors: 2, compactions: 1, testRuns: 10, testFails: 1, commits: 12, lines: 900, costUSD: 418.2, priced: true },

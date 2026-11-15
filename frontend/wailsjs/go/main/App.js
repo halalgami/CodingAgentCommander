@@ -290,6 +290,18 @@ export function ProjectMetrics(arg1) {
   return window['go']['main']['App']['ProjectMetrics'](arg1);
 }
 
+export function QuotaHistory(arg1, arg2) {
+  return window['go']['main']['App']['QuotaHistory'](arg1, arg2);
+}
+
+export function QuotaNow() {
+  return window['go']['main']['App']['QuotaNow']();
+}
+
+export function QuotaRefresh() {
+  return window['go']['main']['App']['QuotaRefresh']();
+}
+
 export function RaidPackInfo() {
   return window['go']['main']['App']['RaidPackInfo']();
 }

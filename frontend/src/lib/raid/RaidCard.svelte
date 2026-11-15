@@ -10,7 +10,7 @@
   import { lookOf, ascensionOf, gearOf, motionBudget, wingsOf, radarOf, badgesOf, pouchOf, lootOf } from "./looks.js";
   import { gearArt, haloArt } from "./art.js";
   import { raid } from "./custom.svelte.js";
-  let { row, latest = null, events = [], now, hour, animate = true, density = "standard", progress = null, quotaPct = null, onopen } = $props();
+  let { row, latest = null, events = [], now, hour, animate = true, density = "standard", progress = null, quotaPct = null, spend = null, maxes = {}, onopen } = $props();
   const h = $derived(heroineOf(row, raid.pack));
   const kind = $derived(bossOf(row));
   const level = $derived(bossLevel(latest));
@@ -41,7 +41,7 @@
   const mb = $derived(motionBudget(b.state, asc, animate));
   const radar = $derived(density === "compact" ? null : radarOf(row.hero));
   const badges = $derived(badgesOf(row, progress));
-  const pouch = $derived(pouchOf(quotaPct));
+  const pouch = $derived(pouchOf({ ...(spend || {}), ...maxes, quotaPct }));
   const loot = $derived(lootOf(row.hero));
   let el;
 </script>
@@ -59,7 +59,7 @@
     <div class="badges">
       {#each badges.list as bd (bd.id)}<span class="badge" title={bd.name} data-testid="raid-badge">{bd.glyph}</span>{/each}
       {#if badges.more}<span class="badge more" data-testid="raid-badge-more">+{badges.more}</span>{/if}
-      {#if pouch}<span class="pouch" class:dim={pouch.dim} style="--fill:{pouch.fill}" title="Quota used {Math.round(quotaPct)}%" data-testid="raid-pouch" data-dim={String(pouch.dim)}>◍</span>{/if}
+      {#if pouch}<span class="pouch" class:dim={pouch.dim} style="--fill:{pouch.fill}" title={pouch.title} data-testid="raid-pouch" data-dim={String(pouch.dim)}>◍</span>{/if}
     </div>
   {/if}
 

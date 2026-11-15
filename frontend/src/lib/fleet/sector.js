@@ -1,4 +1,5 @@
 // frontend/src/lib/fleet/sector.js
+import { fmtTokens } from "../asturlab/format.js";
 // Sector Map (phase 7c spec §3): systems, fixed positions, station/dock geometry, orders strip. Pure.
 // viewBox 1600 × 900.
 import { bandOf } from "../dashboard/rows.js";
@@ -133,4 +134,10 @@ export function layoutSystems(systems, font = 16) {
     ...p.g.ships.filter((d) => bandOf(d.row) === "needs").map(csBox)]);
   const labels = labelAll(placed, (s) => labelSize([s.label, subOf(s)], font), (s) => labelSize([s.label], font), obstacles, { gap: 72, within: inMap });
   return { placed, labels };
+}
+
+// fuelGaugeOf: a station's fuel ring = this week's tokens against the busiest project (spec §6).
+export function fuelGaugeOf(tokens, max) {
+  if (!(tokens > 0) || !(max > 0)) return null;
+  return { frac: Math.min(1, Math.round((tokens / max) * 1000) / 1000), label: fmtTokens(tokens) + " tok this week" };
 }

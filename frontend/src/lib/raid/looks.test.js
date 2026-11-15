@@ -56,11 +56,13 @@ test("badges: this session's unlocks only, newest first, ≤ 4 then more", () =>
   assert.deepEqual(badgesOf({ id: "", projectKey: "k1" }, progress), { list: [], more: 0 });
 });
 
-test("pouch: full at 0 % used, dims at 80 %, hidden when unknown", () => {
-  assert.equal(pouchOf(null), null);
-  assert.deepEqual(pouchOf(0), { fill: 1, dim: false });
-  assert.deepEqual(pouchOf(80), { fill: 0.2, dim: true });
-  assert.deepEqual(pouchOf(130), { fill: 0, dim: true });
+test("pouchOf: this week's spend against the top project, dims at quota ≥ 80 %", () => {
+  assert.equal(pouchOf({ cost: 0, tokens: 0, maxCost: 10, maxTokens: 10, quotaPct: 50 }), null);
+  assert.deepEqual(pouchOf({ cost: 12.4, tokens: 1_000_000, maxCost: 24.8, maxTokens: 2_000_000, quotaPct: 63 }),
+    { fill: 0.5, dim: false, title: "≈ $12.40 this week · quota 63%" });
+  assert.equal(pouchOf({ cost: 5, tokens: 1, maxCost: 5, maxTokens: 1, quotaPct: 80 }).dim, true);
+  const u = pouchOf({ cost: 0, tokens: 1_200_000, maxCost: 0, maxTokens: 4_800_000, quotaPct: null });
+  assert.deepEqual(u, { fill: 0.25, dim: false, title: "1.2M tok this week" });
 });
 
 test("quotaOf takes the highest window utilisation; junk → null", () => {

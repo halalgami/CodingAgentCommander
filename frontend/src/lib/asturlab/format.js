@@ -21,3 +21,17 @@ export function fmtDelta(cur, prev) {
 }
 
 export const fmtHours = (ms) => ((Number(ms) || 0) / 3_600_000).toFixed(1) + " h";
+
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// fmtForecast: the quota card's pace line (spec §5).
+export function fmtForecast(iso, now = new Date(), note = "") {
+  if (iso) {
+    const d = new Date(iso);
+    if (d <= now) return "Limit reached";
+    return `At this pace: limit ${WD[d.getDay()]} ~${String(d.getHours()).padStart(2, "0")}:00`;
+  }
+  if (note === "resets first") return "Won't reach the limit before it resets";
+  if (note === "not rising") return "Not rising — no limit at this pace";
+  return "Not enough samples yet";
+}

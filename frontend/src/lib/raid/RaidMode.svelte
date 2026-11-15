@@ -3,17 +3,19 @@
   import { flip } from "svelte/animate";
   import RaidCard from "./RaidCard.svelte";
   import { bandOf, density } from "../dashboard/rows.js";
+
   import { onMount } from "svelte";
-  import { app, fetchPlanUsage } from "../stores.svelte.js";
-  import { quotaOf } from "./looks.js";
+  import { app } from "../stores.svelte.js";
+  import { refreshQuota } from "../asturlab/quota.svelte.js";
+  import { world, ensureWorld, maxOf } from "../asturlab/world.svelte.js";
+
   let { rows, timeline, projects = [], progress = null, now, animate = true, onopen } = $props();
-  // The gold pouch reads account quota; fetch on entry (and every 5 min) so it shows without opening the usage drawer.
-  onMount(() => {
-    const load = () => fetchPlanUsage().then((u) => { const q = quotaOf(u); if (q != null) app.quotaPct = q; }).catch(() => {});
-    load();
-    const iv = setInterval(load, 300000);
-    return () => clearInterval(iv);
-  });
+  // The pouch dims on app.quotaPct; quota is checked once when Raid opens, never on a timer.
+  onMount(() => { refreshQuota(); });
+  // This week's usage (spec §6), refreshed at most once a minute while open.
+  const minute = $derived(Math.floor(now / 60000));
+  $effect(() => { void minute; ensureWorld(Date.now()); });
+  const maxes = $derived({ maxCost: maxOf(world.projects, "cost"), maxTokens: maxOf(world.projects, "tokens") });
   const bands = [
     { id: "needs", label: "Needs you" },
     { id: "working", label: "Working" },
@@ -34,7 +36,7 @@
         <div class="grid">
           {#each items as row (row.key)}
             <div animate:flip={{ duration: 260 }}>
-              <RaidCard {row} latest={latestOf(row.projectKey)} events={timeline[row.id] || []} {now} {hour} {animate} density={d} {progress} quotaPct={app.quotaPct} {onopen} />
+              <RaidCard {row} latest={latestOf(row.projectKey)} events={timeline[row.id] || []} {now} {hour} {animate} density={d} {progress} quotaPct={app.quotaPct} spend={world.projects[row.projectKey]} {maxes} {onopen} />
             </div>
           {/each}
         </div>

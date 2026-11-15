@@ -13,11 +13,13 @@
   import { lootOf } from "../raid/looks.js";
   import { raid } from "../raid/custom.svelte.js";
   import { labelOf } from "../dashboard/label.js";
-  import { shipOf, shipName, encounterOf, actionOf, wingOf, stateOf, veteranOf, fuelOf, spaceOf, fleetMotion } from "./fleet.js";
+  import { shipOf, shipName, encounterOf, actionOf, wingOf, stateOf, veteranOf, fuelOf, spaceOf, fleetMotion, hullGlowOf } from "./fleet.js";
+  import { world } from "../asturlab/world.svelte.js";
   import { shipArt, captainArt, captainFallback, craftArt, encounterArt, spaceArt, fxArt, BLEND } from "./art.js";
   let { row, latest = null, events = [], now, hour, animate = true, density = "standard", onopen } = $props();
   const s = $derived(shipOf(row, raid.pack));
   const name = $derived(shipName(row));
+  const glow = $derived(hullGlowOf(world.models[row.model]?.share));
   const enc = $derived(encounterOf(row, latest));
   const b = $derived(battleOf(row, events, now));
   const st = $derived(stateOf(b.state));
@@ -64,7 +66,7 @@
   <div class="task">{label.task}</div>
 
   <div class="stage">
-    <div class="ship" class:bob={animate && st === "engage"} class:jumping data-testid="fleet-ship" data-ship={s.id}>
+    <div class="ship glow-{glow.level}" class:bob={animate && st === "engage"} class:jumping data-testid="fleet-ship" data-ship={s.id} data-glow={glow.level} title={glow.level ? glow.title : undefined}>
       {#if vet.length}
         <span class="vet" class:pulse={mo.glowPulse} class:trim={vet.includes("trim")} data-testid="fleet-veteran" data-vet={vet.join(" ")}></span>
       {/if}
@@ -152,6 +154,9 @@
   .hero .stage { height: 340px; }
   .compact .stage { height: 80px; grid-template-columns: 1fr; }
   .ship { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tint) 50%, transparent)); }
+  .ship.glow-1 { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tint) 60%, transparent)); }
+  .ship.glow-2 { filter: drop-shadow(0 0 12px color-mix(in srgb, var(--tint) 75%, transparent)); }
+  .ship.glow-3 { filter: drop-shadow(0 0 16px color-mix(in srgb, var(--tint) 95%, transparent)) brightness(1.12); }
   .ship.bob { animation: bob 3s ease-in-out infinite; }
   .vet { position: absolute; left: 4%; top: 30%; width: 22%; height: 40%; border-radius: 50%; pointer-events: none;
     background: radial-gradient(circle, color-mix(in srgb, var(--tint) 70%, transparent), transparent 70%); opacity: 0.7; }

@@ -1,6 +1,6 @@
 // Al Asturlab state + loaders. Every number comes from the Go stats engine;
 // nothing here aggregates ledger data.
-import { Stats, StatsOverview, StatsModels, ExportStats, PlanUsage } from "../../../wailsjs/go/main/App.js";
+import { Stats, StatsOverview, StatsModels, ExportStats } from "../../../wailsjs/go/main/App.js";
 import { rangeFor, addDays } from "./range.js";
 
 export const ast = $state({
@@ -8,7 +8,7 @@ export const ast = $state({
   unit: "tokens", split: "model",
   view: null, // null | { project, label } | { model }
   locked: false, loading: false, error: "",
-  overview: { cur: {}, prev: {} }, spend: [], projects: [], punch: [], calendar: [], tools: [], models: [], usage: null,
+  overview: { cur: {}, prev: {} }, spend: [], projects: [], punch: [], calendar: [], tools: [], models: [], providers: [],
   pricedAt: "", stale: false,
 });
 
@@ -29,6 +29,7 @@ export function queries(r, filter = {}) {
     punch: { ...base, groupBy: "weekday-hour", metric: "turns" },
     calendar: { ...filter, from: addDays(r.to, -(weeks * 7 - 1)), to: r.to, groupBy: "day", metric: "tokens" },
     tools: { ...base, groupBy: "tool", metric: "turns" },
+    providers: { ...base, groupBy: "provider", metric: "tokens" },
   };
 }
 
@@ -41,16 +42,16 @@ export async function load(filter = {}) {
     const ov = await StatsOverview(r.from, r.to);
     if (my !== seq) return;
     ast.locked = !!ov?.locked;
-    if (ast.locked) { ast.usage = await PlanUsage().catch(() => null); return; }
+    if (ast.locked) return;
     ast.overview = ov.overview;
     const q = queries(r, filter);
-    const [spend, projects, punch, calendar, tools, models, usage] = await Promise.all([
+    const [spend, projects, punch, calendar, tools, models, providers] = await Promise.all([
       run(q.spend), run(q.projects), run(q.punch), run(q.calendar), run(q.tools),
       StatsModels(r.from, r.to, filter.project || "").catch(() => []),
-      PlanUsage().catch(() => null),
+      run(q.providers),
     ]);
     if (my !== seq) return;
-    Object.assign(ast, { spend, projects, punch, calendar, tools, models: filter.model ? models.filter((m) => m.model === filter.model) : models, usage });
+    Object.assign(ast, { spend, projects, punch, calendar, tools, models: filter.model ? models.filter((m) => m.model === filter.model) : models, providers });
   } finally {
     if (my === seq) ast.loading = false;
   }

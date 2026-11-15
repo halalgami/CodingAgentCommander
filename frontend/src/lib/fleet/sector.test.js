@@ -1,7 +1,7 @@
 // frontend/src/lib/fleet/sector.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { systemsOf, SLOTS, placeSystems, stationOf, dockOf, geomOf, ordersStrip, chipText, fmtHours, headerOf, UNCHARTED } from "./sector.js";
+import { systemsOf, SLOTS, placeSystems, stationOf, dockOf, geomOf, ordersStrip, chipText, fmtHours, headerOf, UNCHARTED, fuelGaugeOf } from "./sector.js";
 
 const P = (key, hours, rank) => ({ key, label: key.toUpperCase(), hours, rank });
 const row = (key, projectKey, activity, sinceMs = 0, extra = {}) => ({ key, id: "s" + key, projectKey, project: projectKey || "tmp", activity, sinceMs, unread: false, crewOut: 0, ...extra });
@@ -168,4 +168,10 @@ test("layoutSystems: labels clear each station's selection ring", async () => {
       if (L) assert.ok(!hit(L.box, ring), `${q.key}'s label on ${p.key}'s ring`);
     }
   }
+});
+
+test("fuelGaugeOf: this week's tokens against the busiest project", () => {
+  assert.deepEqual(fuelGaugeOf(1_200_000, 2_400_000), { frac: 0.5, label: "1.2M tok this week" });
+  assert.equal(fuelGaugeOf(0, 100), null);
+  assert.equal(fuelGaugeOf(5, 0), null);
 });

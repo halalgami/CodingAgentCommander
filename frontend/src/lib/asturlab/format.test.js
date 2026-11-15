@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fmtTokens, fmtUSD, fmtDelta, fmtHours } from "./format.js";
+import { fmtTokens, fmtUSD, fmtDelta, fmtHours, fmtForecast } from "./format.js";
 
 test("tokens", () => {
   assert.equal(fmtTokens(950), "950");
@@ -20,3 +20,16 @@ test("delta", () => {
   assert.equal(fmtDelta(0, 0), "—");
 });
 test("hours", () => assert.equal(fmtHours(5_400_000), "1.5 h"));
+
+test("fmtForecast: weekday and hour rounded down, or why there is no forecast", () => {
+  const now = new Date(2026, 10, 15, 9, 0); // Sun
+  assert.equal(fmtForecast(new Date(2026, 10, 19, 14, 40).toISOString(), now), "At this pace: limit Thu ~14:00");
+  assert.equal(fmtForecast("", now, "resets first"), "Won't reach the limit before it resets");
+  assert.equal(fmtForecast("", now, "not enough samples"), "Not enough samples yet");
+});
+
+test("fmtForecast: a reached limit and a flat window say so (review #2, #3)", () => {
+  const now = new Date(2026, 10, 15, 9, 0);
+  assert.equal(fmtForecast(new Date(2026, 10, 15, 8, 50).toISOString(), now), "Limit reached");
+  assert.equal(fmtForecast("", now, "not rising"), "Not rising — no limit at this pace");
+});

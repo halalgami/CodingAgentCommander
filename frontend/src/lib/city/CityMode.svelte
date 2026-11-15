@@ -12,6 +12,10 @@
   import { toScreen } from "./iso.js";
   import { dayPhase, weatherOf } from "./world.js";
   import { activityText } from "../activity.js";
+  import { dash } from "../dashboard/dash.svelte.js";
+  import { world, ensureWorld, maxOf } from "../asturlab/world.svelte.js";
+  import { pillarOf } from "../asturlab/worldmath.js";
+  import Treasury from "./Treasury.svelte";
 
   let { rows, timeline, city, now, animate = true, onopen, onzoom } = $props();
 
@@ -39,6 +43,11 @@
   const scene = $derived({ districts: base.districts, items: base.items, sites: live.sites });
   const phase = $derived(dayPhase(new Date(now)));
   const weather = $derived(weatherOf({ rows, quotaPct: app.quotaPct, now }));
+  // Economy view (E, spec §6): last-7-days usage, loaded only while it is on and
+  // refreshed when the city changes (ledger write), at most every 10 s.
+  $effect(() => { void city; if (dash.economy) ensureWorld(Date.now()); });
+  const maxTok = $derived(maxOf(world.projects, "tokens"));
+  const liveOf = (key) => rows.filter((r) => r.projectKey === key).length;
   // A string, so equal bounds from a new tick do not refit the camera.
   const boundsKey = $derived(JSON.stringify(live.bounds));
   const camera = $derived(cam || fit(JSON.parse(boundsKey), vw, vh));
@@ -161,6 +170,7 @@
     else if (e.key === "+" || e.key === "=") zoomBy(1.25);
     else if (e.key === "-") zoomBy(0.8);
     else if (e.key === "0") fitView();
+    else if (e.key === "e" || e.key === "E") { dash.economy = !dash.economy; e.preventDefault(); }
   }
   const plateAt = (pack) => { const p = toScreen(pack.x0 + pack.land / 2, pack.y0 + pack.land); return view(p.sx, p.sy); };
   // centreOf: a plate's centre relative to the city, where CodeCity grows from.
@@ -203,6 +213,21 @@
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div class="overlay" bind:this={overlay} data-testid="city-overlay" role="region" aria-label="Al Modon" tabindex="-1" onkeydown={keys} onwheel={wheel}>
     {#if city?.locked}<div class="note" data-testid="city-locked">Turn on project history to keep your city — only live sites are shown.</div>{/if}
+    <button class="econ" data-testid="city-economy" aria-pressed={dash.economy} title="Economy view (E)" onclick={() => (dash.economy = !dash.economy)}>Economy</button>
+    {#if dash.economy}
+      {#if city?.locked}<div class="note econ-note" data-testid="city-economy-locked">Turn on project history to see each district's usage.</div>{/if}
+      <Treasury />
+      {#each scene.districts as { d, pack } (d.key)}
+        {@const pl = pillarOf(world.projects[d.key], maxTok)}
+        {#if pl}
+          {@const p = plateAt(pack)}
+          <div class="pillar" data-testid="city-pillar" data-key={d.key} data-h={pl.h} title="{d.label} · {pl.label} · last 7 days"
+            style="left:{p.vx}px;top:{p.vy - pl.h - 4}px;height:{pl.h}px;opacity:{pl.alpha}">
+            <span class="pl">{pl.label}{#if liveOf(d.key)} · ● {liveOf(d.key)} live{/if}</span>
+          </div>
+        {/if}
+      {/each}
+    {/if}
     {#each scene.districts as { d, pack } (d.key)}
       {@const p = plateAt(pack)}
       <button class="plate" class:ruins={d.ruins} data-testid="city-plate" style="left:{p.vx}px;top:{p.vy}px"
@@ -286,4 +311,9 @@
   .note { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--surface-1); color: var(--text-1); border-radius: 6px; padding: 4px 10px; font-size: var(--fs-0); }
   .list { position: absolute; inset: 0; overflow: auto; padding: var(--sp-4); margin: 0; color: var(--text-0); background: var(--surface-0); }
   @keyframes beacon { 50% { opacity: 0.45; } }
+  .econ { position: absolute; right: 12px; top: 12px; z-index: 3; background: rgba(12,14,20,0.8); color: var(--text-0); border: 1px solid var(--border-0); border-radius: var(--r-1); padding: 3px 10px; font-size: var(--fs-0); cursor: pointer; }
+  .econ[aria-pressed="true"] { background: var(--accent); color: var(--surface-0); }
+  .econ-note { top: 44px; }
+  .pillar { position: absolute; width: 10px; transform: translateX(-50%); border-radius: 4px 4px 0 0; background: linear-gradient(to top, rgba(255,196,64,0.25), rgba(255,214,110,0.95)); box-shadow: 0 0 10px rgba(255,200,80,0.6); pointer-events: auto; z-index: 2; }
+  .pillar .pl { position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -2px); white-space: nowrap; font-size: 11px; color: #fff; background: rgba(0,0,0,0.6); padding: 1px 5px; border-radius: 4px; }
 </style>

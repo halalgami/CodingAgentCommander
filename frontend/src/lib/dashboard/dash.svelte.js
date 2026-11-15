@@ -1,5 +1,6 @@
 // Dashboard state: live sessions, timelines, projects and progress, fed by a
 // DashSnapshot on show and dash:tick while shown (spec §4.3).
+import { initQuota } from "../asturlab/quota.svelte.js";
 import { tick } from "svelte";
 import { EventsOn } from "../../../wailsjs/runtime/runtime.js";
 import { DashSnapshot, Progress, PowerState, CityView, CodeView } from "../../../wailsjs/go/main/App.js";
@@ -8,7 +9,7 @@ import { prefs, setPref } from "../prefs.svelte.js";
 import { appendEvents } from "./timeline.js";
 
 
-export const dash = $state({ live: [], timeline: {}, projects: [], progress: null, lowPower: false, city: { locked: false, districts: [] }, zoom: null });
+export const dash = $state({ live: [], timeline: {}, projects: [], progress: null, lowPower: false, city: { locked: false, districts: [] }, zoom: null, economy: false });
 
 export const isHome = () => app.view === "home" || !app.sessionKey;
 
@@ -104,6 +105,7 @@ export async function openRow(row) {
 }
 
 export function initDash() {
+  initQuota();
   try {
     EventsOn("dash:tick", applyTick);
     EventsOn("dash:city", () => {

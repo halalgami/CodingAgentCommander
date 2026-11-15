@@ -3,12 +3,16 @@
   import { flip } from "svelte/animate";
   import FleetPanel from "./FleetPanel.svelte";
   import { bandOf, density } from "../dashboard/rows.js";
+  import { world, ensureWorld } from "../asturlab/world.svelte.js";
   let { rows, timeline, projects = [], now, animate = true, onopen } = $props();
   const bands = [
     { id: "needs", label: "Awaiting orders" },
     { id: "working", label: "Engaged" },
     { id: "quiet", label: "Holding" },
   ];
+  // This week's usage (spec §6), refreshed at most once a minute while open.
+  const minute = $derived(Math.floor(now / 60000));
+  $effect(() => { void minute; ensureWorld(Date.now()); });
   const d = $derived(density(rows.length));
   const hour = $derived(new Date(now).getHours());
   const latestOf = (key) => projects.find((p) => p.key === key)?.latest || null;

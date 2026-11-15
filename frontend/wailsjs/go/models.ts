@@ -1813,6 +1813,165 @@ export namespace main {
 	        this.modelCnt = source["modelCnt"];
 	    }
 	}
+	export class ProviderQuota {
+	    provider: string;
+	    label: string;
+	    supported: boolean;
+	    windows: quota.Window[];
+	    at: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProviderQuota(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.provider = source["provider"];
+	        this.label = source["label"];
+	        this.supported = source["supported"];
+	        this.windows = this.convertValues(source["windows"], quota.Window);
+	        this.at = source["at"];
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class QuotaPoint {
+	    t: string;
+	    u: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new QuotaPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.t = source["t"];
+	        this.u = source["u"];
+	    }
+	}
+	export class WindowSeries {
+	    key: string;
+	    label: string;
+	    weekly: boolean;
+	    resetsAt: string;
+	    points: QuotaPoint[];
+	    forecast: string;
+	    note: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WindowSeries(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	        this.weekly = source["weekly"];
+	        this.resetsAt = source["resetsAt"];
+	        this.points = this.convertValues(source["points"], QuotaPoint);
+	        this.forecast = source["forecast"];
+	        this.note = source["note"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class QuotaHistoryView {
+	    windows: WindowSeries[];
+	    locked: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new QuotaHistoryView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.windows = this.convertValues(source["windows"], WindowSeries);
+	        this.locked = source["locked"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class QuotaNowView {
+	    providers: ProviderQuota[];
+	
+	    static createFrom(source: any = {}) {
+	        return new QuotaNowView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.providers = this.convertValues(source["providers"], ProviderQuota);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class RaidPackSummary {
 	    dir: string;
 	    name: string;
@@ -1969,6 +2128,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 
 }
 
@@ -2033,6 +2193,31 @@ export namespace progress {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace quota {
+	
+	export class Window {
+	    key: string;
+	    label: string;
+	    weekly: boolean;
+	    util: number;
+	    resetsAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Window(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	        this.weekly = source["weekly"];
+	        this.util = source["util"];
+	        this.resetsAt = source["resetsAt"];
+	    }
 	}
 
 }

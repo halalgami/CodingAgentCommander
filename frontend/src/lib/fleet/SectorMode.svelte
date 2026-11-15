@@ -1,16 +1,27 @@
 <!-- frontend/src/lib/fleet/SectorMode.svelte — Sector Map (phase 7c spec §4). Stations by rank, docked flagships, orders strip. -->
 <script>
   import { onMount } from "svelte";
-  import { MAP_W, MAP_H, SHIP_W, SHIP_H, CS_DY, systemsOf, layoutSystems, subOf, stationOf, ordersStrip, chipText, headerOf, offMapOf } from "./sector.js";
+  import { MAP_W, MAP_H, SHIP_W, SHIP_H, CS_DY, systemsOf, layoutSystems, subOf, stationOf, ordersStrip, chipText, headerOf, offMapOf, fuelGaugeOf } from "./sector.js";
   import { callsign } from "./cic.js";
   import { shipOf, CLASSES, ENCOUNTERS } from "./fleet.js";
   import { stationArt, spaceArt, shipArt, encounterArt } from "./art.js";
   import { bandOf } from "../dashboard/rows.js";
   import { raid } from "../raid/custom.svelte.js";
   import { isHome } from "../dashboard/dash.svelte.js";
+  import { world, ensureWorld, maxOf } from "../asturlab/world.svelte.js";
   let { rows, projects = [], progress = null, now, animate = true, onopen } = $props();
 
   const FONT = 16;
+  // This week's usage (spec §6), refreshed at most once a minute while open.
+  const minute = $derived(Math.floor(now / 60000));
+  $effect(() => { void minute; ensureWorld(Date.now()); });
+  const maxTok = $derived(maxOf(world.projects, "tokens"));
+  // Fuel ring: an arc from 12 o'clock, clockwise, frac of a full turn.
+  function arc(cx, cy, r, frac) {
+    if (frac >= 0.999) return `M${cx},${cy - r}a${r},${r} 0 1,1 0,${2 * r}a${r},${r} 0 1,1 0,${-2 * r}`;
+    const a = frac * 2 * Math.PI, x = cx + r * Math.sin(a), y = cy - r * Math.cos(a);
+    return `M${cx},${cy - r}A${r},${r} 0 ${frac > 0.5 ? 1 : 0},1 ${x.toFixed(1)},${y.toFixed(1)}`;
+  }
   const locked = $derived(!progress || progress.locked);
   const systems = $derived(systemsOf(progress, projects, rows));
   const layout = $derived(layoutSystems(systems, FONT));
@@ -71,10 +82,11 @@
   {/if}
   <svg class="map" viewBox="0 0 {MAP_W} {MAP_H}" preserveAspectRatio="xMidYMid meet" data-testid="sector-map" role="img" aria-label="Sector map">
     {#each placed as p (p.key)}
-      {@const s = p.g.station}{@const L = labels.get(p.key)}
+      {@const s = p.g.station}{@const L = labels.get(p.key)}{@const fuel = fuelGaugeOf(world.projects[p.key]?.tokens, maxTok)}
       <g data-testid="sector-system" data-key={p.key} data-rank={p.sys.rank} data-selected={String(selected === p.key)}>
         {#if s.halo}<circle cx={s.x} cy={s.y} r={s.size * 0.62} class="halo" data-testid="sector-halo" />{/if}
         {#if selected === p.key}<circle cx={s.x} cy={s.y} r={s.size * 0.7} class="sel" />{/if}
+        {#if fuel}<path d={arc(s.x, s.y, s.size * 0.58, fuel.frac)} class="fuel" data-testid="sector-fuel" data-key={p.key} data-frac={fuel.frac}><title>{p.sys.label} · {fuel.label}</title></path>{/if}
         <g class="st" role="button" tabindex="-1" onclick={() => (selected = p.key)} onkeydown={() => {}}>
           <title>{p.sys.label} · {sub(p.sys)}</title>
           <image href={stationArt(s.art)} x={s.x - s.size / 2} y={s.y - s.size / 2} width={s.size} height={s.size}
@@ -123,6 +135,7 @@
   .chip { flex: none; background: rgba(40, 28, 6, 0.85); color: var(--amb); border: 1px solid var(--amb); padding: 3px 10px; font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }
   .map { flex: 1; width: 100%; min-height: 0; }
   .st { cursor: pointer; }
+  .fuel { fill: none; stroke: #ffc24a; stroke-width: 3; stroke-linecap: round; opacity: 0.9; }
   .halo { fill: rgba(255, 210, 110, 0.12); stroke: #ffd36e; stroke-width: 2; }
   .sel { fill: none; stroke: #fff; stroke-width: 1.5; stroke-dasharray: 4 4; }
   .label { font-size: 16px; }

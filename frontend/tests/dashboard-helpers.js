@@ -26,11 +26,21 @@ export async function stubDash(page, { live = [], timeline = {}, windows = [{ wi
       Progress: async () => progress || ({ commander: { level: 3 }, projects: [{ key: "k1", rank: "Station" }], live: [{ sessionID: "s1", level: 7, title: "Adept" }], locked: false }),
       PowerState: async () => ({ lowPower: false }),
       PlanUsage: async () => window.__usage || null,
+      // Quota sampler: window.__quota (QuotaNow) or derived from __usage; history in __quotaHist[provider].
+      QuotaNow: async () => window.__quota || { providers: [
+        { provider: "anthropic", label: "Anthropic", supported: true, at: "", error: "",
+          windows: Object.entries(window.__usage || {}).filter(([, w]) => typeof w?.utilization === "number")
+            .map(([key, w]) => ({ key, label: key === "five_hour" ? "Session" : key, weekly: key.startsWith("seven_day"), util: w.utilization, resetsAt: w.resets_at || "" })) },
+        { provider: "bedrock", label: "Bedrock", supported: false, windows: [] },
+        { provider: "ollama-cloud", label: "Ollama Cloud", supported: false, windows: [] },
+        { provider: "opencode-go", label: "OpenCode Go", supported: false, windows: [] }] },
+      QuotaRefresh: async () => { window.__calls.push(["QuotaRefresh"]); return window.go.main.App.QuotaNow(); },
+      QuotaHistory: async (p) => { window.__calls.push(["QuotaHistory", p]); return window.__quotaHist?.[p] || { windows: [], locked: false }; },
       RaidPackInfo: async () => window.__raidPack || { dir: "", name: "", files: {}, heroines: {}, warnings: [] },
       SetLiveFocus: async () => {},
       // Al Asturlab: fixtures in window.__ast (see asturlab-fixtures.js), calls in __calls.
       Stats: async (q) => { window.__calls.push(["Stats", q]); const f = window.__ast; if (!f) return { rows: [], pricedAt: "2026-10-06", stale: false };
-        return { rows: (f.rows[q.groupBy + (q.split ? ":" + q.split : "")] || []).map((r) => ({ ...r })), pricedAt: f.pricedAt || "2026-10-06", stale: !!f.stale }; },
+        return { rows: (f.rows[q.groupBy + "|" + q.metric] || f.rows[q.groupBy + (q.split ? ":" + q.split : "")] || []).map((r) => ({ ...r })), pricedAt: f.pricedAt || "2026-10-06", stale: !!f.stale }; },
       StatsOverview: async (from, to) => { window.__calls.push(["StatsOverview", from, to]); return window.__ast?.overview || { locked: true, overview: { cur: {}, prev: {} } }; },
       StatsModels: async (from, to, project) => { window.__calls.push(["StatsModels", from, to, project]); return window.__ast?.models || []; },
       ProjectMetrics: async (key) => { window.__calls.push(["ProjectMetrics", key]); return window.__metrics || { files: {}, snapshots: [] }; },
