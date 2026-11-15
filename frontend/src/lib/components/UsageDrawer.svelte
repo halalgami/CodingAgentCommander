@@ -1,12 +1,11 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import Drawer from "./Drawer.svelte";
   import { app, fetchPlanUsage } from "../stores.svelte.js";
 
   let usage = $state(null);
   let error = $state("");
   let loading = $state(false);
-  let iv;
 
   async function refresh() {
     loading = true;
@@ -19,11 +18,8 @@
     loading = false;
   }
 
-  onMount(() => {
-    refresh();
-    iv = setInterval(refresh, 60_000); // limits move slowly; minute poll while open
-  });
-  onDestroy(() => clearInterval(iv));
+  // Asked once when the drawer opens, never on a timer (owner, 2026-11-15).
+  onMount(refresh);
 
   const session = $derived(usage?.windows.filter((w) => !w.weekly) ?? []);
   const weekly = $derived(usage?.windows.filter((w) => w.weekly) ?? []);

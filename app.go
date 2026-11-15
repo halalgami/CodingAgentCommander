@@ -142,13 +142,10 @@ type App struct {
 	// runtimeInstalling guards against overlapping first-run LiteLLM installs
 	// (a double-clicked Install button); a second call no-ops while one runs.
 	runtimeInstalling atomic.Bool
-	// discovering guards the Anthropic model-discovery pass. Three things can
-	// start one — launch, the daily ticker, and the drawer's refresh button —
-	// and two merging concurrently would race on a.cfg between read and persist.
+	// discovering guards the Anthropic model-discovery pass. Only the drawer's
+	// refresh button starts one now, but a double click must not merge twice
+	// concurrently (that would race on a.cfg between read and persist).
 	discovering atomic.Bool
-	// discoveryStop closes at shutdown to end the daily discovery ticker. Nil
-	// until startup runs, so shutdown must check before closing.
-	discoveryStop chan struct{}
 	// pwshInstalling does the same for the on-demand PowerShell 7 download,
 	// which matters more there: the archive is ~106 MB, so a double click would
 	// otherwise mean downloading it twice into the same staging directory.
@@ -586,9 +583,6 @@ func (a *App) settingsPath() string {
 // router, and clean up the generated router files so nothing lingers on disk.
 func (a *App) shutdown(ctx context.Context) {
 	overlayCloseFn()
-	if a.discoveryStop != nil {
-		close(a.discoveryStop)
-	}
 	a.ledger.stop()
 	_ = hookmgr.Remove(a.settingsPath())
 	if a.wsListener != nil {
@@ -724,10 +718,10 @@ func (a *App) startup(ctx context.Context) {
 		return
 	}
 	a.refreshAnthropicModels()
-	// Background: needs the network, and nothing downstream waits on it. Kept
-	// out of refreshAnthropicModels so that stays synchronous and testable.
-	go a.discoverAnthropicModels()
-	a.startDiscoveryLoop()
+	// No live discovery here or on a timer (owner, 2026-11-15: no unnecessary
+	// calls with the Claude login). Anthropic is asked for new models only when
+	// the user presses Refresh in the Models drawer (RefreshModels); the
+	// built-in catalog above covers every model known at build time.
 	a.masterKey = randomHex(24)
 	a.wsToken = randomHex(24)
 	// Reap any litellm orphaned by a prior unclean exit before starting fresh.
@@ -761,10 +755,9 @@ func (a *App) startup(ctx context.Context) {
 // Two passes, for two different kinds of staleness. The built-in catalog merges
 // synchronously — no network — so the picker is right before the frontend's
 // first Config() call, and an install carrying a config written by an older
-// build picks up this release's models without hand-editing TOML. Then, if an
-// ANTHROPIC_API_KEY is in the environment, startup runs discovery in the
-// background for models released since the build, emitting models:updated so the
-// picker reloads.
+// build picks up this release's models without hand-editing TOML. Models
+// released since the build are found only when the user presses Refresh in the
+// Models drawer (RefreshModels → runDiscovery), never at startup.
 //
 // Add-only in both passes: a model the user renamed or repriced keeps their
 // edits, and only ids absent from the catalog are appended. Deletions survive
@@ -784,31 +777,6 @@ func (a *App) refreshAnthropicModels() {
 			a.reportError(fmt.Sprintf("model catalog could not be updated: %v", err))
 		}
 	}
-}
-
-// discoveryInterval is how often the catalog re-checks upstream while the app
-// is running. A day is matched to how fast the answer actually changes — model
-// launches are a monthly event, so polling hourly would be ~700 requests a year
-// to learn the same thing. Launch, this ticker, and the drawer's refresh button
-// between them mean no long-running install can drift more than a day stale.
-const discoveryInterval = 24 * time.Hour
-
-// startDiscoveryLoop re-runs discovery once a day until shutdown.
-func (a *App) startDiscoveryLoop() {
-	a.discoveryStop = make(chan struct{})
-	stop := a.discoveryStop
-	go func() {
-		t := time.NewTicker(discoveryInterval)
-		defer t.Stop()
-		for {
-			select {
-			case <-t.C:
-				a.discoverAnthropicModels()
-			case <-stop:
-				return
-			}
-		}
-	}()
 }
 
 // anthropicCredential resolves something to authenticate discovery with.
@@ -837,14 +805,6 @@ func (a *App) anthropicCredential() anthropic.Credential {
 // rather than fired off as a toast.
 func (a *App) RefreshModels() error {
 	return a.runDiscovery()
-}
-
-// discoverAnthropicModels is the background entry point: same work, errors
-// surfaced as notifications since nobody is waiting on a return value.
-func (a *App) discoverAnthropicModels() {
-	if err := a.runDiscovery(); err != nil {
-		a.reportError(err.Error())
-	}
 }
 
 // runDiscovery merges any models the available credential can see that the
