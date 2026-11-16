@@ -2536,6 +2536,300 @@ export namespace rates {
 
 }
 
+export namespace rooms {
+	
+	export class CodeView {
+	    code: string;
+	    net: string;
+	    expires: number;
+	    words?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CodeView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.net = source["net"];
+	        this.expires = source["expires"];
+	        this.words = source["words"];
+	    }
+	}
+	export class MsgView {
+	    ref: string;
+	    parent?: string;
+	    author: string;
+	    device: string;
+	    mine: boolean;
+	    kind: string;
+	    text: string;
+	    fields?: Record<string, string>;
+	    time: string;
+	    seen: boolean;
+	    delivery?: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new MsgView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ref = source["ref"];
+	        this.parent = source["parent"];
+	        this.author = source["author"];
+	        this.device = source["device"];
+	        this.mine = source["mine"];
+	        this.kind = source["kind"];
+	        this.text = source["text"];
+	        this.fields = source["fields"];
+	        this.time = source["time"];
+	        this.seen = source["seen"];
+	        this.delivery = source["delivery"];
+	    }
+	}
+	export class OutItem {
+	    ref: string;
+	    text: string;
+	    device: string;
+	    name: string;
+	    state: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OutItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ref = source["ref"];
+	        this.text = source["text"];
+	        this.device = source["device"];
+	        this.name = source["name"];
+	        this.state = source["state"];
+	    }
+	}
+	export class PeerView {
+	    device: string;
+	    name: string;
+	    mine: boolean;
+	    net: string;
+	    state: string;
+	    reason?: string;
+	    lastSeen?: number;
+	    head: number;
+	    waiting: number;
+	    rejected: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PeerView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.device = source["device"];
+	        this.name = source["name"];
+	        this.mine = source["mine"];
+	        this.net = source["net"];
+	        this.state = source["state"];
+	        this.reason = source["reason"];
+	        this.lastSeen = source["lastSeen"];
+	        this.head = source["head"];
+	        this.waiting = source["waiting"];
+	        this.rejected = source["rejected"];
+	    }
+	}
+	export class Pending {
+	    kind: string;
+	    name: string;
+	    words: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Pending(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.name = source["name"];
+	        this.words = source["words"];
+	    }
+	}
+	export class RoomSummary {
+	    id: string;
+	    name: string;
+	    project: string;
+	    folder: string;
+	    owner: boolean;
+	    unread: number;
+	    queued: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RoomSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.project = source["project"];
+	        this.folder = source["folder"];
+	        this.owner = source["owner"];
+	        this.unread = source["unread"];
+	        this.queued = source["queued"];
+	    }
+	}
+	export class Thread {
+	    root: MsgView;
+	    replies: MsgView[];
+	    last: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Thread(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = this.convertValues(source["root"], MsgView);
+	        this.replies = this.convertValues(source["replies"], MsgView);
+	        this.last = source["last"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RoomView {
+	    id: string;
+	    name: string;
+	    project: string;
+	    folder: string;
+	    owner: boolean;
+	    unread: number;
+	    queued: number;
+	    threads: Thread[];
+	    peers: PeerView[];
+	    outbox: OutItem[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RoomView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.project = source["project"];
+	        this.folder = source["folder"];
+	        this.owner = source["owner"];
+	        this.unread = source["unread"];
+	        this.queued = source["queued"];
+	        this.threads = this.convertValues(source["threads"], Thread);
+	        this.peers = this.convertValues(source["peers"], PeerView);
+	        this.outbox = this.convertValues(source["outbox"], OutItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class joinState {
+	    kind: string;
+	    net: string;
+	    words: string[];
+	    status: string;
+	    error?: string;
+	    room?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new joinState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.net = source["net"];
+	        this.words = source["words"];
+	        this.status = source["status"];
+	        this.error = source["error"];
+	        this.room = source["room"];
+	    }
+	}
+	export class Status {
+	    setUp: boolean;
+	    joining: boolean;
+	    first: boolean;
+	    name: string;
+	    device: string;
+	    tailscaleUp: boolean;
+	    pending?: Pending;
+	    join?: joinState;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.setUp = source["setUp"];
+	        this.joining = source["joining"];
+	        this.first = source["first"];
+	        this.name = source["name"];
+	        this.device = source["device"];
+	        this.tailscaleUp = source["tailscaleUp"];
+	        this.pending = this.convertValues(source["pending"], Pending);
+	        this.join = this.convertValues(source["join"], joinState);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+
+}
+
 export namespace router {
 	
 	export class RuntimeStatus {

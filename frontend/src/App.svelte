@@ -23,6 +23,9 @@
   import ModelsDrawer from "./lib/components/ModelsDrawer.svelte";
   import SettingsDrawer from "./lib/components/SettingsDrawer.svelte";
   import UsageDrawer from "./lib/components/UsageDrawer.svelte";
+  import RoomsDrawer from "./lib/rooms/RoomsDrawer.svelte";
+  import QuitGuard from "./lib/rooms/QuitGuard.svelte";
+  import { initRooms, unread as roomsUnread, queued as roomsQueued } from "./lib/rooms/rooms.svelte.js";
   import HistoryDrawer from "./lib/components/HistoryDrawer.svelte";
   import DocViewer from "./lib/components/DocViewer.svelte";
   import DocsDrawer from "./lib/components/DocsDrawer.svelte";
@@ -45,6 +48,7 @@
     EventsOn("menu:about", () => (app.about = true));
     EventsOn("models:updated", () => reloadModels());
     EventsOn("app:error", (msg) => toast(msg, "error"));
+    initRooms();
     EventsOn("session:autocont-gaveup", (e) => toast(gaveUpText(e)));
     // Errors from startup were held until now (an event then would be lost).
     try { TakeStartupErrors().then((list) => (list || []).forEach((m) => toast(m, "error"))).catch(() => {}); } catch {}
@@ -107,6 +111,7 @@
       <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
       <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
       <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>
+      <button data-testid="open-rooms" onclick={() => (app.drawer = "rooms")}>Rooms{#if roomsUnread()}<span class="rbadge" data-testid="rooms-badge">{roomsUnread()}</span>{/if}{#if roomsQueued()}<span class="rqueued" data-testid="rooms-queued-dot" title="Something you sent is only on this machine">●</span>{/if}</button>
       <button data-testid="open-settings" onclick={() => (app.drawer = "settings")}>Settings</button>
     </nav>
   </header>
@@ -170,6 +175,8 @@
   {#if app.drawer === "models"}<ModelsDrawer />{/if}
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
   {#if app.drawer === "usage"}<UsageDrawer />{/if}
+  {#if app.drawer === "rooms"}<RoomsDrawer />{/if}
+  <QuitGuard />
   {#if app.drawer === "history"}<HistoryDrawer />{/if}
   {#if app.drawer === "docview"}<DocViewer />{/if}
   {#if app.drawer === "docs"}<DocsDrawer />{/if}
@@ -214,6 +221,8 @@
     white-space: nowrap;
   }
   .nav button:hover { color: var(--text-0); background: var(--surface-2); }
+  .rbadge { margin-left: 4px; padding: 0 5px; border-radius: 8px; background: var(--accent, #3987e5); color: #fff; font-size: 10px; }
+  .rqueued { margin-left: 3px; color: #c98500; font-size: 9px; }
   .palette-hint {
     --wails-draggable: no-drag;
     margin-left: var(--sp-4); display: flex; align-items: center; gap: var(--sp-2);

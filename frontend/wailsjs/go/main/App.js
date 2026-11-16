@@ -18,12 +18,20 @@ export function AsturlabSettings() {
   return window['go']['main']['App']['AsturlabSettings']();
 }
 
+export function BindRoomFolder(arg1, arg2) {
+  return window['go']['main']['App']['BindRoomFolder'](arg1, arg2);
+}
+
 export function Briefing() {
   return window['go']['main']['App']['Briefing']();
 }
 
 export function BrowseCompanionPack() {
   return window['go']['main']['App']['BrowseCompanionPack']();
+}
+
+export function CancelCode() {
+  return window['go']['main']['App']['CancelCode']();
 }
 
 export function CancelPackGen() {
@@ -68,6 +76,14 @@ export function CompanionState() {
 
 export function Config() {
   return window['go']['main']['App']['Config']();
+}
+
+export function ConfirmCode(arg1) {
+  return window['go']['main']['App']['ConfirmCode'](arg1);
+}
+
+export function CreateRoom(arg1, arg2) {
+  return window['go']['main']['App']['CreateRoom'](arg1, arg2);
 }
 
 export function DashSnapshot() {
@@ -170,6 +186,14 @@ export function InstallPwsh() {
   return window['go']['main']['App']['InstallPwsh']();
 }
 
+export function InviteCode(arg1, arg2) {
+  return window['go']['main']['App']['InviteCode'](arg1, arg2);
+}
+
+export function JoinCode(arg1, arg2) {
+  return window['go']['main']['App']['JoinCode'](arg1, arg2);
+}
+
 export function KeyStatus() {
   return window['go']['main']['App']['KeyStatus']();
 }
@@ -226,6 +250,10 @@ export function LoadCompanionPack() {
   return window['go']['main']['App']['LoadCompanionPack']();
 }
 
+export function MarkRoomSeen(arg1, arg2) {
+  return window['go']['main']['App']['MarkRoomSeen'](arg1, arg2);
+}
+
 export function Models() {
   return window['go']['main']['App']['Models']();
 }
@@ -258,6 +286,10 @@ export function PackGenStyles() {
   return window['go']['main']['App']['PackGenStyles']();
 }
 
+export function PairCode(arg1) {
+  return window['go']['main']['App']['PairCode'](arg1);
+}
+
 export function PasteClipboardFiles(arg1) {
   return window['go']['main']['App']['PasteClipboardFiles'](arg1);
 }
@@ -278,12 +310,20 @@ export function PickPackGenBase() {
   return window['go']['main']['App']['PickPackGenBase']();
 }
 
+export function PickRoomFolder() {
+  return window['go']['main']['App']['PickRoomFolder']();
+}
+
 export function PinProject(arg1, arg2) {
   return window['go']['main']['App']['PinProject'](arg1, arg2);
 }
 
 export function PlanUsage() {
   return window['go']['main']['App']['PlanUsage']();
+}
+
+export function PostRoomMessage(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['PostRoomMessage'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function PowerState() {
@@ -300,6 +340,14 @@ export function ProjectMetrics(arg1) {
 
 export function ProjectSessions(arg1, arg2, arg3) {
   return window['go']['main']['App']['ProjectSessions'](arg1, arg2, arg3);
+}
+
+export function QueuedCount() {
+  return window['go']['main']['App']['QueuedCount']();
+}
+
+export function QuitAnyway() {
+  return window['go']['main']['App']['QuitAnyway']();
 }
 
 export function QuotaHistory(arg1, arg2) {
@@ -358,6 +406,22 @@ export function ResetRaidImage(arg1) {
   return window['go']['main']['App']['ResetRaidImage'](arg1);
 }
 
+export function RoomView(arg1) {
+  return window['go']['main']['App']['RoomView'](arg1);
+}
+
+export function Rooms() {
+  return window['go']['main']['App']['Rooms']();
+}
+
+export function RoomsSetup(arg1, arg2) {
+  return window['go']['main']['App']['RoomsSetup'](arg1, arg2);
+}
+
+export function RoomsStatus() {
+  return window['go']['main']['App']['RoomsStatus']();
+}
+
 export function RunBriefing() {
   return window['go']['main']['App']['RunBriefing']();
 }
@@ -408,6 +472,10 @@ export function SetAsturlabSettings(arg1) {
 
 export function SetCompanionKind(arg1) {
   return window['go']['main']['App']['SetCompanionKind'](arg1);
+}
+
+export function SetDeviceNetwork(arg1, arg2) {
+  return window['go']['main']['App']['SetDeviceNetwork'](arg1, arg2);
 }
 
 export function SetImagegenKey(arg1, arg2) {

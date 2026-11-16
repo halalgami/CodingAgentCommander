@@ -4,6 +4,7 @@ import {main} from '../models';
 import {rates} from '../models';
 import {city} from '../models';
 import {codecity} from '../models';
+import {rooms} from '../models';
 import {deps} from '../models';
 import {bedrock} from '../models';
 import {zen} from '../models';
@@ -20,9 +21,13 @@ export function AskStats(arg1:string):Promise<main.AskView>;
 
 export function AsturlabSettings():Promise<rates.Settings>;
 
+export function BindRoomFolder(arg1:string,arg2:string):Promise<void>;
+
 export function Briefing():Promise<main.BriefingView>;
 
 export function BrowseCompanionPack():Promise<main.PackBrowse>;
+
+export function CancelCode():Promise<void>;
 
 export function CancelPackGen():Promise<main.PackGenState>;
 
@@ -45,6 +50,10 @@ export function CodeView(arg1:string):Promise<codecity.CodeView>;
 export function CompanionState():Promise<main.CompanionState>;
 
 export function Config():Promise<Array<main.ModelInfo>>;
+
+export function ConfirmCode(arg1:boolean):Promise<void>;
+
+export function CreateRoom(arg1:string,arg2:string):Promise<rooms.RoomSummary>;
 
 export function DashSnapshot():Promise<main.DashSnapshot>;
 
@@ -96,6 +105,10 @@ export function InstallLitellmRuntime():Promise<void>;
 
 export function InstallPwsh():Promise<void>;
 
+export function InviteCode(arg1:string,arg2:string):Promise<rooms.CodeView>;
+
+export function JoinCode(arg1:string,arg2:string):Promise<rooms.CodeView>;
+
 export function KeyStatus():Promise<Array<main.KeyInfo>>;
 
 export function KillSession(arg1:string):Promise<void>;
@@ -124,6 +137,8 @@ export function LitellmRuntimeStatus():Promise<router.RuntimeStatus>;
 
 export function LoadCompanionPack():Promise<main.Pack>;
 
+export function MarkRoomSeen(arg1:string,arg2:string):Promise<void>;
+
 export function Models():Promise<Array<main.ModelDetail>>;
 
 export function OpenProjectDoc(arg1:string,arg2:string):Promise<void>;
@@ -140,6 +155,8 @@ export function PackGenStatus():Promise<main.PackGenState>;
 
 export function PackGenStyles():Promise<Array<main.PackGenStyle>>;
 
+export function PairCode(arg1:string):Promise<rooms.CodeView>;
+
 export function PasteClipboardFiles(arg1:string):Promise<main.AttachResult>;
 
 export function PickAttachFiles():Promise<Array<string>>;
@@ -150,9 +167,13 @@ export function PickFolder():Promise<string>;
 
 export function PickPackGenBase():Promise<string>;
 
+export function PickRoomFolder():Promise<string>;
+
 export function PinProject(arg1:string,arg2:boolean):Promise<void>;
 
 export function PlanUsage():Promise<main.PlanUsage>;
+
+export function PostRoomMessage(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Record<string, string>):Promise<void>;
 
 export function PowerState():Promise<main.PowerInfo>;
 
@@ -161,6 +182,10 @@ export function Progress():Promise<main.ProgressView>;
 export function ProjectMetrics(arg1:string):Promise<main.ProjectMetricsView>;
 
 export function ProjectSessions(arg1:string,arg2:string,arg3:string):Promise<Array<main.SessionRow>>;
+
+export function QueuedCount():Promise<number>;
+
+export function QuitAnyway():Promise<void>;
 
 export function QuotaHistory(arg1:string,arg2:number):Promise<main.QuotaHistoryView>;
 
@@ -190,6 +215,14 @@ export function ReplaceRaidImageFrom(arg1:string,arg2:string):Promise<main.RaidP
 
 export function ResetRaidImage(arg1:string):Promise<main.RaidPackView>;
 
+export function RoomView(arg1:string):Promise<rooms.RoomView>;
+
+export function Rooms():Promise<Array<rooms.RoomSummary>>;
+
+export function RoomsSetup(arg1:boolean,arg2:string):Promise<void>;
+
+export function RoomsStatus():Promise<rooms.Status>;
+
 export function RunBriefing():Promise<main.BriefingView>;
 
 export function SaveClipboardImage(arg1:string,arg2:string):Promise<string>;
@@ -215,6 +248,8 @@ export function SessionStats(arg1:string):Promise<main.SessionStats>;
 export function SetAsturlabSettings(arg1:rates.Settings):Promise<void>;
 
 export function SetCompanionKind(arg1:string):Promise<void>;
+
+export function SetDeviceNetwork(arg1:string,arg2:string):Promise<void>;
 
 export function SetImagegenKey(arg1:string,arg2:string):Promise<void>;
 

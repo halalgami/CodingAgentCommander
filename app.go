@@ -118,10 +118,14 @@ type App struct {
 	// was a pair of tmux user options until psmux turned out not to scope them
 	// per window — see internal/winstate. Never nil: NewApp gives it a
 	// memory-only store so a not-yet-started App is still usable.
-	windows *winstate.Store
-	sidebar *sidebar.Store
-	stats   statsState // Al Asturlab (stats_bindings.go)
-	ai      aiState    // Al Asturlab AI features (asturlab_ai_bindings.go)
+	windows        *winstate.Store
+	sidebar        *sidebar.Store
+	stats          statsState // Al Asturlab (stats_bindings.go)
+	ai             aiState    // Al Asturlab AI features (asturlab_ai_bindings.go)
+	roomsSvc       roomsState // Commander rooms (rooms_bindings.go)
+	roomsListenIPs []string   // tests: 127.0.0.1
+	roomsQueued    func() int // tests
+	quitAnyway     atomic.Bool
 	// autocont counts auto-continue nudges per Claude session; hookHTTP is
 	// whether the installed Claude Code takes the http Stop hook (≥ 2.1.210).
 	autocont *autocont.Tracker
@@ -584,6 +588,7 @@ func (a *App) settingsPath() string {
 // router, and clean up the generated router files so nothing lingers on disk.
 func (a *App) shutdown(ctx context.Context) {
 	overlayCloseFn()
+	a.closeRooms()
 	a.ledger.stop()
 	_ = hookmgr.Remove(a.settingsPath())
 	if a.wsListener != nil {
@@ -745,6 +750,9 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.ledger.start(a.ctx)
 	a.startQuota(a.ctx)
+	if err := a.openRooms(); err != nil {
+		a.reportError("Rooms could not start: " + err.Error())
+	}
 	a.windows = winstate.Open(a.winStatePath())
 	a.sidebar = sidebar.Open(a.sidebarPath())
 	a.reconcile(a.reconcileWindows()) // adopt any windows surviving from a prior run
