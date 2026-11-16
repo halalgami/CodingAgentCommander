@@ -537,6 +537,46 @@ export namespace live {
 
 export namespace main {
 	
+	export class AskView {
+	    question: string;
+	    queries: stats.Query[];
+	    results: stats.Result[];
+	    answer: string;
+	    error?: string;
+	    disclosure: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AskView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.question = source["question"];
+	        this.queries = this.convertValues(source["queries"], stats.Query);
+	        this.results = this.convertValues(source["results"], stats.Result);
+	        this.answer = source["answer"];
+	        this.error = source["error"];
+	        this.disclosure = source["disclosure"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Rejection {
 	    name: string;
 	    reason: string;
@@ -606,6 +646,101 @@ export namespace main {
 		}
 	}
 	
+	export class BriefPoint {
+	    text: string;
+	    chart: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BriefPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.text = source["text"];
+	        this.chart = source["chart"];
+	    }
+	}
+	export class Brief {
+	    week: string;
+	    headline: string;
+	    points: BriefPoint[];
+	    model: string;
+	    at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Brief(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.week = source["week"];
+	        this.headline = source["headline"];
+	        this.points = this.convertValues(source["points"], BriefPoint);
+	        this.model = source["model"];
+	        this.at = source["at"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class BriefingView {
+	    locked: boolean;
+	    week: string;
+	    brief?: Brief;
+	    running: boolean;
+	    disclosure: string;
+	    askDisclosure: string;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BriefingView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.locked = source["locked"];
+	        this.week = source["week"];
+	        this.brief = this.convertValues(source["brief"], Brief);
+	        this.running = source["running"];
+	        this.disclosure = source["disclosure"];
+	        this.askDisclosure = source["askDisclosure"];
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class BuildInfo {
 	    version: string;
 	    commit: string;
@@ -2046,6 +2181,32 @@ export namespace main {
 	    }
 	}
 	
+	export class SessionRow {
+	    id: string;
+	    title: string;
+	    startedAt: number;
+	    endedAt: number;
+	    tokens: number;
+	    activeMs: number;
+	    commits: number;
+	    models: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.startedAt = source["startedAt"];
+	        this.endedAt = source["endedAt"];
+	        this.tokens = source["tokens"];
+	        this.activeMs = source["activeMs"];
+	        this.commits = source["commits"];
+	        this.models = source["models"];
+	    }
+	}
 	export class SessionStats {
 	    contextTokens: number;
 	    contextWindow: number;
@@ -2129,6 +2290,69 @@ export namespace main {
 		}
 	}
 	
+	
+	export class WrappedView {
+	    year: number;
+	    locked: boolean;
+	    empty: boolean;
+	    tokens: number;
+	    activeMs: number;
+	    commits: number;
+	    costUSD: number;
+	    pricedAt: string;
+	    topProjects: stats.Row[];
+	    biggestDay: stats.Row;
+	    models: stats.Row[];
+	    level: number;
+	    achievements: number;
+	    topShare: number;
+	    nightShare: number;
+	    title: string;
+	    years: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new WrappedView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.year = source["year"];
+	        this.locked = source["locked"];
+	        this.empty = source["empty"];
+	        this.tokens = source["tokens"];
+	        this.activeMs = source["activeMs"];
+	        this.commits = source["commits"];
+	        this.costUSD = source["costUSD"];
+	        this.pricedAt = source["pricedAt"];
+	        this.topProjects = this.convertValues(source["topProjects"], stats.Row);
+	        this.biggestDay = this.convertValues(source["biggestDay"], stats.Row);
+	        this.models = this.convertValues(source["models"], stats.Row);
+	        this.level = source["level"];
+	        this.achievements = source["achievements"];
+	        this.topShare = source["topShare"];
+	        this.nightShare = source["nightShare"];
+	        this.title = source["title"];
+	        this.years = source["years"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -2278,6 +2502,7 @@ export namespace rates {
 	export class Settings {
 	    overrides?: Record<string, Rate>;
 	    plans?: Record<string, Plan>;
+	    aiModel?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -2287,6 +2512,7 @@ export namespace rates {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.overrides = this.convertValues(source["overrides"], Rate, true);
 	        this.plans = this.convertValues(source["plans"], Plan, true);
+	        this.aiModel = source["aiModel"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

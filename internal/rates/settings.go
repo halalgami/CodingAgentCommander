@@ -15,6 +15,8 @@ type Plan struct {
 type Settings struct {
 	Overrides map[string]Rate `json:"overrides,omitempty"`
 	Plans     map[string]Plan `json:"plans,omitempty"`
+	// AIModel is the model Al Asturlab's AI features use ("" = haiku).
+	AIModel string `json:"aiModel,omitempty"`
 }
 
 // LoadSettings: missing → zero; corrupt → backed up to path+".corrupt", zero.

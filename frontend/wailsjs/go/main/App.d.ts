@@ -16,7 +16,11 @@ export function AddModel(arg1:main.ModelInput):Promise<void>;
 
 export function AddProvider(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function AskStats(arg1:string):Promise<main.AskView>;
+
 export function AsturlabSettings():Promise<rates.Settings>;
+
+export function Briefing():Promise<main.BriefingView>;
 
 export function BrowseCompanionPack():Promise<main.PackBrowse>;
 
@@ -156,6 +160,8 @@ export function Progress():Promise<main.ProgressView>;
 
 export function ProjectMetrics(arg1:string):Promise<main.ProjectMetricsView>;
 
+export function ProjectSessions(arg1:string,arg2:string,arg3:string):Promise<Array<main.SessionRow>>;
+
 export function QuotaHistory(arg1:string,arg2:number):Promise<main.QuotaHistoryView>;
 
 export function QuotaNow():Promise<main.QuotaNowView>;
@@ -184,9 +190,13 @@ export function ReplaceRaidImageFrom(arg1:string,arg2:string):Promise<main.RaidP
 
 export function ResetRaidImage(arg1:string):Promise<main.RaidPackView>;
 
+export function RunBriefing():Promise<main.BriefingView>;
+
 export function SaveClipboardImage(arg1:string,arg2:string):Promise<string>;
 
 export function SavePackGen():Promise<main.PackGenState>;
+
+export function SaveWrappedPNG(arg1:string):Promise<string>;
 
 export function ScanProject(arg1:string):Promise<void>;
 
@@ -243,3 +253,5 @@ export function TitleBarDoubleClick():Promise<void>;
 export function WSPort():Promise<number>;
 
 export function WSToken():Promise<string>;
+
+export function Wrapped(arg1:number):Promise<main.WrappedView>;

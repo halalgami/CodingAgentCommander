@@ -47,6 +47,13 @@ export async function stubDash(page, { live = [], timeline = {}, windows = [{ wi
       AsturlabSettings: async () => window.__astSettings || {},
       SetAsturlabSettings: async (s) => { window.__calls.push(["SetAsturlabSettings", s]); window.__astSettings = s; },
       ExportStats: async (...a) => { window.__calls.push(["ExportStats", ...a]); return "/tmp/x"; },
+      // Al Asturlab AI (phase 3): __brief (Briefing view), __briefRun (RunBriefing result), __askAns (AskStats), __wrapped[year], __sessions.
+      Briefing: async () => { window.__calls.push(["Briefing"]); return window.__brief || { locked: false, week: "2026-11-09", brief: null, running: false, disclosure: "Sends totals to haiku.", askDisclosure: "Sends your question to haiku." }; },
+      RunBriefing: async () => { window.__calls.push(["RunBriefing"]); const v = window.__briefRun || { locked: false, week: "2026-11-09", brief: { week: "2026-11-09", headline: "Busy week", points: [{ text: "Tokens up 20%", chart: "spend" }, { text: "Quiet Sunday", chart: "" }] }, disclosure: "Sends totals to haiku." }; window.__brief = v; return v; },
+      AskStats: async (q) => { window.__calls.push(["AskStats", q]); return window.__askAns || { question: q, answer: "Most tokens went to vat.", queries: [{ from: "2026-10-01", to: "2026-10-31", groupBy: "project", metric: "tokens" }], results: [{ rows: [{ key: "k1", label: "vat", value: 900 }, { key: "k2", label: "web", value: 300 }] }], disclosure: "Sends your question to haiku." }; },
+      Wrapped: async (y) => { window.__calls.push(["Wrapped", y]); return window.__wrapped?.[y] || { year: y, empty: true, years: [y], topProjects: [], models: [] }; },
+      SaveWrappedPNG: async (u) => { window.__calls.push(["SaveWrappedPNG", u.slice(0, 22)]); return "/tmp/w.png"; },
+      ProjectSessions: async (...a) => { window.__calls.push(["ProjectSessions", ...a]); return window.__sessions || []; },
     } } };
   }, { live, timeline, windows, stats, projects, progress });
 }

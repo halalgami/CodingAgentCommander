@@ -85,3 +85,12 @@ export function burnGeom(points, fromMs, toMs, w, h, forecastMs = null) {
   }
   return { path, forecast };
 }
+
+// miniTower: the project page's small Al Modon tower (spec §5). Same scale as
+// the economy view's pillars: 12–120 px by the project's share of the range's
+// biggest project, one floor per 12 px.
+export function miniTower(tokens, maxTokens) {
+  const s = maxTokens > 0 ? Math.max(0, Math.min(1, (Number(tokens) || 0) / maxTokens)) : 0;
+  const h = Math.round(12 + 108 * s);
+  return { h, floors: Math.max(1, Math.round(h / 12)), alpha: Math.round((0.35 + 0.65 * s) * 100) / 100 };
+}

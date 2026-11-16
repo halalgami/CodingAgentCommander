@@ -369,3 +369,18 @@ func TestParserBumpFoldsExistingGhostWithoutDoubling(t *testing.T) {
 		t.Fatalf("ghost after parser bump: %+v", ps)
 	}
 }
+
+// Review fix (phase 3): Al Asturlab's own headless model calls must never
+// become projects, even if a CLI version ignores --no-session-persistence.
+func TestListSkipsAsturlabModelCalls(t *testing.T) {
+	root := t.TempDir()
+	for _, d := range []string{"-private-var-folders-x-T-commander-askai-123", "-Users-me-proj"} {
+		os.MkdirAll(filepath.Join(root, d), 0o755)
+		os.WriteFile(filepath.Join(root, d, "s.jsonl"), []byte("{}\n"), 0o600)
+	}
+	in := &Ingester{Root: root}
+	got := in.list()
+	if len(got) != 1 || !strings.Contains(got[0].path, "-Users-me-proj") {
+		t.Fatalf("list = %+v", got)
+	}
+}

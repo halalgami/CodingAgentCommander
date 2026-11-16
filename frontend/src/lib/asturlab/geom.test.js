@@ -66,3 +66,12 @@ test("burnGeom forecast runs from the last point to 100 %, clipped at the right 
   const in_ = burnGeom([{ t: 0, u: 0 }, { t: 50, u: 50 }], 0, 100, 100, 100, 100);
   assert.deepEqual(in_.forecast, { x1: 50, y1: 50, x2: 100, y2: 0 });
 });
+
+test("miniTower: min height at 0, full at max, monotone, floors follow height", async () => {
+  const { miniTower } = await import("./geom.js");
+  assert.deepEqual(miniTower(0, 100), { h: 12, floors: 1, alpha: 0.35 });
+  const top = miniTower(100, 100);
+  assert.equal(top.h, 120); assert.equal(top.floors, 10); assert.equal(top.alpha, 1);
+  assert.ok(miniTower(30, 100).h < miniTower(60, 100).h);
+  assert.deepEqual(miniTower(5, 0), { h: 12, floors: 1, alpha: 0.35 });
+});

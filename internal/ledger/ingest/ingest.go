@@ -285,7 +285,9 @@ func (in *Ingester) list() []fileInfo {
 			return nil
 		}
 		if d.IsDir() {
-			if d.Name() == "memory" {
+			// commander-askai-: Al Asturlab's own headless model calls (askai)
+			// run in such a temp dir; they are not the user's work.
+			if d.Name() == "memory" || strings.Contains(d.Name(), "commander-askai-") {
 				return filepath.SkipDir
 			}
 			return nil

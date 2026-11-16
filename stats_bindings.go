@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -179,4 +180,57 @@ func encodeExport(kind, format string, days []stats.DayRow, rows []stats.Row) ([
 	}
 	w.Flush()
 	return buf.Bytes(), w.Error()
+}
+
+// SessionRow is one session on the project page (spec §5).
+type SessionRow struct {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	StartedAt int64    `json:"startedAt"`
+	EndedAt   int64    `json:"endedAt"`
+	Tokens    int64    `json:"tokens"`
+	ActiveMs  int64    `json:"activeMs"`
+	Commits   int64    `json:"commits"`
+	Models    []string `json:"models"`
+}
+
+// ProjectSessions lists a project's sessions with activity in [from, to]
+// (local days, "" = open), newest first, at most 50. Titles only while the
+// user lets history keep them.
+func (a *App) ProjectSessions(key, from, to string) []SessionRow {
+	st := a.ledger.currentStore()
+	out := []SessionRow{}
+	if st == nil {
+		return out
+	}
+	titles := st.Consent().StoreTitles
+	for _, s := range st.Sessions(key) {
+		r := SessionRow{ID: s.ID, StartedAt: s.StartedAt, EndedAt: s.EndedAt, Models: []string{}}
+		hit := false
+		for day, c := range s.Days {
+			if (from != "" && day < from) || (to != "" && day > to) {
+				continue
+			}
+			hit = true
+			r.Tokens += c.Tokens.Total()
+			r.ActiveMs += c.ActiveMs
+			r.Commits += c.Commits
+		}
+		if !hit {
+			continue
+		}
+		if titles {
+			r.Title = s.Title
+		}
+		for m := range s.Models {
+			r.Models = append(r.Models, m)
+		}
+		sort.Strings(r.Models)
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt > out[j].StartedAt })
+	if len(out) > 50 {
+		out = out[:50]
+	}
+	return out
 }

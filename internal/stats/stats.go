@@ -142,6 +142,10 @@ func validDay(s string) bool {
 	return err == nil
 }
 
+// Validate reports whether q is a query Run would accept (used to vet
+// model-written queries before anything runs).
+func Validate(q Query) error { return q.validate() }
+
 func (q Query) validate() error {
 	switch {
 	case !groupBys[q.GroupBy]:

@@ -121,6 +121,7 @@ type App struct {
 	windows *winstate.Store
 	sidebar *sidebar.Store
 	stats   statsState // Al Asturlab (stats_bindings.go)
+	ai      aiState    // Al Asturlab AI features (asturlab_ai_bindings.go)
 	// autocont counts auto-continue nudges per Claude session; hookHTTP is
 	// whether the installed Claude Code takes the http Stop hook (≥ 2.1.210).
 	autocont *autocont.Tracker

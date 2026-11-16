@@ -10,6 +10,9 @@
   import Chart from "./Chart.svelte";
   import ProjectPage from "./ProjectPage.svelte";
   import QuotaCard from "./QuotaCard.svelte";
+  import AiCard from "./AiCard.svelte";
+  import Wrapped from "./Wrapped.svelte";
+  let wrapped = $state(false);
   import { quota } from "./quota.svelte.js";
 
   const RANGES = [["today", "Today"], ["7d", "7 d"], ["30d", "30 d"], ["all", "All"]];
@@ -93,6 +96,7 @@
 </script>
 
 <div class="ast" data-testid="asturlab">
+  {#if wrapped}<Wrapped onclose={() => (wrapped = false)} />{/if}
   <div class="bar">
     <h2>Al Asturlab <span class="ar" lang="ar">الأسطرلاب</span></h2>
     {#if ast.view}
@@ -106,6 +110,7 @@
       <input type="date" aria-label="From" bind:value={ast.custom.from} onchange={setCustom} />
       <input type="date" aria-label="To" bind:value={ast.custom.to} onchange={setCustom} />
     </div>
+    <button data-testid="ast-wrapped-open" onclick={() => (wrapped = true)}>Wrapped</button>
     {#if !ast.locked}
       <span class="exp">Export <button data-testid="ast-export-csv" onclick={() => exportData("days", "csv")}>CSV</button><button data-testid="ast-export-json" onclick={() => exportData("days", "json")}>JSON</button></span>
     {/if}
@@ -188,6 +193,7 @@
 
       <div class="col">
         <QuotaCard seen={ast.providers.map((r) => r.key)} />
+        <AiCard />
 
         <Chart id="calendar" title="Calendar" sub={`${weeks} weeks · tokens`} tip={tips.calendar}
           columns={[{ key: "key", label: "Day" }, { label: "Tokens", num: true, fmt: (x) => fmtTokens(x.value) }]} rows={ast.calendar}
@@ -235,7 +241,7 @@
 </div>
 
 <style>
-  .ast { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); color: var(--text-0); min-height: 100%; box-sizing: border-box; }
+  .ast { position: relative; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); color: var(--text-0); min-height: 100%; box-sizing: border-box; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
   h2 { margin: 0; font-size: var(--fs-3); font-weight: 600; }
   .ar { color: var(--text-2); font-weight: 400; margin-left: 6px; }

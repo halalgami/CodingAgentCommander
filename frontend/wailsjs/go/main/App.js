@@ -10,8 +10,16 @@ export function AddProvider(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddProvider'](arg1, arg2, arg3);
 }
 
+export function AskStats(arg1) {
+  return window['go']['main']['App']['AskStats'](arg1);
+}
+
 export function AsturlabSettings() {
   return window['go']['main']['App']['AsturlabSettings']();
+}
+
+export function Briefing() {
+  return window['go']['main']['App']['Briefing']();
 }
 
 export function BrowseCompanionPack() {
@@ -290,6 +298,10 @@ export function ProjectMetrics(arg1) {
   return window['go']['main']['App']['ProjectMetrics'](arg1);
 }
 
+export function ProjectSessions(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ProjectSessions'](arg1, arg2, arg3);
+}
+
 export function QuotaHistory(arg1, arg2) {
   return window['go']['main']['App']['QuotaHistory'](arg1, arg2);
 }
@@ -346,12 +358,20 @@ export function ResetRaidImage(arg1) {
   return window['go']['main']['App']['ResetRaidImage'](arg1);
 }
 
+export function RunBriefing() {
+  return window['go']['main']['App']['RunBriefing']();
+}
+
 export function SaveClipboardImage(arg1, arg2) {
   return window['go']['main']['App']['SaveClipboardImage'](arg1, arg2);
 }
 
 export function SavePackGen() {
   return window['go']['main']['App']['SavePackGen']();
+}
+
+export function SaveWrappedPNG(arg1) {
+  return window['go']['main']['App']['SaveWrappedPNG'](arg1);
 }
 
 export function ScanProject(arg1) {
@@ -464,4 +484,8 @@ export function WSPort() {
 
 export function WSToken() {
   return window['go']['main']['App']['WSToken']();
+}
+
+export function Wrapped(arg1) {
+  return window['go']['main']['App']['Wrapped'](arg1);
 }
