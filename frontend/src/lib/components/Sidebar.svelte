@@ -14,6 +14,10 @@
   } from "../sidebarLayout.js";
   import { dropTarget, DRAG_THRESHOLD } from "../dragReorder.js";
   import { tick, untrack } from "svelte";
+  import { rooms, projectOf, openPanelFor } from "../rooms/rooms.svelte.js";
+  import { revealLabel } from "../rooms/rooms.js";
+  import { RevealFolder } from "../../../wailsjs/go/main/App.js";
+  import { toast } from "../stores.svelte.js";
 
   // An optional snippet rendered in the band beneath the session list. The
   // sidebar owns the layout; it deliberately knows nothing about what goes in
@@ -163,6 +167,8 @@
   // Card context menu: Move to group.
   let ctx = $state(null); // { x, y, windowID }
   function openCtx(e, windowID) { ctx = { x: e.clientX, y: e.clientY, windowID }; }
+  const ctxCwd = $derived(ctx ? cwdOf(ctx.windowID) : "");
+  const ctxRoom = $derived(projectOf(ctxCwd)?.roomId || "");
   $effect(() => {
     if (!ctx) return;
     const k = (e) => { if (e.key === "Escape") { e.stopPropagation(); ctx = null; } };
@@ -359,6 +365,15 @@
         <button role="menuitem" onclick={() => ctxMove(UNGROUPED)}>Ungrouped</button>
       {/if}
       <button role="menuitem" data-testid="card-menu-new" onclick={() => startNewGroup(ctx.windowID)}>New group…</button>
+      <div class="ctx-h">Project</div>
+      {#if ctxCwd}
+        <button role="menuitem" data-testid="ctx-share" onclick={() => {
+          const id = ctx.windowID, cwd = ctxCwd, room = ctxRoom; ctx = null;
+          if (room) openPanelFor(room);
+          else rooms.share = { windowID: id, cwd, label: projectOf(cwd)?.label || cwd.split(/[\\/]/).filter(Boolean).pop() };
+        }}>{ctxRoom ? "Open room" : "Share this project…"}</button>
+      {/if}
+      <button role="menuitem" data-testid="ctx-reveal" onclick={() => { const id = ctx.windowID; ctx = null; RevealFolder(id).catch((e) => toast(String(e?.message || e), "error")); }}>{revealLabel()}</button>
     </div>
   {/if}
   {#if dock}

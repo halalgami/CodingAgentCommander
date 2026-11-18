@@ -31,6 +31,15 @@ func (r *memRing) Get(s, u string) (string, error) {
 	return "", keyring.ErrNotFound
 }
 func (r *memRing) Set(s, u, v string) error { r.mu.Lock(); r.m[s+u] = v; r.mu.Unlock(); return nil }
+func (r *memRing) Delete(s, u string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.m[s+u]; !ok {
+		return keyring.ErrNotFound
+	}
+	delete(r.m, s+u)
+	return nil
+}
 
 type machine struct {
 	*Service
@@ -458,4 +467,7 @@ func TestWrongNetworkAttemptShownWithReason(t *testing.T) {
 		v, _ := c.View(r.ID)
 		return len(v.Peers) == 1 && strings.Contains(v.Peers[0].Reason, "Local network")
 	})
+	if v, _ := c.View(r.ID); v.Peers[0].Tried != "lan" {
+		t.Fatalf("tried = %q, want lan (the panel offers that switch, UX §6)", v.Peers[0].Tried)
+	}
 }

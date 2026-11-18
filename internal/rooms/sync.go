@@ -68,6 +68,9 @@ func lacking(l *roomlog.Lanes, heads map[string]int64) []roomlog.Entry {
 // member's first lane entry); entries refused for admission get one retry
 // after the room state is refreshed. Returns how many were new and rejected.
 func (s *Service) apply(r *room, es []roomlog.Entry) (added, rejected int) {
+	if r.gone {
+		return 0, 0
+	}
 	es = append([]roomlog.Entry(nil), es...)
 	sort.SliceStable(es, func(i, j int) bool {
 		if es[i].Lamport != es[j].Lamport {

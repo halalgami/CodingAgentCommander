@@ -42,6 +42,8 @@ type roomState struct {
 	// Owner is the owner's user key, known from the room id's genesis before
 	// any entry has synced (the id is bound to it, see roomlog.RoomIDOf).
 	Owner []byte `json:"owner"`
+	// Left: I left this colleague's room; my copy is read-only (UX spec §7).
+	Left bool `json:"left,omitempty"`
 }
 
 type room struct {
@@ -56,6 +58,8 @@ type room struct {
 
 	umu   sync.Mutex
 	users map[string]bool // users whose devices may open a lane (Admit)
+
+	gone bool // removed from this machine; in-flight syncs must not touch it (final review I8)
 }
 
 // stateLocked replays the room once per change of its lanes.
@@ -104,6 +108,8 @@ type Service struct {
 	Now       func() time.Time
 	ListenIPs []string // tests: 127.0.0.1
 	OnChange  func()
+	// OnConfirm is told when a machine waits for the 4-word check here.
+	OnConfirm func(Pending)
 	// TailscaleUp reports whether Tailscale runs (stubbed in tests).
 	TailscaleUp func() bool
 
@@ -124,6 +130,8 @@ type Service struct {
 	again    map[string]bool                        // device → sync again when done
 	stop     chan struct{}
 	stopped  bool
+	tombs    map[string]tomb // removed from this machine
+	joinStop context.CancelFunc
 }
 
 var roomIDRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -163,6 +171,8 @@ func (s *Service) Open() error {
 	s.observed = map[string]map[string]map[string]int64{}
 	s.running, s.again, s.rejected = map[string]bool{}, map[string]bool{}, map[string]int{}
 	readJSON(filepath.Join(s.Dir, "devices.json"), &s.devices)
+	s.tombs = map[string]tomb{}
+	readJSON(filepath.Join(s.Dir, "tombstones.json"), &s.tombs)
 	id, ok, err := s.ids.Load()
 	if err != nil {
 		return err
@@ -201,7 +211,7 @@ func (s *Service) saveDevicesLocked() { writeJSON(filepath.Join(s.Dir, "devices.
 func (s *Service) loadRoomsLocked() {
 	ents, _ := os.ReadDir(s.Dir)
 	for _, e := range ents {
-		if e.IsDir() && roomIDRe.MatchString(e.Name()) {
+		if _, gone := s.tombs[e.Name()]; e.IsDir() && roomIDRe.MatchString(e.Name()) && !gone {
 			s.openRoomLocked(e.Name())
 		}
 	}

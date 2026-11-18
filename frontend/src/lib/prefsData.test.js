@@ -50,6 +50,8 @@ test("defaults are the spec values", () => {
     collapsedProviders: [],
     // Dashboard (phase 4).
     dashMode: "triage", dashRiverWindow: 10, dashMotion: true,
+    // Rooms UX 1.5a: docked panel width.
+    roomPanelW: 360,
   });
 });
 

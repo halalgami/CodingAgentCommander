@@ -34,6 +34,10 @@ export function CancelCode() {
   return window['go']['main']['App']['CancelCode']();
 }
 
+export function CancelJoin() {
+  return window['go']['main']['App']['CancelJoin']();
+}
+
 export function CancelPackGen() {
   return window['go']['main']['App']['CancelPackGen']();
 }
@@ -64,6 +68,10 @@ export function ClearKey(arg1) {
 
 export function ClearRaidPack() {
   return window['go']['main']['App']['ClearRaidPack']();
+}
+
+export function CloseRoom(arg1) {
+  return window['go']['main']['App']['CloseRoom'](arg1);
 }
 
 export function CodeView(arg1) {
@@ -154,6 +162,10 @@ export function GetCompanionKind() {
   return window['go']['main']['App']['GetCompanionKind']();
 }
 
+export function HiddenRooms() {
+  return window['go']['main']['App']['HiddenRooms']();
+}
+
 export function ImportCompanionPack() {
   return window['go']['main']['App']['ImportCompanionPack']();
 }
@@ -210,6 +222,10 @@ export function LaunchSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['LaunchSession'](arg1, arg2, arg3);
 }
 
+export function LeaveRoom(arg1) {
+  return window['go']['main']['App']['LeaveRoom'](arg1);
+}
+
 export function LedgerStatus() {
   return window['go']['main']['App']['LedgerStatus']();
 }
@@ -248,6 +264,10 @@ export function LitellmRuntimeStatus() {
 
 export function LoadCompanionPack() {
   return window['go']['main']['App']['LoadCompanionPack']();
+}
+
+export function Machines() {
+  return window['go']['main']['App']['Machines']();
 }
 
 export function MarkRoomSeen(arg1, arg2) {
@@ -338,6 +358,10 @@ export function ProjectMetrics(arg1) {
   return window['go']['main']['App']['ProjectMetrics'](arg1);
 }
 
+export function ProjectRooms(arg1) {
+  return window['go']['main']['App']['ProjectRooms'](arg1);
+}
+
 export function ProjectSessions(arg1, arg2, arg3) {
   return window['go']['main']['App']['ProjectSessions'](arg1, arg2, arg3);
 }
@@ -382,6 +406,10 @@ export function RemoveProvider(arg1) {
   return window['go']['main']['App']['RemoveProvider'](arg1);
 }
 
+export function RemoveRoomLocal(arg1) {
+  return window['go']['main']['App']['RemoveRoomLocal'](arg1);
+}
+
 export function RenameProject(arg1, arg2) {
   return window['go']['main']['App']['RenameProject'](arg1, arg2);
 }
@@ -404,6 +432,18 @@ export function ReplaceRaidImageFrom(arg1, arg2) {
 
 export function ResetRaidImage(arg1) {
   return window['go']['main']['App']['ResetRaidImage'](arg1);
+}
+
+export function ResetRooms() {
+  return window['go']['main']['App']['ResetRooms']();
+}
+
+export function RestoreRoom(arg1) {
+  return window['go']['main']['App']['RestoreRoom'](arg1);
+}
+
+export function RevealFolder(arg1) {
+  return window['go']['main']['App']['RevealFolder'](arg1);
 }
 
 export function RoomView(arg1) {
@@ -514,6 +554,10 @@ export function SetSidebarLayout(arg1) {
   return window['go']['main']['App']['SetSidebarLayout'](arg1);
 }
 
+export function ShareProject(arg1) {
+  return window['go']['main']['App']['ShareProject'](arg1);
+}
+
 export function SidebarLayout() {
   return window['go']['main']['App']['SidebarLayout']();
 }
@@ -532,6 +576,10 @@ export function StatsModels(arg1, arg2, arg3) {
 
 export function StatsOverview(arg1, arg2) {
   return window['go']['main']['App']['StatsOverview'](arg1, arg2);
+}
+
+export function SuggestFolders(arg1) {
+  return window['go']['main']['App']['SuggestFolders'](arg1);
 }
 
 export function SwapModel(arg1, arg2) {

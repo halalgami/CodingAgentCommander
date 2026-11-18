@@ -29,12 +29,14 @@ const service = "commander-rooms"
 type Keyring interface {
 	Get(service, user string) (string, error)
 	Set(service, user, value string) error
+	Delete(service, user string) error
 }
 
 type osRing struct{}
 
 func (osRing) Get(s, u string) (string, error) { return keyring.Get(s, u) }
 func (osRing) Set(s, u, v string) error        { return keyring.Set(s, u, v) }
+func (osRing) Delete(s, u string) error        { return keyring.Delete(s, u) }
 
 // OSKeyring is the real keychain.
 var OSKeyring Keyring = osRing{}
@@ -257,4 +259,20 @@ func (s *Store) AddCert(c DeviceCert) (Identity, error) {
 	}
 	id.Certs = append(id.Certs, c)
 	return id, s.save(id)
+}
+
+// Reset forgets this machine's rooms identity: both keys leave the keychain
+// and identity.json goes. The next setup mints a new device (UX spec §8).
+func (s *Store) Reset() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, k := range []string{"device", "user"} {
+		if err := s.Ring.Delete(service, k); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+			return fmt.Errorf("keychain: %w", err)
+		}
+	}
+	if err := os.Remove(s.path()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }

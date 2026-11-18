@@ -24,6 +24,8 @@ export const DEFAULTS = Object.freeze({
   // Dashboard (phase 4): last mode, River window in minutes, motion on (Auto)
   // or off (Still).
   dashMode: "triage", dashRiverWindow: 10, dashMotion: true,
+  // Width in px of the docked room panel (rooms UX 1.5a).
+  roomPanelW: 360,
   // Companion config is Go-owned (companion.json), not a UI pref — see
   // CompanionConfig / GetCompanionConfig.
 });

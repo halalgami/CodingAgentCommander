@@ -24,6 +24,7 @@ func (m ring) Get(s, u string) (string, error) {
 	return "", keyring.ErrNotFound
 }
 func (m ring) Set(s, u, v string) error { m[s+u] = v; return nil }
+func (m ring) Delete(s, u string) error { delete(m, s+u); return nil }
 
 // dev is one device with its own lane writer.
 type dev struct {

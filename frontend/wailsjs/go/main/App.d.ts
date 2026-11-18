@@ -29,6 +29,8 @@ export function BrowseCompanionPack():Promise<main.PackBrowse>;
 
 export function CancelCode():Promise<void>;
 
+export function CancelJoin():Promise<void>;
+
 export function CancelPackGen():Promise<main.PackGenState>;
 
 export function CaptureScreenshot():Promise<string>;
@@ -44,6 +46,8 @@ export function ClearImagegenKey(arg1:string):Promise<void>;
 export function ClearKey(arg1:string):Promise<void>;
 
 export function ClearRaidPack():Promise<main.RaidPackView>;
+
+export function CloseRoom(arg1:string):Promise<void>;
 
 export function CodeView(arg1:string):Promise<codecity.CodeView>;
 
@@ -89,6 +93,8 @@ export function GetCompanionConfig():Promise<main.CompanionConfig>;
 
 export function GetCompanionKind():Promise<string>;
 
+export function HiddenRooms():Promise<Array<rooms.HiddenRoom>>;
+
 export function ImportCompanionPack():Promise<string>;
 
 export function ImportProjects(arg1:Array<main.ProjectEntry>):Promise<void>;
@@ -117,6 +123,8 @@ export function LastScreenshot():Promise<string>;
 
 export function LaunchSession(arg1:string,arg2:string,arg3:boolean):Promise<main.SessionInfo>;
 
+export function LeaveRoom(arg1:string):Promise<void>;
+
 export function LedgerStatus():Promise<main.LedgerStatus>;
 
 export function ListCompanionPacks():Promise<Array<main.PackSummary>>;
@@ -136,6 +144,8 @@ export function ListSessions():Promise<Array<main.SessionInfo>>;
 export function LitellmRuntimeStatus():Promise<router.RuntimeStatus>;
 
 export function LoadCompanionPack():Promise<main.Pack>;
+
+export function Machines():Promise<Array<rooms.PeerView>>;
 
 export function MarkRoomSeen(arg1:string,arg2:string):Promise<void>;
 
@@ -181,6 +191,8 @@ export function Progress():Promise<main.ProgressView>;
 
 export function ProjectMetrics(arg1:string):Promise<main.ProjectMetricsView>;
 
+export function ProjectRooms(arg1:Array<string>):Promise<Record<string, main.ProjectRoom>>;
+
 export function ProjectSessions(arg1:string,arg2:string,arg3:string):Promise<Array<main.SessionRow>>;
 
 export function QueuedCount():Promise<number>;
@@ -203,6 +215,8 @@ export function RemoveProject(arg1:string):Promise<void>;
 
 export function RemoveProvider(arg1:string):Promise<void>;
 
+export function RemoveRoomLocal(arg1:string):Promise<void>;
+
 export function RenameProject(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<void>;
@@ -214,6 +228,12 @@ export function ReplaceRaidImage(arg1:string):Promise<main.RaidPackView>;
 export function ReplaceRaidImageFrom(arg1:string,arg2:string):Promise<main.RaidPackView>;
 
 export function ResetRaidImage(arg1:string):Promise<main.RaidPackView>;
+
+export function ResetRooms():Promise<void>;
+
+export function RestoreRoom(arg1:string):Promise<void>;
+
+export function RevealFolder(arg1:string):Promise<void>;
 
 export function RoomView(arg1:string):Promise<rooms.RoomView>;
 
@@ -269,6 +289,8 @@ export function SetRaidHeroine(arg1:string,arg2:string,arg3:string):Promise<main
 
 export function SetSidebarLayout(arg1:sidebar.Layout):Promise<void>;
 
+export function ShareProject(arg1:string):Promise<rooms.RoomSummary>;
+
 export function SidebarLayout():Promise<sidebar.Layout>;
 
 export function StartPackGen(arg1:main.PackGenRequest):Promise<main.PackGenState>;
@@ -278,6 +300,8 @@ export function Stats(arg1:stats.Query):Promise<stats.Result>;
 export function StatsModels(arg1:string,arg2:string,arg3:string):Promise<Array<stats.ModelRow>>;
 
 export function StatsOverview(arg1:string,arg2:string):Promise<main.StatsOverviewView>;
+
+export function SuggestFolders(arg1:string):Promise<Array<main.FolderSuggestion>>;
 
 export function SwapModel(arg1:string,arg2:string):Promise<main.SessionInfo>;
 

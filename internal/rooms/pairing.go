@@ -44,6 +44,7 @@ type pending struct {
 	name   string
 	words  [4]string
 	decide chan bool
+	until  time.Time
 }
 
 type joinState struct {
@@ -154,6 +155,9 @@ type Pending struct {
 	Kind  string   `json:"kind"`
 	Name  string   `json:"name"`
 	Words []string `json:"words"`
+	Net   string   `json:"net"`            // the network the code was made for (D10: shown)
+	Room  string   `json:"room,omitempty"` // invite: the room's name
+	Until int64    `json:"until"`          // unix seconds the check stays open
 }
 
 func (s *Service) PendingConfirm() *Pending {
@@ -162,7 +166,7 @@ func (s *Service) PendingConfirm() *Pending {
 	if s.win == nil || s.win.pending == nil {
 		return nil
 	}
-	return &Pending{Kind: s.win.kind, Name: s.win.pending.name, Words: s.win.pending.words[:]}
+	return s.pendingViewLocked()
 }
 
 // Confirm answers the pending pairing/invite on the host.
@@ -205,8 +209,14 @@ func (s *Service) handlePair(from peer.ID, net netsel.Network, raw []byte) ([]by
 	}
 	p := &pending{peer: from, name: strings.TrimSpace(req.Name), words: codes.Words(s.node.ID().String(), from.String(), w.secret), decide: make(chan bool, 1)}
 	w.pending = p
+	p.until = s.now().Add(confirmWait)
+	onConfirm := s.OnConfirm
+	pv := *s.pendingViewLocked()
 	s.mu.Unlock()
 	s.changed()
+	if onConfirm != nil {
+		go onConfirm(pv)
+	}
 
 	ok := false
 	select {
@@ -312,6 +322,14 @@ func (s *Service) Join(code, name, folder string) (CodeView, error) {
 		// D10: a code never switches a known machine's network silently.
 		return CodeView{}, fmt.Errorf("that machine is set to %s here; change it under People & machines first", d.Net.Label())
 	}
+	if t, hidden := s.tombs[c.Room]; hidden && c.Kind == codes.KindInvite {
+		t.Restoring = true // an explicit invite brings a hidden room back (final review I7)
+		s.tombs[c.Room] = t
+		s.saveTombsLocked()
+	}
+	if s.joinStop != nil {
+		s.joinStop() // a new code replaces a join still running
+	}
 	s.joinPeer = &joinPeer{id: host, net: net, addrs: keep}
 	s.updateMDNSLocked()
 	words := codes.Words(host.String(), s.node.ID().String(), c.Secret)
@@ -325,9 +343,11 @@ func (s *Service) Join(code, name, folder string) (CodeView, error) {
 			}
 		}
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.joinStop = cancel
 	s.mu.Unlock()
 	s.changed()
-	go s.runJoin(c, host, req, folder)
+	go s.runJoin(ctx, c, host, req, folder)
 	return CodeView{Net: c.Net, Expires: c.Expires, Words: words[:]}, nil
 }
 
@@ -345,10 +365,10 @@ func (s *Service) finishJoin(err error, room string) {
 	s.changed()
 }
 
-func (s *Service) runJoin(c codes.Code, host peer.ID, req pairReq, folder string) {
+func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, req pairReq, folder string) {
 	s.dial(host)
 	body, _ := json.Marshal(req)
-	ctx, cancel := context.WithTimeout(context.Background(), confirmWait+30*time.Second)
+	ctx, cancel := context.WithTimeout(parent, confirmWait+30*time.Second)
 	defer cancel()
 	s.mu.Lock()
 	node := s.node
@@ -358,6 +378,9 @@ func (s *Service) runJoin(c codes.Code, host peer.ID, req pairReq, folder string
 		return
 	}
 	raw, err := node.Request(ctx, host, protoPair, body, 1<<20)
+	if parent.Err() != nil {
+		return // CancelJoin already reported it
+	}
 	if err != nil {
 		s.finishJoin(errors.New("the other machine did not accept — check the words and try a new code"), "")
 		return
@@ -425,6 +448,13 @@ func (s *Service) adoptRoomLocked(ri roomInfo, folder string) *room {
 	if !roomIDRe.MatchString(ri.ID) || roomlog.RoomIDOf(ri.Meta.Owner, ri.Meta.Nonce) != ri.ID {
 		return nil
 	}
+	if t, hidden := s.tombs[ri.ID]; hidden && !t.Restoring {
+		return nil // removed from this machine by the user (UX spec §7)
+	}
+	if _, hidden := s.tombs[ri.ID]; hidden {
+		delete(s.tombs, ri.ID) // restore finished
+		s.saveTombsLocked()
+	}
 	r := s.openRoomLocked(ri.ID)
 	r.st.Owner = ri.Meta.Owner
 	if folder != "" {
@@ -487,4 +517,13 @@ func hostIsOwner(resp pairResp, host string, ri roomInfo) bool {
 	c := resp.Cert
 	return c != nil && ident.VerifyCert(*c) == nil && ident.PeerIDOf(c.Device) == host &&
 		string(c.User) == string(ri.Meta.Owner) && roomlog.RoomIDOf(ri.Meta.Owner, ri.Meta.Nonce) == ri.ID
+}
+
+func (s *Service) pendingViewLocked() *Pending {
+	w := s.win
+	pv := &Pending{Kind: w.kind, Name: w.pending.name, Words: w.pending.words[:], Net: string(w.net), Until: w.pending.until.Unix()}
+	if r := s.rooms[w.room]; r != nil {
+		pv.Room = s.stateLocked(r).Meta.Name
+	}
+	return pv
 }

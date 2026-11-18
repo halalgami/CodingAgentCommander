@@ -27,6 +27,12 @@ func (a *App) roomsDir() string { return filepath.Join(filepath.Dir(configPath()
 
 func (a *App) openRooms() error {
 	s := &rooms.Service{Dir: a.roomsDir(), ListenIPs: a.roomsListenIPs, OnChange: func() { a.emitter.Emit("rooms:changed") }}
+	// The 4-word check is usually read on the other machine: say so here too.
+	s.OnConfirm = func(p rooms.Pending) {
+		if a.notifier != nil {
+			_ = a.notifier.Notify("Commander", p.Name+" wants to join — check the 4 words")
+		}
+	}
 	if err := s.Open(); err != nil {
 		return err
 	}
@@ -57,7 +63,12 @@ func (a *App) RoomsStatus() rooms.Status {
 	if err != nil {
 		return rooms.Status{}
 	}
-	return s.Status()
+	st := s.Status()
+	st.Machine = deviceName()
+	if !st.SetUp && st.Name == "" {
+		st.Name = osFullName() // prefill only (UX spec §5)
+	}
+	return st
 }
 
 // RoomsSetup: first=true makes this the first machine (name = your display

@@ -1056,6 +1056,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class FolderSuggestion {
+	    path: string;
+	    label: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FolderSuggestion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.label = source["label"];
+	        this.source = source["source"];
+	    }
+	}
 	export class KeyInfo {
 	    env: string;
 	    set: boolean;
@@ -2556,6 +2572,22 @@ export namespace rooms {
 	        this.words = source["words"];
 	    }
 	}
+	export class HiddenRoom {
+	    id: string;
+	    name: string;
+	    restoring: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new HiddenRoom(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.restoring = source["restoring"];
+	    }
+	}
 	export class MsgView {
 	    ref: string;
 	    parent?: string;
@@ -2619,6 +2651,7 @@ export namespace rooms {
 	    head: number;
 	    waiting: number;
 	    rejected: number;
+	    tried?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PeerView(source);
@@ -2636,12 +2669,16 @@ export namespace rooms {
 	        this.head = source["head"];
 	        this.waiting = source["waiting"];
 	        this.rejected = source["rejected"];
+	        this.tried = source["tried"];
 	    }
 	}
 	export class Pending {
 	    kind: string;
 	    name: string;
 	    words: string[];
+	    net: string;
+	    room?: string;
+	    until: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Pending(source);
@@ -2652,6 +2689,9 @@ export namespace rooms {
 	        this.kind = source["kind"];
 	        this.name = source["name"];
 	        this.words = source["words"];
+	        this.net = source["net"];
+	        this.room = source["room"];
+	        this.until = source["until"];
 	    }
 	}
 	export class RoomSummary {
@@ -2662,6 +2702,11 @@ export namespace rooms {
 	    owner: boolean;
 	    unread: number;
 	    queued: number;
+	    closed: boolean;
+	    closedAt?: string;
+	    closedBy?: string;
+	    needsFolder: boolean;
+	    online: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RoomSummary(source);
@@ -2676,6 +2721,11 @@ export namespace rooms {
 	        this.owner = source["owner"];
 	        this.unread = source["unread"];
 	        this.queued = source["queued"];
+	        this.closed = source["closed"];
+	        this.closedAt = source["closedAt"];
+	        this.closedBy = source["closedBy"];
+	        this.needsFolder = source["needsFolder"];
+	        this.online = source["online"];
 	    }
 	}
 	export class Thread {
@@ -2720,6 +2770,11 @@ export namespace rooms {
 	    owner: boolean;
 	    unread: number;
 	    queued: number;
+	    closed: boolean;
+	    closedAt?: string;
+	    closedBy?: string;
+	    needsFolder: boolean;
+	    online: number;
 	    threads: Thread[];
 	    peers: PeerView[];
 	    outbox: OutItem[];
@@ -2737,6 +2792,11 @@ export namespace rooms {
 	        this.owner = source["owner"];
 	        this.unread = source["unread"];
 	        this.queued = source["queued"];
+	        this.closed = source["closed"];
+	        this.closedAt = source["closedAt"];
+	        this.closedBy = source["closedBy"];
+	        this.needsFolder = source["needsFolder"];
+	        this.online = source["online"];
 	        this.threads = this.convertValues(source["threads"], Thread);
 	        this.peers = this.convertValues(source["peers"], PeerView);
 	        this.outbox = this.convertValues(source["outbox"], OutItem);
@@ -2789,6 +2849,7 @@ export namespace rooms {
 	    name: string;
 	    device: string;
 	    tailscaleUp: boolean;
+	    machine: string;
 	    pending?: Pending;
 	    join?: joinState;
 	
@@ -2804,6 +2865,7 @@ export namespace rooms {
 	        this.name = source["name"];
 	        this.device = source["device"];
 	        this.tailscaleUp = source["tailscaleUp"];
+	        this.machine = source["machine"];
 	        this.pending = this.convertValues(source["pending"], Pending);
 	        this.join = this.convertValues(source["join"], joinState);
 	    }

@@ -3,6 +3,10 @@
   import { groupByProvider } from "../modelGroups.js";
   import { activityText } from "../activity.js";
   import { shots, captureInto, lastScreenshotInto, attachFileInto } from "../attachments.svelte.js";
+  import RoomGlyph from "../rooms/RoomGlyph.svelte";
+  import { revealLabel } from "../rooms/rooms.js";
+  import { RevealFolder } from "../../../wailsjs/go/main/App.js";
+  import { toast } from "../stores.svelte.js";
 
   let {
     session, stat, isActive = false, isFinished, isErrored = false,
@@ -85,6 +89,7 @@
         {session.name}
       </button>
     {/if}
+    <RoomGlyph cwd={stat?.cwd ?? ""} windowID={session.windowID} />
     <span class="actions">
       {#if isActive && shots.supported}
         <span class="attach">
@@ -100,6 +105,8 @@
           {/if}
         </span>
       {/if}
+      <button class="icon" data-testid="reveal-{session.windowID}" title={revealLabel()} aria-label={revealLabel()}
+        onclick={() => RevealFolder(session.windowID).catch((e) => toast(String(e?.message || e), "error"))}>📂</button>
       <button
         class="icon" data-testid="docs-open-{session.windowID}"
         title="Documents in this project"
@@ -219,6 +226,9 @@
   }
   .actions { display: flex; gap: 2px; opacity: 0; transition: opacity var(--t-fast); }
   .card:hover .actions, .actions:focus-within { opacity: 1; }
+  /* The room glyph carries state: visible once shared; unshared only on hover. */
+  .card :global(.rglyph[data-kind="none"]) { visibility: hidden; }
+  .card:hover :global(.rglyph[data-kind="none"]), .card :global(.rglyph[data-kind="none"]:focus-visible), .card :global(.rglyph[aria-expanded="true"]) { visibility: visible; }
   .icon {
     background: none; border: 0; color: var(--text-1); cursor: pointer;
     padding: 2px 4px; border-radius: var(--r-1); font-size: var(--fs-1);

@@ -5,9 +5,13 @@
   import { prefs, setPref } from "../prefs.svelte.js";
   import { toast } from "../stores.svelte.js";
   import { toggleHome, setMode } from "../dashboard/dash.svelte.js";
+  import { app } from "../stores.svelte.js";
+  import { togglePanel } from "../rooms/rooms.svelte.js";
 
   function onkey(e) {
     if (!e.metaKey || e.altKey || e.ctrlKey) return;
+    // ⌘⇧R: the room panel for the selected session's project (rooms UX §13).
+    if (e.shiftKey && (e.key === "r" || e.key === "R")) { e.preventDefault(); e.stopPropagation(); togglePanel(app.stats[app.sessionKey.split(":")[0]]?.cwd); return; }
     if (e.key === "d" || e.key === "D") { e.preventDefault(); e.stopPropagation(); toggleHome(); return; }
     const mode = { "1": "triage", "2": "river", "3": "city", "4": "raid", "5": "fleet", "6": "cic", "7": "sector", "8": "asturlab" }[e.key];
     if (mode) { e.preventDefault(); e.stopPropagation(); setMode(mode); return; }

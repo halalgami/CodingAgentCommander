@@ -23,9 +23,12 @@
   import ModelsDrawer from "./lib/components/ModelsDrawer.svelte";
   import SettingsDrawer from "./lib/components/SettingsDrawer.svelte";
   import UsageDrawer from "./lib/components/UsageDrawer.svelte";
-  import RoomsDrawer from "./lib/rooms/RoomsDrawer.svelte";
+  import RoomSwitcher from "./lib/rooms/RoomSwitcher.svelte";
+  import MachinesDialog from "./lib/rooms/MachinesDialog.svelte";
+  import RoomsConfirm from "./lib/rooms/RoomsConfirm.svelte";
   import QuitGuard from "./lib/rooms/QuitGuard.svelte";
-  import { initRooms, unread as roomsUnread, queued as roomsQueued } from "./lib/rooms/rooms.svelte.js";
+  import { initRooms, unread as roomsUnread, queued as roomsQueued, rooms, refreshProjects, followSelection, setNewRoomHandler } from "./lib/rooms/rooms.svelte.js";
+  import RoomPanel from "./lib/rooms/RoomPanel.svelte";
   import HistoryDrawer from "./lib/components/HistoryDrawer.svelte";
   import DocViewer from "./lib/components/DocViewer.svelte";
   import DocsDrawer from "./lib/components/DocsDrawer.svelte";
@@ -48,6 +51,7 @@
     EventsOn("menu:about", () => (app.about = true));
     EventsOn("models:updated", () => reloadModels());
     EventsOn("app:error", (msg) => toast(msg, "error"));
+    setNewRoomHandler((r) => toast(`${r.name} room is now on this machine — open it from Rooms in the title bar.`));
     initRooms();
     EventsOn("session:autocont-gaveup", (e) => toast(gaveUpText(e)));
     // Errors from startup were held until now (an event then would be lost).
@@ -91,6 +95,12 @@
     return () => { clearInterval(iv); window.removeEventListener("paste", onPaste, true); };
   });
 
+  let switcherOpen = $state(false);
+  // Rooms: map every open session's folder to its project's room; the panel
+  // follows the selected session (UX spec §6).
+  $effect(() => { refreshProjects(app.sessions.map((s) => app.stats[s.windowID]?.cwd)); });
+  $effect(() => { followSelection(app.stats[app.sessionKey.split(":")[0]]?.cwd); });
+
   $effect(() => {
     document.documentElement.style.setProperty("--sidebar-w", prefs.sidebarW + "px");
     document.documentElement.style.zoom = prefs.uiScale / 100;
@@ -111,7 +121,7 @@
       <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
       <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
       <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>
-      <button data-testid="open-rooms" onclick={() => (app.drawer = "rooms")}>Rooms{#if roomsUnread()}<span class="rbadge" data-testid="rooms-badge">{roomsUnread()}</span>{/if}{#if roomsQueued()}<span class="rqueued" data-testid="rooms-queued-dot" title="Something you sent is only on this machine">●</span>{/if}</button>
+      <button data-testid="open-rooms" aria-haspopup="dialog" aria-expanded={switcherOpen} onclick={() => (switcherOpen = !switcherOpen)}>Rooms{#if roomsUnread()}<span class="rbadge" data-testid="rooms-badge">{roomsUnread()}</span>{/if}{#if roomsQueued()}<span class="rqueued" data-testid="rooms-queued-dot" title="Something you sent is only on this machine">●</span>{/if}</button>
       <button data-testid="open-settings" onclick={() => (app.drawer = "settings")}>Settings</button>
     </nav>
   </header>
@@ -169,14 +179,17 @@
         <Dashboard />
       {/if}
     </section>
+    {#if rooms.panel.open}<RoomPanel />{/if}
   </div>
   <!-- drawers / palette / toasts mount here in Tasks 5-8 -->
   {#if app.drawer === "providers"}<ProvidersDrawer />{/if}
   {#if app.drawer === "models"}<ModelsDrawer />{/if}
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
   {#if app.drawer === "usage"}<UsageDrawer />{/if}
-  {#if app.drawer === "rooms"}<RoomsDrawer />{/if}
+  {#if switcherOpen}<RoomSwitcher onclose={() => (switcherOpen = false)} />{/if}
   <QuitGuard />
+  {#if rooms.machines}<MachinesDialog />{/if}
+  <RoomsConfirm />
   {#if app.drawer === "history"}<HistoryDrawer />{/if}
   {#if app.drawer === "docview"}<DocViewer />{/if}
   {#if app.drawer === "docs"}<DocsDrawer />{/if}
@@ -234,7 +247,7 @@
     font-family: var(--font-mono); font-size: var(--fs-0); color: var(--text-1);
     background: var(--surface-3); border-radius: var(--r-1); padding: 0 4px;
   }
-  .content { flex: 1; display: flex; min-height: 0; }
+  .content { flex: 1; display: flex; min-height: 0; position: relative; }
   .divider {
     width: 4px; cursor: col-resize; flex: none;
     background: transparent;

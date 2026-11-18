@@ -20,6 +20,7 @@ func (m memRing) Get(svc, user string) (string, error) {
 	return v, nil
 }
 func (m memRing) Set(svc, user, val string) error { m[svc+"/"+user] = val; return nil }
+func (m memRing) Delete(svc, user string) error   { delete(m, svc+"/"+user); return nil }
 
 func TestCreateFirstKeepsPrivateKeysInKeyring(t *testing.T) {
 	dir := t.TempDir()

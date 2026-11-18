@@ -16,6 +16,15 @@ type State struct {
 	Names    map[string]string // device peer id → device name from its cert
 	Revoked  map[string]bool   // device peer id
 	Accepted []Entry           // entries that passed membership, in order
+	Closed   *ClosedInfo       // set by the owner's room.close
+	Removed  map[string]bool   // users removed or who left (final in v1)
+}
+
+// ClosedInfo records who closed the room and when (UX spec §7).
+type ClosedInfo struct {
+	Lamport int64  `json:"lamport"`
+	Device  string `json:"device"`
+	Time    string `json:"time"`
 }
 
 // UserOf returns the user key of a device, if certified.
@@ -137,7 +146,15 @@ func Replay(entries []Entry) State {
 		if _, member := s.Members[string(author)]; !member {
 			continue
 		}
+		if s.Closed != nil && e.Lamport > s.Closed.Lamport && (e.Kind == KindMsg || e.Kind == KindMemberAdd) {
+			continue // nothing new is said or admitted after the close
+		}
 		switch e.Kind {
+		case KindRoomClose:
+			if string(author) != owner || s.Closed != nil {
+				continue
+			}
+			s.Closed = &ClosedInfo{Lamport: e.Lamport, Device: e.Device, Time: e.Time}
 		case KindMemberAdd:
 			var m Member
 			if string(author) != owner || json.Unmarshal(e.Body, &m) != nil || len(m.User) != ed25519.PublicKeySize {
@@ -159,6 +176,7 @@ func Replay(entries []Entry) State {
 	for u := range removed {
 		delete(s.Members, u)
 	}
+	s.Removed = removed
 	return s
 }
 

@@ -22,6 +22,7 @@ type Status struct {
 	Name        string     `json:"name"`
 	Device      string     `json:"device"`
 	TailscaleUp bool       `json:"tailscaleUp"`
+	Machine     string     `json:"machine"` // this computer's name (filled by the app)
 	Pending     *Pending   `json:"pending,omitempty"`
 	Join        *joinState `json:"join,omitempty"`
 }
@@ -47,6 +48,12 @@ type RoomSummary struct {
 	Owner   bool   `json:"owner"`
 	Unread  int    `json:"unread"`
 	Queued  int    `json:"queued"`
+	// UX 1.5a: read-only state, folder binding, who is reachable now.
+	Closed      bool   `json:"closed"`
+	ClosedAt    string `json:"closedAt,omitempty"`
+	ClosedBy    string `json:"closedBy,omitempty"`
+	NeedsFolder bool   `json:"needsFolder"`
+	Online      int    `json:"online"`
 }
 
 var msgKinds = map[string]bool{"note": true, "question": true, "handoff": true, "result": true, "ack": true}
@@ -100,6 +107,19 @@ func (s *Service) summaryLocked(r *room) RoomSummary {
 	sum := RoomSummary{ID: r.id, Name: st.Meta.Name, Project: st.Meta.Project, Folder: r.st.Folder, Owner: string(st.Meta.Owner) == string(s.me.User)}
 	me := s.me.PeerID()
 	devs := s.memberDevicesLocked(st)
+	sum.NeedsFolder = r.st.Folder == ""
+	if st.Closed != nil {
+		sum.Closed, sum.ClosedAt, sum.ClosedBy = true, st.Closed.Time, st.Names[st.Closed.Device]
+	} else if r.st.Left || st.Removed[string(s.me.User)] {
+		sum.Closed, sum.ClosedBy = true, "you left" // or were removed, possibly from another of my machines
+	}
+	for _, d := range devs {
+		if id, err := peer.Decode(d); err == nil && d != me && s.node != nil {
+			if _, ok := s.node.Conn(id); ok {
+				sum.Online++
+			}
+		}
+	}
 	for _, e := range st.Accepted {
 		if e.Kind != roomlog.KindMsg {
 			continue
@@ -192,8 +212,9 @@ type PeerView struct {
 	Reason   string `json:"reason,omitempty"`
 	LastSeen int64  `json:"lastSeen,omitempty"`
 	Head     int64  `json:"head"`
-	Waiting  int    `json:"waiting"`  // my messages not yet on that device
-	Rejected int    `json:"rejected"` // entries from it this machine refused (review I7)
+	Waiting  int    `json:"waiting"`         // my messages not yet on that device
+	Rejected int    `json:"rejected"`        // entries from it this machine refused (review I7)
+	Tried    string `json:"tried,omitempty"` // the other network it last reached us over (refused, D10)
 }
 
 type OutItem struct {
@@ -273,6 +294,11 @@ func (s *Service) View(roomID string) (RoomView, error) {
 		pv := PeerView{Device: d, Name: name(d), Mine: string(u) == string(s.me.User), Net: string(pref.Net), LastSeen: pref.LastSeen, Head: heads[d], Waiting: waiting[d]}
 		pv.State, pv.Reason = s.peerStateLocked(d, pref, ts)
 		pv.Rejected = s.rejected[d]
+		if id, err := peer.Decode(d); err == nil && s.node != nil && pref.Net != "" {
+			if got, refused := s.node.Refused(id); refused && got != pref.Net {
+				pv.Tried = string(got)
+			}
+		}
 		v.Peers = append(v.Peers, pv)
 	}
 	return v, nil
@@ -330,6 +356,10 @@ func (s *Service) Post(roomID, kind, text, parent string, fields map[string]stri
 		s.mu.Unlock()
 		return errors.New("no such room")
 	}
+	if s.closedLocked(r) {
+		s.mu.Unlock()
+		return errClosed
+	}
 	_, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
 	s.mu.Unlock()
 	if err != nil {
@@ -353,6 +383,17 @@ func (s *Service) MarkSeen(roomID, ref string) error {
 	if !ok || json.Unmarshal([]byte(seqStr), &seq) != nil {
 		s.mu.Unlock()
 		return errors.New("bad ref")
+	}
+	found := false
+	for _, e := range s.stateLocked(r).Accepted {
+		if e.Kind == roomlog.KindMsg && e.Ref() == ref {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.mu.Unlock()
+		return errors.New("no such message in this room") // final review I2
 	}
 	r.st.Seen[ref] = true
 	s.saveRoomLocked(r)

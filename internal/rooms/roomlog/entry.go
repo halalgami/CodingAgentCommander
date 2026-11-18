@@ -29,6 +29,7 @@ const (
 	KindAddr         = "addr"
 	KindMsg          = "msg"
 	KindReceipt      = "receipt"
+	KindRoomClose    = "room.close" // owner ends the room for everyone (UX spec §7)
 )
 
 const (
@@ -105,6 +106,11 @@ type Msg struct {
 	Text   string            `json:"text"`
 	Parent string            `json:"parent,omitempty"` // thread ref
 	Fields map[string]string `json:"fields,omitempty"` // handoff/result fields
+}
+
+// Close is the body of a room.close entry.
+type Close struct {
+	Reason string `json:"reason,omitempty"`
 }
 
 type Receipt struct {
