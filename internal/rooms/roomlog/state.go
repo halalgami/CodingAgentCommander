@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/halalgami/CodingAgentCommander/internal/rooms/ident"
 )
@@ -11,6 +12,7 @@ import (
 // State is the room as replayed from its entries (spec §5.5, §6).
 type State struct {
 	Meta     RoomMeta
+	Name     string            // Meta.Name, or the owner's latest rename
 	Members  map[string]string // user key (raw bytes as string) → role
 	Devices  map[string][]byte // device peer id → user key
 	Names    map[string]string // device peer id → device name from its cert
@@ -24,7 +26,10 @@ type State struct {
 type ClosedInfo struct {
 	Lamport int64  `json:"lamport"`
 	Device  string `json:"device"`
-	Time    string `json:"time"`
+	Seq     int64  `json:"seq"`
+	// Heads: the lanes the closer held; nil for a close written before 1.5b.
+	Heads map[string]int64 `json:"heads,omitempty"`
+	Time  string           `json:"time"`
 }
 
 // UserOf returns the user key of a device, if certified.
@@ -124,7 +129,30 @@ func Replay(entries []Entry) State {
 		}
 	}
 
+	// The close is fixed before ordering too: an entry written after it can
+	// claim any Lamport time, but not a seq inside the closer's heads.
+	var closeHeads map[string]int64
+	for _, e := range entries {
+		u, ok := s.Devices[e.Device]
+		var c Close
+		if !ok || e.Kind != KindRoomClose || past(e) || string(u) != owner || json.Unmarshal(e.Body, &c) != nil {
+			continue
+		}
+		s.Closed, closeHeads = &ClosedInfo{Lamport: e.Lamport, Device: e.Device, Seq: e.Seq, Time: e.Time, Heads: c.Heads}, c.Heads
+		break
+	}
+	afterClose := func(e Entry) bool {
+		if s.Closed == nil || (e.Kind != KindMsg && e.Kind != KindMemberAdd && e.Kind != KindRoomRename) {
+			return false
+		}
+		if closeHeads != nil && e.Seq > closeHeads[e.Device] {
+			return true
+		}
+		return e.Lamport >= s.Closed.Lamport
+	}
+
 	// Pass 2: membership in order, entries past a cut-off never count.
+	s.Name = s.Meta.Name
 	s.Members[owner] = "owner"
 	for _, e := range entries {
 		if e.Kind == KindDeviceCert {
@@ -146,15 +174,24 @@ func Replay(entries []Entry) State {
 		if _, member := s.Members[string(author)]; !member {
 			continue
 		}
-		if s.Closed != nil && e.Lamport > s.Closed.Lamport && (e.Kind == KindMsg || e.Kind == KindMemberAdd) {
-			continue // nothing new is said or admitted after the close
+		if afterClose(e) {
+			continue // nothing new is said, admitted or renamed after the close
 		}
 		switch e.Kind {
 		case KindRoomClose:
-			if string(author) != owner || s.Closed != nil {
+			if s.Closed == nil || e.Device != s.Closed.Device || e.Seq != s.Closed.Seq {
 				continue
 			}
-			s.Closed = &ClosedInfo{Lamport: e.Lamport, Device: e.Device, Time: e.Time}
+		case KindRoomRename:
+			var r Rename
+			if string(author) != owner || json.Unmarshal(e.Body, &r) != nil {
+				continue
+			}
+			n := strings.TrimSpace(r.Name)
+			if !ValidRoomName(n) {
+				continue
+			}
+			s.Name = n
 		case KindMemberAdd:
 			var m Member
 			if string(author) != owner || json.Unmarshal(e.Body, &m) != nil || len(m.User) != ed25519.PublicKeySize {

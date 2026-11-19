@@ -5,12 +5,15 @@ import (
 	"errors"
 	"os"
 	"os/user"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/halalgami/CodingAgentCommander/internal/ledger/store"
 	"github.com/halalgami/CodingAgentCommander/internal/repoid"
 	"github.com/halalgami/CodingAgentCommander/internal/rooms"
+	"github.com/halalgami/CodingAgentCommander/internal/safegit"
 )
 
 // Rooms anchored on projects (UX spec docs/superpowers/specs/2026-11-18-rooms-ux-design.md).
@@ -36,10 +39,31 @@ type ProjectRoom struct {
 	RoomID   string `json:"roomId"` // the project's open room on this machine, or ""
 }
 
+// A folder outside git is asked again after this long: it may have become a
+// repository (git init), and a repo's identity never changes (1.5a minor).
+var (
+	nonGitRecheck = 30 * time.Second
+	nonGitMu      sync.Mutex
+	nonGitAt      = map[string]time.Time{}
+)
+
 func resolveProject(cwd string) ProjectRoom {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	nonGitMu.Lock()
+	if at, ok := nonGitAt[cwd]; ok && time.Since(at) >= nonGitRecheck {
+		projects().Forget(cwd)
+		delete(nonGitAt, cwd)
+	}
+	nonGitMu.Unlock()
 	id := projects().Resolve(ctx, cwd)
+	if !strings.HasPrefix(id.Identity, "rootcommit:") {
+		nonGitMu.Lock()
+		if _, ok := nonGitAt[cwd]; !ok {
+			nonGitAt[cwd] = time.Now()
+		}
+		nonGitMu.Unlock()
+	}
 	p := ProjectRoom{Root: id.Root, Label: id.Label}
 	if strings.HasPrefix(id.Identity, "rootcommit:") {
 		p.Identity = id.Identity
@@ -48,16 +72,22 @@ func resolveProject(cwd string) ProjectRoom {
 }
 
 // roomFor: the open room of a project — by identity, or by folder outside git.
+// Several open rooms for one project (made on two machines before they
+// synced): the most recently active one wins, the same on every machine.
 func roomFor(list []rooms.RoomSummary, p ProjectRoom) (rooms.RoomSummary, bool) {
+	var best rooms.RoomSummary
+	found := false
 	for _, r := range list {
 		if r.Closed {
 			continue
 		}
 		if (p.Identity != "" && r.Project == p.Identity) || (p.Identity == "" && r.Project == "" && r.Folder == p.Root) {
-			return r, true
+			if !found || r.Last > best.Last || (r.Last == best.Last && r.ID < best.ID) {
+				best, found = r, true
+			}
 		}
 	}
-	return rooms.RoomSummary{}, false
+	return best, found
 }
 
 // ProjectRooms maps each session folder to its project and open room.
@@ -237,4 +267,96 @@ func (a *App) Machines() []rooms.PeerView {
 		return []rooms.PeerView{}
 	}
 	return s.Machines()
+}
+
+func (a *App) RenameRoom(room, name string) error {
+	s, err := a.rs()
+	if err != nil {
+		return err
+	}
+	return s.RenameRoom(room, name)
+}
+
+// GitState is a session's branch and commit, for the handoff prefill.
+type GitState struct {
+	Branch string `json:"branch"`
+	Sha    string `json:"sha"`
+}
+
+// GitHead reads a session's branch and HEAD. Session id only, never a path.
+func (a *App) GitHead(windowID string) (GitState, error) {
+	a.mu.Lock()
+	r := a.sessions[windowID]
+	a.mu.Unlock()
+	if r == nil {
+		return GitState{}, errors.New("unknown session")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	sha, err := safegit.Run(ctx, r.Cwd, "rev-parse", "HEAD")
+	if err != nil {
+		return GitState{}, errors.New("not a git repository")
+	}
+	branch, _ := safegit.Run(ctx, r.Cwd, "rev-parse", "--abbrev-ref", "HEAD")
+	return GitState{Branch: strings.TrimSpace(branch), Sha: strings.TrimSpace(sha)}, nil
+}
+
+func (a *App) ledgerProjects() []store.ProjectInfo {
+	if a.ledger == nil {
+		return nil
+	}
+	st := a.ledger.currentStore()
+	if st == nil {
+		return nil
+	}
+	return st.Projects()
+}
+
+// recentProjects: Al Asturlab's projects, newest first, with their rooms.
+func recentProjects(infos []store.ProjectInfo, list []rooms.RoomSummary, n int) []ProjectRoom {
+	live := make([]store.ProjectInfo, 0, len(infos))
+	for _, p := range infos {
+		if !p.Missing && p.Root != "" {
+			live = append(live, p)
+		}
+	}
+	sort.SliceStable(live, func(i, j int) bool { return live[i].LastSeen > live[j].LastSeen })
+	out := []ProjectRoom{}
+	for _, p := range live {
+		if len(out) == n {
+			break
+		}
+		out = append(out, projectRoomAt(p, list))
+	}
+	return out
+}
+
+func projectRoomAt(p store.ProjectInfo, list []rooms.RoomSummary) ProjectRoom {
+	pr := resolveProject(p.Root)
+	if pr.Label == "" {
+		pr.Label = p.Label
+	}
+	if r, ok := roomFor(list, pr); ok {
+		pr.RoomID = r.ID
+	}
+	return pr
+}
+
+func projectByKey(infos []store.ProjectInfo, list []rooms.RoomSummary, key string) ProjectRoom {
+	for _, p := range infos {
+		if p.Key == key && !p.Missing && p.Root != "" {
+			return projectRoomAt(p, list)
+		}
+	}
+	return ProjectRoom{}
+}
+
+// RecentProjects: Al Asturlab projects for the switcher's Share list.
+func (a *App) RecentProjects() []ProjectRoom {
+	return recentProjects(a.ledgerProjects(), a.Rooms(), 8)
+}
+
+// ProjectRoomByKey: an Al Asturlab project (ledger key) and its room.
+func (a *App) ProjectRoomByKey(key string) ProjectRoom {
+	return projectByKey(a.ledgerProjects(), a.Rooms(), key)
 }

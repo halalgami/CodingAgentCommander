@@ -2,6 +2,7 @@
   // Titlebar Rooms → switcher (UX spec §4): my rooms, share an open
   // session's project, join with a code, machines, closed and hidden rooms.
   import { rooms, act, openPanelFor, shareProject } from "./rooms.svelte.js";
+  import * as App from "../../../wailsjs/go/main/App.js";
   import SetupStep from "./SetupStep.svelte";
   let { onclose } = $props();
   let el = $state(null);
@@ -20,6 +21,14 @@
     return out;
   });
   const st = $derived(rooms.status);
+  // Al Asturlab's recent projects not already listed (1.5b).
+  let recent = $state([]);
+  $effect(() => { App.RecentProjects?.().then((r) => (recent = r || [])).catch(() => {}); });
+  const fromHistory = $derived.by(() => {
+    const have = new Set();
+    for (const p of Object.values(rooms.projects)) have.add(p.identity || p.root);
+    return recent.filter((p) => !p.roomId && !have.has(p.identity || p.root)).slice(0, 5);
+  });
 
   $effect(() => {
     const k = (e) => { if (e.key === "Escape") { e.stopPropagation(); onclose(); } };
@@ -56,7 +65,10 @@
       {#each candidates as c (c.cwd)}
         <button class="item" data-testid="switch-share" title={c.cwd} onclick={run(() => shareProject(c.cwd))}>{c.label}</button>
       {:else}
-        <p class="dim small">Every open session's project is shared.</p>
+        {#if !fromHistory.length}<p class="dim small">Every open session's project is shared.</p>{/if}
+      {/each}
+      {#each fromHistory as p (p.root)}
+        <button class="item" data-testid="switch-share-recent" title={p.root} onclick={run(() => shareProject(p.root))}><span class="nm">{p.label || p.root}</span><span class="dim small">Al Asturlab</span></button>
       {/each}
       <button class="item dim" onclick={run(other)}>Other folder…</button>
     {/if}

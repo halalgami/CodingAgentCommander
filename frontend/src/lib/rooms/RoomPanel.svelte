@@ -5,7 +5,8 @@
   import { app } from "../stores.svelte.js";
   import { prefs, setPref } from "../prefs.svelte.js";
   import { rooms, act, summaryOf, closePanel, projectOf } from "./rooms.svelte.js";
-  import { netLabel, chatOrder, deliveryLine, panelMode, revealLabel, SEEN_MS } from "./rooms.js";
+  import { netLabel, chatOrder, deliveryLine, panelMode, revealLabel, SEEN_MS, promptOf, handoffBranch } from "./rooms.js";
+  import { toast } from "../stores.svelte.js";
   import * as App from "../../../wailsjs/go/main/App.js";
   import CloseRoomDialog from "./CloseRoomDialog.svelte";
 
@@ -51,6 +52,31 @@
     window.addEventListener("pointerdown", d, true);
     return () => { window.removeEventListener("keydown", k, true); window.removeEventListener("pointerdown", d, true); };
   });
+  // ---- rename (owner, open room) ----
+  let renaming = $state(false);
+  let newName = $state("");
+  function startRename() { menu = false; newName = sum?.name || ""; renaming = true; }
+  // Escape removes the input, which can fire blur: cancelled must stay cancelled,
+  // and Enter + blur must not send twice (final review M1).
+  let renameBusy = false;
+  async function rename() {
+    if (!renaming || renameBusy) return;
+    if (!newName.trim() || newName.trim() === sum?.name) { renaming = false; return; }
+    renameBusy = true;
+    await act("RenameRoom", rooms.current, newName.trim());
+    renameBusy = false;
+    if (!rooms.error) renaming = false;
+  }
+  function renameKey(e) {
+    if (e.key === "Enter") { e.preventDefault(); rename(); }
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); renaming = false; }
+  }
+
+  async function copyPrompt(m) {
+    try { await navigator.clipboard.writeText(promptOf(m, sum?.name || "room")); toast("Copied as a prompt."); }
+    catch { toast("Couldn't copy to the clipboard.", "error"); }
+  }
+
   async function chooseFolder() {
     menu = false;
     const f = await act("PickRoomFolder");
@@ -111,6 +137,23 @@
   let text = $state("");
   let fields = $state({});
   let replyTo = $state(null);
+  // Handoff: branch + sha from the selected session, when it is in this room's
+  // project (spec §6.4) — once per (room, session) handoff, so a cleared field
+  // stays cleared, and a late answer for another room or session is dropped.
+  let prefilled = "";
+  $effect(() => {
+    if (kind !== "handoff") { prefilled = ""; return; }
+    const wid = app.sessionKey.split(":")[0], room = rooms.current;
+    const key = room + "|" + wid;
+    if (!wid || prefilled === key || projectOf(selCwd)?.roomId !== room) return;
+    prefilled = key;
+    App.GitHead?.(wid).then((h) => {
+      if (kind === "handoff" && rooms.current === room && app.sessionKey.split(":")[0] === wid && !fields.branch) fields.branch = handoffBranch(h);
+    }).catch(() => {});
+  });
+  // A draft belongs to its room.
+  let draftRoom = rooms.current;
+  $effect(() => { if (rooms.current !== draftRoom) { draftRoom = rooms.current; fields = {}; replyTo = null; prefilled = ""; } });
   async function send() {
     if (!text.trim() || rooms.busy) return;
     const f = kind === "handoff" ? fields : kind === "result" ? { outcome: fields.outcome || "pass" } : null;
@@ -135,12 +178,18 @@
     aria-valuenow={width} aria-valuemin="300" aria-valuemax="640" onpointerdown={startResize} onkeydown={resizeKey}></div>
 
   <header>
-    <strong class="name" data-testid="room-panel-name">{sum?.name || "Rooms"}</strong>
+    {#if renaming}
+      <!-- svelte-ignore a11y_autofocus (the user just chose Rename) -->
+      <input class="name" data-testid="room-rename-input" aria-label="Room name" maxlength="80" bind:value={newName} onkeydown={renameKey} onblur={rename} autofocus />
+    {:else}
+      <strong class="name" data-testid="room-panel-name">{sum?.name || "Rooms"}</strong>
+    {/if}
     {#if sum}
       <span class="menu-wrap">
         <button class="icon" data-testid="room-menu" aria-label="Room options" aria-haspopup="menu" aria-expanded={menu} onclick={() => (menu = !menu)}>⋯</button>
         {#if menu}
           <span class="menu" role="menu">
+            {#if sum.owner && !sum.closed}<button role="menuitem" data-testid="room-menu-rename" onclick={startRename}>Rename…</button>{/if}
             <button role="menuitem" onclick={chooseFolder}>Folder on this machine…</button>
             {#if sum.owner && !sum.closed}<button role="menuitem" data-testid="room-menu-invite" onclick={() => { menu = false; rooms.machines = "invite"; }}>Invite colleague…</button>{/if}
             <button role="menuitem" onclick={() => { menu = false; rooms.machines = "list"; }}>Machines &amp; network…</button>
@@ -207,9 +256,12 @@
           <p>{it.msg.text}</p>
           {#if it.msg.fields}{#each Object.entries(it.msg.fields) as [k, val]}{#if val}<p class="small"><span class="dim">{k}:</span> {val}</p>{/if}{/each}{/if}
           {#if dl.text}<p class="small dl" data-testid="room-delivery" data-amber={dl.amber}>{dl.text}</p>{/if}
-          {#if !sum.closed}
+          {#if sum.closed}
+            <span class="acts"><button class="link small" data-testid="room-copy-prompt" onclick={() => copyPrompt(it.msg)}>Copy as prompt</button></span>
+          {:else}
             <span class="acts">
               <button class="link small" onclick={() => (replyTo = { ref: rootOf(it.msg), author: it.msg.author })}>Reply</button>
+              <button class="link small" data-testid="room-copy-prompt" onclick={() => copyPrompt(it.msg)}>Copy as prompt</button>
               {#if !it.msg.mine && it.msg.kind !== "ack"}<button class="link small" aria-label="Acknowledge" onclick={() => ack(it.msg)}>👍</button>{/if}
             </span>
           {/if}

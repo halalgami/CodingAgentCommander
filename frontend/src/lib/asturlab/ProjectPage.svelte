@@ -3,6 +3,8 @@
   // complexity over time, hotspots, achievements. Charts below it are the
   // observatory's own, filtered to this project.
   import { ProjectMetrics, Stats, ProjectSessions } from "../../../wailsjs/go/main/App.js";
+  import * as App from "../../../wailsjs/go/main/App.js";
+  import { rooms, openPanelFor, shareOrSetup } from "../rooms/rooms.svelte.js";
   import { dash } from "../dashboard/dash.svelte.js";
   import { fmtTokens, fmtHours } from "./format.js";
   import { MARK } from "./palette.js";
@@ -24,6 +26,16 @@
     Promise.all([one("activeMs"), one("tokens"), one("commits")]).then(([activeMs, tokens, commits]) => (sums = { activeMs, tokens, commits }));
     ProjectSessions(key, r.from, r.to).then((s) => (sessions = s || [])).catch(() => (sessions = []));
     Stats({ from: r.from, to: r.to, groupBy: "project", metric: "tokens" }).then((x) => (maxTokens = Math.max(0, ...(x.rows || []).map((y) => y.value)))).catch(() => {});
+  });
+
+  // Rooms entry point (UX spec §4): Share / Open room for this project.
+  let pr = $state(null);
+  let prKey = "";
+  $effect(() => {
+    const key = projectKey;
+    void rooms.list.map((r) => r.id + r.closed).join(); // re-ask when rooms change
+    if (prKey !== key) { prKey = key; pr = null; } // never show another project's button
+    App.ProjectRoomByKey?.(key).then((p) => { if (projectKey === key) pr = p?.root ? p : null; }).catch(() => {});
   });
 
   const snaps = $derived(metrics.snapshots || []);
@@ -52,6 +64,12 @@
   <div class="stat"><span class="k">Complexity</span><span class="v">{latest ? latest.complexity.toLocaleString("en-US") : "—"}</span>
     {#if spark("complexity")}<svg viewBox="0 0 160 32" class="sp" aria-hidden="true"><polyline points={spark("complexity")} fill="none" stroke={MARK} stroke-width="2" /></svg>{/if}</div>
   <div class="stat"><span class="k">Achievements</span><span class="v">{unlocks.length}</span></div>
+  {#if pr}
+    <div class="stat"><span class="k">Room</span>
+      {#if pr.roomId}<button class="room" data-testid="ast-open-room" onclick={() => openPanelFor(pr.roomId, true)}>Open room</button>
+      {:else}<button class="room" data-testid="ast-share" title={pr.root} onclick={() => shareOrSetup(pr.root)}>Share…</button>{/if}
+    </div>
+  {/if}
   {#if hot.length}
     <div class="hot"><span class="k">Hotspots</span>
       <ol>{#each hot as [path, f]}<li><span class="mono">{path}</span> <span class="dim">complexity {f.complexity}</span></li>{/each}</ol>
@@ -77,6 +95,8 @@
   .k { color: var(--text-2); font-size: var(--fs-0); }
   .v { font-size: var(--fs-2); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sp { width: 120px; height: 24px; }
+  .room { align-self: flex-start; margin-top: 2px; background: var(--surface-2); border: 1px solid var(--border-1); color: var(--text-0); border-radius: var(--r-1); padding: 2px 10px; cursor: pointer; }
+  .room:hover, .room:focus-visible { border-color: var(--accent); }
   .hot { flex: 1 1 260px; }
   ol { margin: 2px 0 0; padding-left: 1.2em; font-size: var(--fs-0); color: var(--text-1); }
   .mono { font-family: var(--font-mono); }

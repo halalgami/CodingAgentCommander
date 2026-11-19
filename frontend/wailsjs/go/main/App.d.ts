@@ -93,6 +93,8 @@ export function GetCompanionConfig():Promise<main.CompanionConfig>;
 
 export function GetCompanionKind():Promise<string>;
 
+export function GitHead(arg1:string):Promise<main.GitState>;
+
 export function HiddenRooms():Promise<Array<rooms.HiddenRoom>>;
 
 export function ImportCompanionPack():Promise<string>;
@@ -191,6 +193,8 @@ export function Progress():Promise<main.ProgressView>;
 
 export function ProjectMetrics(arg1:string):Promise<main.ProjectMetricsView>;
 
+export function ProjectRoomByKey(arg1:string):Promise<main.ProjectRoom>;
+
 export function ProjectRooms(arg1:Array<string>):Promise<Record<string, main.ProjectRoom>>;
 
 export function ProjectSessions(arg1:string,arg2:string,arg3:string):Promise<Array<main.SessionRow>>;
@@ -207,6 +211,8 @@ export function QuotaRefresh():Promise<main.QuotaNowView>;
 
 export function RaidPackInfo():Promise<main.RaidPackView>;
 
+export function RecentProjects():Promise<Array<main.ProjectRoom>>;
+
 export function RefreshModels():Promise<void>;
 
 export function RemoveModel(arg1:string):Promise<void>;
@@ -218,6 +224,8 @@ export function RemoveProvider(arg1:string):Promise<void>;
 export function RemoveRoomLocal(arg1:string):Promise<void>;
 
 export function RenameProject(arg1:string,arg2:string):Promise<void>;
+
+export function RenameRoom(arg1:string,arg2:string):Promise<void>;
 
 export function RenameSession(arg1:string,arg2:string):Promise<void>;
 

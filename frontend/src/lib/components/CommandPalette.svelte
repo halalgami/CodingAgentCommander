@@ -9,6 +9,7 @@
   import { openDoc } from "../docview.svelte.js";
   import { shots, captureInto, lastScreenshotInto, attachFileInto } from "../attachments.svelte.js";
   import { pickDocRoot, docPaletteItems } from "../docs.js";
+  import { rooms, openPanelFor, shareOrSetup, openJoin } from "../rooms/rooms.svelte.js";
 
   let query = $state("");
   let hi = $state(0);
@@ -133,6 +134,19 @@
     items.push({ label: "Dashboard: Fleet Ops", hint: "view", run: () => setMode("fleet") });
     items.push({ label: "Dashboard: CIC", hint: "view", run: () => setMode("cic") });
     items.push({ label: "Dashboard: Sector Map", hint: "view", run: () => setMode("sector") });
+    // Rooms (UX spec §4): open a room, share an open session's project, join, machines.
+    for (const r of rooms.list) {
+      if (!r.closed) items.push({ label: `Open room: ${r.name}`, hint: "rooms", run: () => openPanelFor(r.id, true) });
+    }
+    const shared = new Set();
+    for (const [cwd, p] of Object.entries(rooms.projects)) {
+      const k = p.identity || p.root;
+      if (p.roomId || shared.has(k)) continue;
+      shared.add(k);
+      items.push({ label: `Share project: ${p.label || cwd}`, hint: "rooms", run: () => shareOrSetup(cwd) });
+    }
+    items.push({ label: "Join with a code", hint: "rooms", run: () => openJoin() });
+    items.push({ label: "Machines & network", hint: "rooms", run: () => (rooms.machines = "list") });
     // Non-empty query: every doc is offered, still last so it cannot evict a
     // command, and fuzzy scoring alone decides whether it survives the slice.
     if (hasQuery) items.push(...docItems);

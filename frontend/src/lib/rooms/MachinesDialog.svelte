@@ -21,6 +21,8 @@
   $effect(() => { const iv = setInterval(() => (now = Date.now()), 1000); return () => clearInterval(iv); });
   $effect(() => { if (mode === "list") App.Machines?.().then((m) => (list = m || [])).catch(() => {}); });
   $effect(() => { mode; net = ""; rooms.code = null; rooms.error = ""; });
+  // A pasted CMDR code lands here (1.5b); the user still presses Join.
+  $effect(() => { if (rooms.joinCode) { codeIn = rooms.joinCode; rooms.joinCode = ""; } });
 
   const left = (exp) => { const s = Math.max(0, exp - Math.floor(now / 1000)); return s >= 3600 ? `${Math.floor(s / 3600)} h` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
   async function pick(n) {

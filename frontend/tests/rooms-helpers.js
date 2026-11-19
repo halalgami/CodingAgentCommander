@@ -42,6 +42,10 @@ export async function openRooms(page, state = {}, dash = {}) {
       RestoreRoom: async (id) => rec("RestoreRoom", id),
       ResetRooms: async () => rec("ResetRooms"),
       QueuedCount: async () => 0,
+      RenameRoom: async (...a) => { rec("RenameRoom", ...a); R.list = R.list.map((r) => (r.id === a[0] ? { ...r, name: a[1] } : r)); },
+      GitHead: async (id) => { rec("GitHead", id); return { branch: "main", sha: "0123456789abcdef0123456789abcdef01234567" }; },
+      RecentProjects: async () => R.recent || [],
+      ProjectRoomByKey: async (k) => { rec("ProjectRoomByKey", k); await new Promise((r) => setTimeout(r, (R.delay || {})[k] || 0)); return (R.byKey || {})[k] || { root: "" }; },
       QuitAnyway: async () => rec("QuitAnyway"),
     });
   }, state);

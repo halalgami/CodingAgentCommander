@@ -81,3 +81,37 @@ export function revealLabel(ua = globalThis.navigator?.userAgent || "") {
 
 // panelMode: dock beside the terminal unless that leaves it under 600px.
 export const panelMode = (windowW, sidebarW, panelW) => (windowW - sidebarW - panelW < 600 ? "overlay" : "dock");
+
+// ---- UX 1.5b ----
+
+// promptOf: the wrapper phase 3's "Send to session" pastes (spec §13).
+export function promptOf(msg, roomName) {
+  const lines = [`[Room ${roomName} · from ${msg.author} · ${msg.kind}]`, msg.text];
+  for (const [k, v] of Object.entries(msg.fields || {})) if (v) lines.push(`${k}: ${v}`);
+  return lines.join("\n");
+}
+
+// cmdrCode: the code, if the whole pasted text is one Commander code
+// (line breaks from chat apps removed); otherwise "".
+export function cmdrCode(text) {
+  const t = String(text || "").replace(/\s+/g, "");
+  return /^CMDR-[A-Z2-7]{24,}$/.test(t) ? t : "";
+}
+
+// pasteVerdict: what a CMDR paste does where focus is (spec §4, §15.5).
+// "terminal" = let it through and offer Join in a toast; "join" = offer Join;
+// "ignore" = a text field — paste exactly as before.
+export function pasteVerdict(activeEl, text) {
+  if (!cmdrCode(text)) return "ignore";
+  if (activeEl?.closest?.(".xterm")) return "terminal";
+  const tag = activeEl?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || activeEl?.isContentEditable) return "ignore";
+  return "join";
+}
+
+// handoffBranch: "branch @ sha7" for the handoff prefill.
+export function handoffBranch(head) {
+  if (!head?.sha) return "";
+  const sha = head.sha.slice(0, 7);
+  return head.branch && head.branch !== "HEAD" ? `${head.branch} @ ${sha}` : sha;
+}

@@ -54,6 +54,7 @@ type RoomSummary struct {
 	ClosedBy    string `json:"closedBy,omitempty"`
 	NeedsFolder bool   `json:"needsFolder"`
 	Online      int    `json:"online"`
+	Last        string `json:"last"` // newest message time, else the room's creation (1.5b)
 }
 
 var msgKinds = map[string]bool{"note": true, "question": true, "handoff": true, "result": true, "ack": true}
@@ -104,7 +105,7 @@ func (s *Service) BindFolder(roomID, folder string) error {
 
 func (s *Service) summaryLocked(r *room) RoomSummary {
 	st := s.stateLocked(r)
-	sum := RoomSummary{ID: r.id, Name: st.Meta.Name, Project: st.Meta.Project, Folder: r.st.Folder, Owner: string(st.Meta.Owner) == string(s.me.User)}
+	sum := RoomSummary{ID: r.id, Name: st.Name, Project: st.Meta.Project, Folder: r.st.Folder, Owner: string(st.Meta.Owner) == string(s.me.User)}
 	me := s.me.PeerID()
 	devs := s.memberDevicesLocked(st)
 	sum.NeedsFolder = r.st.Folder == ""
@@ -121,8 +122,14 @@ func (s *Service) summaryLocked(r *room) RoomSummary {
 		}
 	}
 	for _, e := range st.Accepted {
+		if e.Kind == roomlog.KindRoomMeta && sum.Last == "" {
+			sum.Last = e.Time
+		}
 		if e.Kind != roomlog.KindMsg {
 			continue
+		}
+		if e.Time > sum.Last {
+			sum.Last = e.Time
 		}
 		if e.Device != me {
 			if !r.st.Seen[e.Ref()] {
@@ -409,8 +416,16 @@ func (s *Service) QueuedCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := 0
+	me := s.me.PeerID()
 	for _, r := range s.rooms {
 		n += s.summaryLocked(r).Queued
+		// A close of mine that no other machine holds yet counts too (1.5a review minor).
+		if st := s.stateLocked(r); st.Closed != nil && st.Closed.Device == me {
+			c := roomlog.Entry{Device: me, Seq: st.Closed.Seq}
+			if queuedOnly(roomlog.DeliveryOf(c, s.memberDevicesLocked(st), r.ix, s.observedRoomLocked(r.id))) {
+				n++
+			}
+		}
 	}
 	return n
 }

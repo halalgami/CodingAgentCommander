@@ -162,6 +162,10 @@ export function GetCompanionKind() {
   return window['go']['main']['App']['GetCompanionKind']();
 }
 
+export function GitHead(arg1) {
+  return window['go']['main']['App']['GitHead'](arg1);
+}
+
 export function HiddenRooms() {
   return window['go']['main']['App']['HiddenRooms']();
 }
@@ -358,6 +362,10 @@ export function ProjectMetrics(arg1) {
   return window['go']['main']['App']['ProjectMetrics'](arg1);
 }
 
+export function ProjectRoomByKey(arg1) {
+  return window['go']['main']['App']['ProjectRoomByKey'](arg1);
+}
+
 export function ProjectRooms(arg1) {
   return window['go']['main']['App']['ProjectRooms'](arg1);
 }
@@ -390,6 +398,10 @@ export function RaidPackInfo() {
   return window['go']['main']['App']['RaidPackInfo']();
 }
 
+export function RecentProjects() {
+  return window['go']['main']['App']['RecentProjects']();
+}
+
 export function RefreshModels() {
   return window['go']['main']['App']['RefreshModels']();
 }
@@ -412,6 +424,10 @@ export function RemoveRoomLocal(arg1) {
 
 export function RenameProject(arg1, arg2) {
   return window['go']['main']['App']['RenameProject'](arg1, arg2);
+}
+
+export function RenameRoom(arg1, arg2) {
+  return window['go']['main']['App']['RenameRoom'](arg1, arg2);
 }
 
 export function RenameSession(arg1, arg2) {

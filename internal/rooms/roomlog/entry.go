@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -29,7 +30,8 @@ const (
 	KindAddr         = "addr"
 	KindMsg          = "msg"
 	KindReceipt      = "receipt"
-	KindRoomClose    = "room.close" // owner ends the room for everyone (UX spec §7)
+	KindRoomClose    = "room.close"  // owner ends the room for everyone (UX spec §7)
+	KindRoomRename   = "room.rename" // owner renames the room (UX spec §5)
 )
 
 const (
@@ -109,8 +111,28 @@ type Msg struct {
 }
 
 // Close is the body of a room.close entry.
+// Heads are the lane heads the closer held: anything a device wrote beyond
+// them is after the close, whatever Lamport time it claims.
 type Close struct {
-	Reason string `json:"reason,omitempty"`
+	Reason string           `json:"reason,omitempty"`
+	Heads  map[string]int64 `json:"heads,omitempty"`
+}
+
+// Rename is the body of a room.rename entry.
+type Rename struct {
+	Name string `json:"name"`
+}
+
+// MaxRoomName bounds a room name in characters; maxRoomNameBytes keeps
+// multi-byte names bounded too.
+const (
+	MaxRoomName      = 80
+	maxRoomNameBytes = 4 * MaxRoomName
+)
+
+// ValidRoomName: non-empty after trimming, at most MaxRoomName characters.
+func ValidRoomName(n string) bool {
+	return n != "" && len(n) <= maxRoomNameBytes && utf8.RuneCountInString(n) <= MaxRoomName
 }
 
 type Receipt struct {

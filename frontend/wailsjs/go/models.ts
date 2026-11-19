@@ -1072,6 +1072,20 @@ export namespace main {
 	        this.source = source["source"];
 	    }
 	}
+	export class GitState {
+	    branch: string;
+	    sha: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.branch = source["branch"];
+	        this.sha = source["sha"];
+	    }
+	}
 	export class KeyInfo {
 	    env: string;
 	    set: boolean;
@@ -1918,6 +1932,24 @@ export namespace main {
 		}
 	}
 	
+	export class ProjectRoom {
+	    identity: string;
+	    root: string;
+	    label: string;
+	    roomId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectRoom(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.identity = source["identity"];
+	        this.root = source["root"];
+	        this.label = source["label"];
+	        this.roomId = source["roomId"];
+	    }
+	}
 	export class ProjectView {
 	    folder: string;
 	    label: string;
@@ -2707,6 +2739,7 @@ export namespace rooms {
 	    closedBy?: string;
 	    needsFolder: boolean;
 	    online: number;
+	    last: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new RoomSummary(source);
@@ -2726,6 +2759,7 @@ export namespace rooms {
 	        this.closedBy = source["closedBy"];
 	        this.needsFolder = source["needsFolder"];
 	        this.online = source["online"];
+	        this.last = source["last"];
 	    }
 	}
 	export class Thread {
@@ -2775,6 +2809,7 @@ export namespace rooms {
 	    closedBy?: string;
 	    needsFolder: boolean;
 	    online: number;
+	    last: string;
 	    threads: Thread[];
 	    peers: PeerView[];
 	    outbox: OutItem[];
@@ -2797,6 +2832,7 @@ export namespace rooms {
 	        this.closedBy = source["closedBy"];
 	        this.needsFolder = source["needsFolder"];
 	        this.online = source["online"];
+	        this.last = source["last"];
 	        this.threads = this.convertValues(source["threads"], Thread);
 	        this.peers = this.convertValues(source["peers"], PeerView);
 	        this.outbox = this.convertValues(source["outbox"], OutItem);

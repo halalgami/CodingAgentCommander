@@ -55,6 +55,13 @@ func (r *Resolver) Resolve(ctx context.Context, cwd string) ID {
 	return id
 }
 
+// Forget drops one folder's cached answer (a plain folder may become a repo).
+func (r *Resolver) Forget(cwd string) {
+	r.mu.Lock()
+	delete(r.cache, clean(cwd))
+	r.mu.Unlock()
+}
+
 func pathID(root string) ID {
 	ident := "path:" + root
 	k := KeyOf(ident)

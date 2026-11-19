@@ -27,7 +27,7 @@
   import MachinesDialog from "./lib/rooms/MachinesDialog.svelte";
   import RoomsConfirm from "./lib/rooms/RoomsConfirm.svelte";
   import QuitGuard from "./lib/rooms/QuitGuard.svelte";
-  import { initRooms, unread as roomsUnread, queued as roomsQueued, rooms, refreshProjects, followSelection, setNewRoomHandler } from "./lib/rooms/rooms.svelte.js";
+  import { initRooms, unread as roomsUnread, queued as roomsQueued, rooms, refreshProjects, followSelection, setNewRoomHandler, openPanelFor, onRoomPaste } from "./lib/rooms/rooms.svelte.js";
   import RoomPanel from "./lib/rooms/RoomPanel.svelte";
   import HistoryDrawer from "./lib/components/HistoryDrawer.svelte";
   import DocViewer from "./lib/components/DocViewer.svelte";
@@ -51,7 +51,7 @@
     EventsOn("menu:about", () => (app.about = true));
     EventsOn("models:updated", () => reloadModels());
     EventsOn("app:error", (msg) => toast(msg, "error"));
-    setNewRoomHandler((r) => toast(`${r.name} room is now on this machine — open it from Rooms in the title bar.`));
+    setNewRoomHandler((r) => toast(`${r.name} room is now on this machine.`, "info", { label: "Open", run: () => openPanelFor(r.id, true) }));
     initRooms();
     EventsOn("session:autocont-gaveup", (e) => toast(gaveUpText(e)));
     // Errors from startup were held until now (an event then would be lost).
@@ -91,11 +91,11 @@
     try { OnFileDrop(handleDrop, true); } catch {}
     // Capture phase: xterm's own textarea handler never sees a claimed paste.
     window.addEventListener("paste", onPaste, true);
+    window.addEventListener("paste", onRoomPaste, true);
     const iv = setInterval(refresh, 5000);
-    return () => { clearInterval(iv); window.removeEventListener("paste", onPaste, true); };
+    return () => { clearInterval(iv); window.removeEventListener("paste", onPaste, true); window.removeEventListener("paste", onRoomPaste, true); };
   });
 
-  let switcherOpen = $state(false);
   // Rooms: map every open session's folder to its project's room; the panel
   // follows the selected session (UX spec §6).
   $effect(() => { refreshProjects(app.sessions.map((s) => app.stats[s.windowID]?.cwd)); });
@@ -121,7 +121,7 @@
       <button data-testid="open-providers" onclick={() => (app.drawer = "providers")}>Providers</button>
       <button data-testid="open-models" onclick={() => (app.drawer = "models")}>Models</button>
       <button data-testid="open-usage" onclick={() => (app.drawer = "usage")}>Usage</button>
-      <button data-testid="open-rooms" aria-haspopup="dialog" aria-expanded={switcherOpen} onclick={() => (switcherOpen = !switcherOpen)}>Rooms{#if roomsUnread()}<span class="rbadge" data-testid="rooms-badge">{roomsUnread()}</span>{/if}{#if roomsQueued()}<span class="rqueued" data-testid="rooms-queued-dot" title="Something you sent is only on this machine">●</span>{/if}</button>
+      <button data-testid="open-rooms" aria-haspopup="dialog" aria-expanded={rooms.switcher} onclick={() => (rooms.switcher = !rooms.switcher)}>Rooms{#if roomsUnread()}<span class="rbadge" data-testid="rooms-badge">{roomsUnread()}</span>{/if}{#if roomsQueued()}<span class="rqueued" data-testid="rooms-queued-dot" title="Something you sent is only on this machine">●</span>{/if}</button>
       <button data-testid="open-settings" onclick={() => (app.drawer = "settings")}>Settings</button>
     </nav>
   </header>
@@ -186,7 +186,7 @@
   {#if app.drawer === "models"}<ModelsDrawer />{/if}
   {#if app.drawer === "settings"}<SettingsDrawer />{/if}
   {#if app.drawer === "usage"}<UsageDrawer />{/if}
-  {#if switcherOpen}<RoomSwitcher onclose={() => (switcherOpen = false)} />{/if}
+  {#if rooms.switcher}<RoomSwitcher onclose={() => (rooms.switcher = false)} />{/if}
   <QuitGuard />
   {#if rooms.machines}<MachinesDialog />{/if}
   <RoomsConfirm />

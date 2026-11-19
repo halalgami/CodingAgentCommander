@@ -3,6 +3,8 @@
 // must still run, and rooms stay off until the user sets them up.
 import * as App from "../../../wailsjs/go/main/App.js";
 import { EventsOn } from "../../../wailsjs/runtime/runtime.js";
+import { toast } from "../stores.svelte.js";
+import { pasteVerdict, cmdrCode } from "./rooms.js";
 
 export const rooms = $state({
   status: null, list: [], hidden: [], current: "", view: null, code: null, error: "", quit: 0, busy: false,
@@ -11,6 +13,9 @@ export const rooms = $state({
   projects: {},
   machines: null, // null | "list" | "add" | "join" | "reset"
   share: null,    // { cwd, label, x, y } while the Share popover is open
+  // UX 1.5b
+  switcher: false, // the titlebar switcher (palette and Asturlab open it too)
+  joinCode: "",    // a pasted CMDR code waiting for the Join box
 });
 
 async function call(name, ...args) {
@@ -112,3 +117,33 @@ export function initRooms() {
 
 export const unread = () => rooms.list.reduce((n, r) => n + (r.closed ? 0 : r.unread || 0), 0);
 export const queued = () => rooms.list.reduce((n, r) => n + (r.queued || 0), 0);
+
+// ---- UX 1.5b: entry points outside the card ----
+
+// shareOrSetup: share a folder's project, or open the switcher (which starts
+// with first-time setup) when rooms are not set up yet.
+export async function shareOrSetup(cwd) {
+  if (!rooms.status?.setUp) { rooms.switcher = true; return null; }
+  return shareProject(cwd);
+}
+
+export function openJoin(code = "") {
+  rooms.joinCode = code;
+  rooms.machines = "join";
+}
+
+// onRoomPaste: a pasted CMDR code (spec §4). Outside the terminal and text
+// fields it opens Join with the code filled in; in the terminal the paste goes
+// through untouched and a toast offers Join.
+export function onRoomPaste(e) {
+  const text = e.clipboardData?.getData("text/plain") || "";
+  const v = pasteVerdict(document.activeElement, text);
+  if (v === "ignore") return;
+  const code = cmdrCode(text);
+  if (v === "terminal") {
+    toast("Looks like a Commander code.", "info", { label: "Join…", run: () => openJoin(code) });
+    return;
+  }
+  e.preventDefault();
+  openJoin(code);
+}

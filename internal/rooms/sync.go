@@ -260,7 +260,7 @@ func (s *Service) syncOnce(id peer.ID) {
 		if len(user) == 0 {
 			user, _ = s.stateLocked(r).UserOf(id.String())
 		}
-		if s.mayShareLocked(r, id.String(), user) {
+		if s.mayShareLocked(r, id.String(), user) && !s.closeSettledLocked(r) {
 			rooms = append(rooms, r)
 		}
 	}

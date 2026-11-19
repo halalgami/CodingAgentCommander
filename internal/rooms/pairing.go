@@ -113,7 +113,7 @@ func (s *Service) openWindow(kind string, n netsel.Network, room string, ttl tim
 	c := codes.Code{Kind: kind, Peer: s.node.ID().String(), Addrs: addrs, Net: string(n), Secret: w.secret, Expires: w.exp.Unix()}
 	if room != "" {
 		st := s.stateLocked(s.rooms[room])
-		c.Room, c.Name, c.Project = room, st.Meta.Name, st.Meta.Project
+		c.Room, c.Name, c.Project = room, st.Name, st.Meta.Project
 	}
 	s.win = w
 	s.updateMDNSLocked()
@@ -320,7 +320,7 @@ func (s *Service) Join(code, name, folder string) (CodeView, error) {
 	if d, known := s.devices[host.String()]; known && d.Net != "" && d.Net != net {
 		s.mu.Unlock()
 		// D10: a code never switches a known machine's network silently.
-		return CodeView{}, fmt.Errorf("that machine is set to %s here; change it under People & machines first", d.Net.Label())
+		return CodeView{}, fmt.Errorf("that machine is set to %s here; change it under Machines & network first", d.Net.Label())
 	}
 	if t, hidden := s.tombs[c.Room]; hidden && c.Kind == codes.KindInvite {
 		t.Restoring = true // an explicit invite brings a hidden room back (final review I7)
@@ -333,7 +333,8 @@ func (s *Service) Join(code, name, folder string) (CodeView, error) {
 	s.joinPeer = &joinPeer{id: host, net: net, addrs: keep}
 	s.updateMDNSLocked()
 	words := codes.Words(host.String(), s.node.ID().String(), c.Secret)
-	s.join = &joinState{Kind: c.Kind, Net: c.Net, Words: words, Status: "waiting"}
+	js := &joinState{Kind: c.Kind, Net: c.Net, Words: words, Status: "waiting"}
+	s.join = js
 	req := pairReq{Secret: c.Secret, Device: s.devicePub(), Name: name}
 	if c.Kind == codes.KindInvite {
 		for _, cert := range s.me.Certs {
@@ -347,14 +348,20 @@ func (s *Service) Join(code, name, folder string) (CodeView, error) {
 	s.joinStop = cancel
 	s.mu.Unlock()
 	s.changed()
-	go s.runJoin(ctx, c, host, req, folder)
+	go s.runJoin(ctx, js, c, host, req, folder)
 	return CodeView{Net: c.Net, Expires: c.Expires, Words: words[:]}, nil
 }
 
-func (s *Service) finishJoin(err error, room string) {
+// finishJoin settles one join — only if it is still the current one and
+// still waiting, so a cancelled or replaced join never overwrites a newer one.
+func (s *Service) finishJoin(js *joinState, err error, room string) {
 	s.mu.Lock()
+	if js == nil || s.join != js || js.Status != "waiting" {
+		s.mu.Unlock()
+		return
+	}
 	s.joinPeer = nil
-	if s.join != nil {
+	{
 		if err != nil {
 			s.join.Status, s.join.Error = "failed", err.Error()
 		} else {
@@ -365,7 +372,7 @@ func (s *Service) finishJoin(err error, room string) {
 	s.changed()
 }
 
-func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, req pairReq, folder string) {
+func (s *Service) runJoin(parent context.Context, js *joinState, c codes.Code, host peer.ID, req pairReq, folder string) {
 	s.dial(host)
 	body, _ := json.Marshal(req)
 	ctx, cancel := context.WithTimeout(parent, confirmWait+30*time.Second)
@@ -374,7 +381,7 @@ func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, re
 	node := s.node
 	s.mu.Unlock()
 	if node == nil {
-		s.finishJoin(errors.New("rooms stopped"), "")
+		s.finishJoin(js, errors.New("rooms stopped"), "")
 		return
 	}
 	raw, err := node.Request(ctx, host, protoPair, body, 1<<20)
@@ -382,12 +389,12 @@ func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, re
 		return // CancelJoin already reported it
 	}
 	if err != nil {
-		s.finishJoin(errors.New("the other machine did not accept — check the words and try a new code"), "")
+		s.finishJoin(js, errors.New("the other machine did not accept — check the words and try a new code"), "")
 		return
 	}
 	var resp pairResp
 	if json.Unmarshal(raw, &resp) != nil {
-		s.finishJoin(errors.New("unexpected answer"), "")
+		s.finishJoin(js, errors.New("unexpected answer"), "")
 		return
 	}
 	s.mu.Lock()
@@ -403,7 +410,7 @@ func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, re
 		id, err := s.ids.Adopt(resp.User, resp.Name, resp.Certs)
 		if err != nil {
 			s.mu.Unlock()
-			s.finishJoin(err, "")
+			s.finishJoin(js, err, "")
 			return
 		}
 		s.me, s.setUp, s.joining = id, true, false
@@ -430,7 +437,7 @@ func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, re
 		}
 		if !adopted {
 			s.mu.Unlock()
-			s.finishJoin(errors.New("the inviting machine could not prove it belongs to the room's owner"), "")
+			s.finishJoin(js, errors.New("the inviting machine could not prove it belongs to the room's owner"), "")
 			return
 		}
 		s.devices[host.String()] = d
@@ -440,7 +447,7 @@ func (s *Service) runJoin(parent context.Context, c codes.Code, host peer.ID, re
 	s.syncPeer(host)
 	s.ensureCerts()
 	s.syncPeer(host)
-	s.finishJoin(nil, c.Room)
+	s.finishJoin(js, nil, c.Room)
 }
 
 // adoptRoomLocked creates a local copy of a room this device belongs to.
@@ -523,7 +530,7 @@ func (s *Service) pendingViewLocked() *Pending {
 	w := s.win
 	pv := &Pending{Kind: w.kind, Name: w.pending.name, Words: w.pending.words[:], Net: string(w.net), Until: w.pending.until.Unix()}
 	if r := s.rooms[w.room]; r != nil {
-		pv.Room = s.stateLocked(r).Meta.Name
+		pv.Room = s.stateLocked(r).Name
 	}
 	return pv
 }

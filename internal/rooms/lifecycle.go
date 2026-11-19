@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -68,7 +69,7 @@ func (s *Service) CloseRoom(id string) error {
 		case st.Closed != nil:
 			err = errClosed
 		default:
-			_, err = r.w.Write(roomlog.KindRoomClose, roomlog.Close{})
+			_, err = r.w.Write(roomlog.KindRoomClose, roomlog.Close{Heads: r.lanes.Heads()})
 		}
 	}
 	s.mu.Unlock()
@@ -76,6 +77,64 @@ func (s *Service) CloseRoom(id string) error {
 		s.wrote()
 	}
 	return err
+}
+
+// RenameRoom renames an open room for everyone. Owner only.
+func (s *Service) RenameRoom(id, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("give the room a name")
+	}
+	if !roomlog.ValidRoomName(name) {
+		return errors.New("room names are limited to 80 characters")
+	}
+	s.mu.Lock()
+	r, err := s.roomLocked(id)
+	if err == nil {
+		switch st := s.stateLocked(r); {
+		case string(st.Meta.Owner) != string(s.me.User):
+			err = errNotOwner
+		case s.closedLocked(r):
+			err = errClosed
+		default:
+			_, err = r.w.Write(roomlog.KindRoomRename, roomlog.Rename{Name: name})
+		}
+	}
+	s.mu.Unlock()
+	if err == nil {
+		s.wrote()
+	}
+	return err
+}
+
+// closeSettledLocked: the room is closed and every other member device is
+// known to hold the close, so there is nothing left to dial for.
+func (s *Service) closeSettledLocked(r *room) bool {
+	if r == nil {
+		return false
+	}
+	st := s.stateLocked(r)
+	if st.Closed == nil {
+		return false
+	}
+	me := s.me.PeerID()
+	obs := s.observedRoomLocked(r.id)
+	for _, d := range s.memberDevicesLocked(st) {
+		if d == me || d == st.Closed.Device {
+			continue
+		}
+		// It must hold the close and everything the closer held with it,
+		// or a message inside the close could never reach it (final review M3).
+		if obs[d][st.Closed.Device] < st.Closed.Seq {
+			return false
+		}
+		for lane, h := range st.Closed.Heads {
+			if lane != d && obs[d][lane] < h {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // LeaveRoom removes me from a colleague's room; my copy turns read-only.
@@ -114,7 +173,7 @@ func (s *Service) RemoveLocal(id string) error {
 	if err != nil {
 		return err
 	}
-	s.tombs[id] = tomb{Name: s.stateLocked(r).Meta.Name}
+	s.tombs[id] = tomb{Name: s.stateLocked(r).Name}
 	if err := s.saveTombsLocked(); err != nil {
 		delete(s.tombs, id)
 		return err
@@ -192,14 +251,12 @@ func (s *Service) CancelJoin() {
 	s.mu.Lock()
 	stop := s.joinStop
 	s.joinStop = nil
-	running := s.join != nil && s.join.Status == "waiting"
+	js := s.join
 	s.mu.Unlock()
 	if stop != nil {
 		stop()
 	}
-	if running {
-		s.finishJoin(errors.New("cancelled"), "")
-	}
+	s.finishJoin(js, errors.New("cancelled"), "")
 }
 
 // Machines lists my other machines, whatever rooms they are in (UX spec §8).
