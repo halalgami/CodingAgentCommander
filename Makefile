@@ -30,7 +30,7 @@ else
   TESTFLAGS ?=
 endif
 
-VERSION ?= 0.13.2
+VERSION ?= 0.14.0
 COMMIT ?= $(shell git rev-parse --short HEAD)
 LDFLAGS := -X main.appVersion=$(VERSION) -X main.appCommit=$(COMMIT) -X main.appBuildDate=$(BUILD_DATE)
 
