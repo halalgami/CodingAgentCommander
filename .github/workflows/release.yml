@@ -97,14 +97,27 @@ jobs:
       # Notes live in a file rather than inline: inside a PowerShell here-string
       # the backtick is the escape character, which turns every markdown code
       # fence into a quoting puzzle.
+      #
+      # The release may already exist: on the private repo the Mac side runs
+      # `make release`, which creates it with the DMG before this job finishes.
+      # `gh release create` then refused ("a release with the same tag name
+      # already exists") and the built exe was discarded — v0.14.0 shipped
+      # Mac-only that way. Attach to the existing release instead, keeping its
+      # notes.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.v.outputs.version }}
         shell: pwsh
         run: |
-          gh release create "v$env:VERSION" `
-            build/bin/commander-gui.exe `
-            build/bin/commander-gui.exe.sha256 `
-            --title "Commander v$env:VERSION" `
-            --notes-file .github/release-notes-windows.md
+          $tag = "v$env:VERSION"
+          $assets = 'build/bin/commander-gui.exe', 'build/bin/commander-gui.exe.sha256'
+          gh release view $tag --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --clobber
+          } else {
+            gh release create $tag @assets `
+              --title "Commander $tag" `
+              --notes-file .github/release-notes-windows.md
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
