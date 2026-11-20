@@ -95,19 +95,30 @@ func (in Incoming) Wrap() string {
 	return b.String()
 }
 
-// Quote prefixes every line with "> ".
+// Quote prefixes every line with "> " after Clean (security review: room
+// text is pasted into a terminal).
 func Quote(s string) string {
-	return "> " + strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\n", "\n> ")
+	return "> " + strings.ReplaceAll(Clean(s), "\n", "\n> ")
 }
 
-// OneLine folds control characters (newlines included) into spaces.
-func OneLine(s string) string {
+// Clean keeps newlines and drops every other control character — ESC, CR,
+// BEL, DEL, C1 — so text pasted into a terminal can't end bracketed paste,
+// press Enter or drive the terminal.
+func Clean(s string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) || r == '\u2028' || r == '\u2029' {
-			return ' '
+		if r == '\n' {
+			return r
+		}
+		if unicode.IsControl(r) || r == 0x7f || r == '\u2028' || r == '\u2029' {
+			return -1
 		}
 		return r
-	}, s)
+	}, strings.ReplaceAll(s, "\r\n", "\n"))
+}
+
+// OneLine folds newlines into spaces and drops other control characters.
+func OneLine(s string) string {
+	return strings.ReplaceAll(Clean(s), "\n", " ")
 }
 
 // incomingLocked builds the Incoming view of an accepted msg entry.

@@ -261,7 +261,7 @@ func (g *roomAgents) flush(window string) {
 	for i, p := range q {
 		texts[i] = p.text
 	}
-	err := g.a.host.Paste(window, strings.Join(texts, "\n\n"))
+	err := g.a.host.Paste(window, rooms.Clean(strings.Join(texts, "\n\n"))) // defence in depth
 	if errors.Is(err, tmux.ErrPasteUnsupported) {
 		done(nil) // never retried: say so instead of holding it for ever
 		g.a.reportError("This terminal can't receive pasted text, so the room message was not sent to the session — use Copy as prompt instead.")
@@ -625,8 +625,9 @@ func (a *App) StartFromMessage(room, ref, modelID, prompt string) (SessionInfo, 
 	if !ok {
 		return SessionInfo{}, fmt.Errorf("unknown model %q", modelID)
 	}
-	// "--" ends the options: the prompt is never read as a flag.
-	si, err := a.startSession(sum.Folder, m, []string{"--", prompt})
+	// "--" ends the options: the prompt is never read as a flag. Control
+	// characters go: the prompt is typed into a terminal session.
+	si, err := a.startSession(sum.Folder, m, []string{"--", rooms.Clean(prompt)})
 	if err != nil {
 		return si, err
 	}

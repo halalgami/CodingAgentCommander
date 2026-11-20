@@ -85,9 +85,16 @@ export const panelMode = (windowW, sidebarW, panelW) => (windowW - sidebarW - pa
 // ---- UX 1.5b ----
 
 // promptOf: the wrapper phase 3's "Send to session" pastes (spec §13).
+// cleanText keeps newlines and drops every other control character (ESC,
+// CR, BEL, DEL, C1): copied room text ends up pasted into a terminal.
+export function cleanText(s) {
+  return String(s ?? "").replace(/\r\n/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/g, "");
+}
+const oneLine = (s) => cleanText(s).replace(/\n/g, " ");
+
 export function promptOf(msg, roomName) {
-  const lines = [`[Room ${roomName} · from ${msg.author} · ${msg.kind}]`, msg.text];
-  for (const [k, v] of Object.entries(msg.fields || {})) if (v) lines.push(`${k}: ${v}`);
+  const lines = [`[Room ${oneLine(roomName)} · from ${oneLine(msg.author)} · ${oneLine(msg.kind)}]`, cleanText(msg.text)];
+  for (const [k, v] of Object.entries(msg.fields || {})) if (v) lines.push(`${oneLine(k)}: ${oneLine(v)}`);
   return lines.join("\n");
 }
 

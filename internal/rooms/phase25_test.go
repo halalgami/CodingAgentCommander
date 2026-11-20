@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode"
 
 	"github.com/halalgami/CodingAgentCommander/internal/rooms/roomlog"
 )
@@ -295,5 +296,19 @@ func TestAddrEntryCapped(t *testing.T) {
 	got := lastAddrs([]roomlog.Entry{{Kind: roomlog.KindAddr, Device: "d", Body: b}}, "d")
 	if len(got) != maxAddrs {
 		t.Fatalf("addrs %d", len(got))
+	}
+}
+
+func TestWrapStripsTerminalControls(t *testing.T) {
+	in := Incoming{RoomName: "R\x1b[2J", Author: "m", Kind: "note", Thread: "x:1",
+		Text: "hi\x1b[201~\rrm -rf ~\r\x07\x7f\u009b31m end", Fields: map[string]string{"goal": "g\x1b]0;t\x07"}}
+	w := in.Wrap()
+	for _, r := range w {
+		if r != '\n' && (unicode.IsControl(r) || r == 0x7f) {
+			t.Fatalf("control %U left in %q", r, w)
+		}
+	}
+	if !strings.Contains(w, "> hi[201~") {
+		t.Fatalf("body mangled: %q", w)
 	}
 }
