@@ -204,6 +204,17 @@ type MsgView struct {
 	Delivery map[string]string `json:"delivery,omitempty"` // device → state (my messages)
 	Own      bool              `json:"own"`                // one of my machines wrote it
 	PickedUp bool              `json:"pickedUp,omitempty"` // a session here took it
+	User     string            `json:"user,omitempty"`     // the author's display name (profile entry)
+	Attach   []AttachView      `json:"attach,omitempty"`
+	Mentions []string          `json:"mentions,omitempty"` // mentioned machine names
+	// MentionsMe: a machine of mine is mentioned.
+	MentionsMe bool `json:"mentionsMe,omitempty"`
+}
+
+// AttachView is an attachment as the panel shows it.
+type AttachView struct {
+	roomlog.Attachment
+	Have bool `json:"have"` // the bytes are on this machine
 }
 
 type Thread struct {
@@ -214,6 +225,8 @@ type Thread struct {
 	ClaimedBy []string `json:"claimedBy,omitempty"`
 	MyClaim   bool     `json:"myClaim,omitempty"`
 	Conflict  bool     `json:"conflict,omitempty"`
+	// OutOfBudget: automatic deliveries on this thread used up (§10.4).
+	OutOfBudget bool `json:"outOfBudget,omitempty"`
 }
 
 // PeerView is one member device as this machine sees it (spec §9, D10).
@@ -286,7 +299,20 @@ func (s *Service) View(roomID string) (RoomView, error) {
 		}
 		au, _ := st.UserOf(e.Device)
 		mv := MsgView{Ref: e.Ref(), Parent: m.Parent, Author: name(e.Device), Device: e.Device, Mine: e.Device == me, Kind: m.Kind, Text: m.Text, Fields: m.Fields, Time: e.Time, Seen: e.Device == me || r.st.Seen[e.Ref()],
-			Own: string(au) == string(s.me.User), PickedUp: r.ix.PickedUpBy(e.Ref(), me)}
+			Own: string(au) == string(s.me.User), PickedUp: r.ix.PickedUpBy(e.Ref(), me), User: st.UserNames[string(au)]}
+		for _, a := range roomlog.ValidAttachments(m.Attach) {
+			_, have := s.AttachmentPath(r.id, a.SHA)
+			mv.Attach = append(mv.Attach, AttachView{Attachment: a, Have: have})
+		}
+		for _, d := range m.Mentions {
+			if !st.MemberDevice(d) {
+				continue
+			}
+			mv.Mentions = append(mv.Mentions, name(d))
+			if u, _ := st.UserOf(d); string(u) == string(s.me.User) {
+				mv.MentionsMe = true
+			}
+		}
 		if inInbox(mv, st, r.st.Dismissed, me) {
 			v.Inbox = append(v.Inbox, mv)
 		}
@@ -317,6 +343,8 @@ func (s *Service) View(roomID string) (RoomView, error) {
 			devsSeen[c.Device] = true
 		}
 		v.Threads[i].Conflict = len(devsSeen) > 1
+		ref := v.Threads[i].Root.Ref
+		v.Threads[i].OutOfBudget = r.st.Used[ref] > 0 && r.st.Settings.budget()+r.st.Granted[ref]-r.st.Used[ref] <= 0
 	}
 	sort.SliceStable(v.Inbox, func(i, j int) bool { return v.Inbox[i].Time > v.Inbox[j].Time })
 	for key, ls := range st.Live {
@@ -418,34 +446,7 @@ func (s *Service) Post(roomID, kind, text, parent string, fields map[string]stri
 
 // PostRef is Post that also returns the new message's ref.
 func (s *Service) PostRef(roomID, kind, text, parent string, fields map[string]string) (string, error) {
-	if !msgKinds[kind] {
-		return "", errors.New("unknown message kind")
-	}
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return "", errors.New("write something first")
-	}
-	if len(text) > roomlog.MaxBody {
-		return "", errors.New("messages are limited to 16 KB")
-	}
-	s.mu.Lock()
-	r := s.rooms[roomID]
-	if r == nil {
-		s.mu.Unlock()
-		return "", errors.New("no such room")
-	}
-	if s.closedLocked(r) {
-		s.mu.Unlock()
-		return "", errClosed
-	}
-	e, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
-	s.mu.Unlock()
-	if err != nil {
-		return "", err
-	}
-	go s.SyncAll()
-	s.changed()
-	return e.Ref(), nil
+	return s.PostMsg(roomID, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
 }
 
 // MarkSeen records that a human here opened a message (a "seen" receipt).

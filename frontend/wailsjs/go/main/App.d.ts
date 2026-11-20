@@ -103,6 +103,8 @@ export function GetCompanionKind():Promise<string>;
 
 export function GitHead(arg1:string):Promise<main.GitState>;
 
+export function GrantThread(arg1:string,arg2:string):Promise<void>;
+
 export function HiddenRooms():Promise<Array<rooms.HiddenRoom>>;
 
 export function ImportCompanionPack():Promise<string>;
@@ -186,6 +188,8 @@ export function PickCompanionPack():Promise<string>;
 export function PickFolder():Promise<string>;
 
 export function PickPackGenBase():Promise<string>;
+
+export function PickRoomFiles():Promise<Array<string>>;
 
 export function PickRoomFolder():Promise<string>;
 
@@ -275,6 +279,8 @@ export function SaveClipboardImage(arg1:string,arg2:string):Promise<string>;
 
 export function SavePackGen():Promise<main.PackGenState>;
 
+export function SaveRoomAttachment(arg1:string,arg2:string):Promise<string>;
+
 export function SaveWrappedPNG(arg1:string):Promise<string>;
 
 export function ScanProject(arg1:string):Promise<void>;
@@ -286,6 +292,8 @@ export function SelectCompanionPack(arg1:string):Promise<string>;
 export function SelectRaidPack(arg1:string):Promise<main.RaidPackView>;
 
 export function SelectSession(arg1:string):Promise<void>;
+
+export function SendRoomPost(arg1:string,arg2:main.RoomPost):Promise<void>;
 
 export function SendToSession(arg1:string,arg2:string,arg3:string):Promise<void>;
 

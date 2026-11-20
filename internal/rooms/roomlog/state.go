@@ -29,6 +29,9 @@ type State struct {
 	// PreRevoked: device → the user who retired it before it had a
 	// certificate in this room (device-level revocation, rooms made later).
 	PreRevoked map[string]map[string]bool // device → signing users
+	// UserNames: user key → display name, from the newest profile entry a
+	// device certified to that user wrote.
+	UserNames map[string]string
 }
 
 // ClaimInfo is one active claim on a thread.
@@ -107,7 +110,7 @@ func (s State) MemberDevice(dev string) bool {
 // removals and revocations (seq-based, not time-based).
 func Replay(entries []Entry) State {
 	s := State{Members: map[string]string{}, Devices: map[string][]byte{}, Names: map[string]string{}, Revoked: map[string]bool{},
-		Live: map[string]Status{}, Claims: map[string][]ClaimInfo{}, PreRevoked: map[string]map[string]bool{}}
+		Live: map[string]Status{}, Claims: map[string][]ClaimInfo{}, PreRevoked: map[string]map[string]bool{}, UserNames: map[string]string{}}
 
 	// Pass 1: certificates, the genuine genesis, removal and revoke cut-offs.
 	for _, e := range entries {
@@ -252,6 +255,14 @@ func Replay(entries []Entry) State {
 		switch e.Kind {
 		case KindMsg:
 			msgs[e.Ref()] = true
+		case KindProfile:
+			var p Profile
+			if json.Unmarshal(e.Body, &p) != nil {
+				continue
+			}
+			if n := UserName(p.Name); n != "" {
+				s.UserNames[string(author)] = n
+			}
 		case KindStatus:
 			var st Status
 			if json.Unmarshal(e.Body, &st) != nil || st.Session == "" || len(st.Session) > 128 {

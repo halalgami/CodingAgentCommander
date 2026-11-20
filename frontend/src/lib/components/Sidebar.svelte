@@ -14,8 +14,8 @@
   } from "../sidebarLayout.js";
   import { dropTarget, DRAG_THRESHOLD } from "../dragReorder.js";
   import { tick, untrack } from "svelte";
-  import { rooms, projectOf, openPanelFor } from "../rooms/rooms.svelte.js";
-  import { revealLabel } from "../rooms/rooms.js";
+  import { rooms, projectOf, openPanelFor, summaryOf } from "../rooms/rooms.svelte.js";
+  import { revealLabel, groupRoomId } from "../rooms/rooms.js";
   import { RevealFolder } from "../../../wailsjs/go/main/App.js";
   import { toast } from "../stores.svelte.js";
 
@@ -307,7 +307,9 @@
   <ul class="sessions" data-testid="session-list" bind:this={listEl} class:dragging-list={drag?.active}>
     {#each sections as sec (sec.key)}
       {#if sec.group}
-        <li class="gli"><GroupHeader section={sec}
+        {@const gRoom = groupRoomId(sec.sessions.map((x) => app.stats[x.windowID]?.cwd || ""), (c) => projectOf(c)?.roomId || "")}
+        <li class="gli"><GroupHeader section={sec} roomName={gRoom ? (summaryOf(gRoom)?.name || "room") : ""}
+          onroom={() => openPanelFor(gRoom)}
           ontoggle={(id, c) => applyLayout(setCollapsed(side.layout, id, c))}
           onrename={(id, n) => applyLayout(renameGroup(side.layout, id, n))}
           ondelete={(id) => applyLayout(deleteGroup(base(), id))}

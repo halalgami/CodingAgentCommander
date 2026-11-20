@@ -182,6 +182,10 @@ export function GitHead(arg1) {
   return window['go']['main']['App']['GitHead'](arg1);
 }
 
+export function GrantThread(arg1, arg2) {
+  return window['go']['main']['App']['GrantThread'](arg1, arg2);
+}
+
 export function HiddenRooms() {
   return window['go']['main']['App']['HiddenRooms']();
 }
@@ -348,6 +352,10 @@ export function PickFolder() {
 
 export function PickPackGenBase() {
   return window['go']['main']['App']['PickPackGenBase']();
+}
+
+export function PickRoomFiles() {
+  return window['go']['main']['App']['PickRoomFiles']();
 }
 
 export function PickRoomFolder() {
@@ -526,6 +534,10 @@ export function SavePackGen() {
   return window['go']['main']['App']['SavePackGen']();
 }
 
+export function SaveRoomAttachment(arg1, arg2) {
+  return window['go']['main']['App']['SaveRoomAttachment'](arg1, arg2);
+}
+
 export function SaveWrappedPNG(arg1) {
   return window['go']['main']['App']['SaveWrappedPNG'](arg1);
 }
@@ -548,6 +560,10 @@ export function SelectRaidPack(arg1) {
 
 export function SelectSession(arg1) {
   return window['go']['main']['App']['SelectSession'](arg1);
+}
+
+export function SendRoomPost(arg1, arg2) {
+  return window['go']['main']['App']['SendRoomPost'](arg1, arg2);
 }
 
 export function SendToSession(arg1, arg2, arg3) {

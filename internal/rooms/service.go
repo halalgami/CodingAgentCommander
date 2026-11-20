@@ -70,6 +70,8 @@ type room struct {
 	gone bool // removed from this machine; in-flight syncs must not touch it (final review I8)
 
 	told map[string]bool // msg refs already announced (or history at open)
+
+	named map[string]roomlog.Attachment // sha → attachment accepted messages name (review I2)
 }
 
 // stateLocked replays the room once per change of its lanes.
@@ -81,6 +83,7 @@ func (s *Service) stateLocked(r *room) roomlog.State {
 	if r.cache == nil || key != r.cacheKey {
 		st := roomlog.Replay(r.lanes.All())
 		r.cache, r.cacheKey, r.ix = &st, key, roomlog.IndexReceipts(st.Accepted)
+		r.named = nil // rebuilt on demand (namedLocked)
 		users := map[string]bool{string(r.st.Owner): true, string(s.me.User): true}
 		for u := range st.Members {
 			users[u] = true
@@ -122,9 +125,19 @@ type Service struct {
 	OnConfirm func(Pending)
 	// TailscaleUp reports whether Tailscale runs (stubbed in tests).
 	TailscaleUp func() bool
+	// TailPeers lists the tailnet's machines (stubbed in tests).
+	TailPeers func() []netsel.TailPeer
+	blobOnce  sync.Once
+	blobSem   chan struct{} // blob requests served at once (review I2)
+	tailMu    sync.Mutex
+	tailAt    time.Time
+	tailCache []netsel.TailPeer
 	// OnMessage is told about each message another device wrote, once, when
 	// it is first accepted here (notifications, listening). Not for history.
 	OnMessage func(Incoming)
+	// OnNotify shows a native notification: a handoff or question that
+	// mentions this machine (spec §11). Status never notifies.
+	OnNotify func(title, body string)
 
 	mu       sync.Mutex
 	ids      *ident.Store
@@ -160,6 +173,21 @@ func (s *Service) changed() {
 	if s.OnChange != nil {
 		go s.OnChange()
 	}
+}
+
+// tailPeers is cached for 30 s: dialling every unreachable machine must not
+// run `tailscale status` each time.
+func (s *Service) tailPeers() []netsel.TailPeer {
+	if s.TailPeers != nil {
+		return s.TailPeers()
+	}
+	s.tailMu.Lock()
+	defer s.tailMu.Unlock()
+	if time.Since(s.tailAt) > 30*time.Second {
+		_, s.tailCache = netsel.Status(context.Background())
+		s.tailAt = time.Now()
+	}
+	return s.tailCache
 }
 
 func (s *Service) tailscaleUp() bool {
@@ -226,6 +254,7 @@ func (s *Service) loadRoomsLocked() {
 	for _, e := range ents {
 		if _, gone := s.tombs[e.Name()]; e.IsDir() && roomIDRe.MatchString(e.Name()) && !gone {
 			s.openRoomLocked(e.Name())
+			go evictAttachments(s.attachDir(e.Name()), time.Now(), attachStoreCap)
 		}
 	}
 }
@@ -296,6 +325,12 @@ func (s *Service) startLocked() error {
 			}
 		}
 	}
+	n.Handle(protoBlob, func(p peer.ID) int {
+		if _, known := s.policy(p); known {
+			return blobReqLimit
+		}
+		return 0
+	}, s.handleBlob)
 	n.Handle(protoPair, func(peer.ID) int { return 64 << 10 }, s.handlePair)
 	n.Handle(protoSync, func(p peer.ID) int {
 		if _, known := s.policy(p); known { // strangers can't make us allocate (review I3)
@@ -438,12 +473,16 @@ func (s *Service) dial(id peer.ID) {
 	if s.joinPeer != nil && s.joinPeer.id == id {
 		addrs = append(addrs, s.joinPeer.addrs...)
 	}
+	tailnet := d.Net == netsel.Tailscale
 	for _, r := range s.rooms {
 		addrs = append(addrs, lastAddrs(r.lanes.All(), id.String())...)
 	}
 	s.mu.Unlock()
 	if node == nil {
 		return
+	}
+	if tailnet {
+		addrs = append(addrs, tailnetCandidates(addrs, s.tailPeers())...)
 	}
 	var mas []ma.Multiaddr
 	for _, a := range addrs {
@@ -533,6 +572,7 @@ func (s *Service) addrsOn(n netsel.Network) []string {
 
 // publishAddrs writes an addr entry in each room when the addresses changed.
 func (s *Service) publishAddrsLocked() {
+	s.publishProfileLocked()
 	addrs := s.myAddrsLocked()
 	if len(addrs) == 0 {
 		return

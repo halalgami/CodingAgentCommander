@@ -150,3 +150,25 @@ export function inboxActions(m, { waiting = false, sessions = 0, folder = true }
   out.push("reply", "dismiss");
   return out;
 }
+
+// ---- phase 6: attachments, mentions, user names ----
+export const baseName = (p) => String(p || "").split(/[\\/]/).filter(Boolean).pop() || "";
+export function fmtSize(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1 << 20) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1 << 20)).toFixed(1)} MB`;
+}
+export const authorLine = (m) => (m.user ? `${m.user} · ${m.author}` : m.author);
+export const canSend = (text, files, bytes, busy) => !busy && bytes <= 16384 && (!!text.trim() || (files?.length || 0) > 0);
+
+// groupRoomId (spec §11): a sidebar group shows the room badge when every
+// session in it is in the same room's project.
+export function groupRoomId(cwds, roomOf) {
+  let id = "";
+  for (const c of cwds) {
+    const r = roomOf(c);
+    if (!r || (id && r !== id)) return "";
+    id = r;
+  }
+  return id;
+}

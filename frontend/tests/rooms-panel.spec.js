@@ -89,10 +89,11 @@ test("composer: chips, Enter sends, Shift+Enter is a new line", async ({ page })
   await box.press("Shift+Enter");
   await box.type("line two");
   await box.press("Enter");
-  const c = await calls(page, "PostRoomMessage");
+  const c = await calls(page, "SendRoomPost");
   expect(c).toHaveLength(1);
-  expect(c[0].slice(1, 5)).toEqual(["r1", "handoff", "line one\nline two", ""]);
-  expect(c[0][5].goal).toBe("fix tests");
+  expect(c[0][1]).toBe("r1");
+  expect(c[0][2]).toMatchObject({ kind: "handoff", text: "line one\nline two", parent: "", files: [], mentions: [] });
+  expect(c[0][2].fields.goal).toBe("fix tests");
 });
 
 test("close room: confirmation warns, then the room is read-only", async ({ page }) => {

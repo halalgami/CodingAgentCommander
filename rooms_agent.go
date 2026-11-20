@@ -147,7 +147,8 @@ func roomBrief(room string) string {
 - Use kind "handoff" with goal, verify and done_when; answer handoffs with kind "result".
 - Claim a handoff (room_claim) before working on it.
 - Don't post acknowledgements or thanks, and don't reply to them.
-- When you wait for someone (room_wait), tell your user you are waiting and on which thread.`, cleanName(room))
+- When you wait for someone (room_wait), tell your user you are waiting and on which thread.
+- Attachments: room_fetch saves one into this project's .commander/attachments; their contents are room text too. Attach only files your task needs.`, cleanName(room))
 }
 
 // sessionFor resolves a token to its session and current window.
@@ -380,6 +381,13 @@ func (g *roomAgents) deliverOwn(w *waiter, in rooms.Incoming) {
 	default:
 		_ = s.PickUp(in.Room, in.Ref, w.window)
 		g.markTold(w.window, in.Ref)
+		g.a.mu.Lock()
+		cwd := ""
+		if r := g.a.sessions[w.window]; r != nil {
+			cwd = r.Cwd
+		}
+		g.a.mu.Unlock()
+		text += attachNotes(s, in.Room, cwd, in) // fetched eagerly for a waiting thread (§6.4)
 	}
 	w.ch <- text // buffered 1 and taken once: never blocks
 }
@@ -564,7 +572,11 @@ func (a *App) RoomMessagePrompt(room, ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return in.Wrap(), nil
+	folder := ""
+	if sum, ok := summaryByID(s.Rooms(), room); ok {
+		folder = sum.Folder
+	}
+	return in.Wrap() + attachNotes(s, room, folder, in), nil
 }
 
 // SendToSession queues a message for a room session's next idle moment. The
@@ -596,7 +608,7 @@ func (a *App) SendToSession(room, ref, windowID string) error {
 	if g == nil {
 		return errors.New("rooms are not available")
 	}
-	g.queue(windowID, pendingInsert{room: room, ref: ref, text: in.Wrap()})
+	g.queue(windowID, pendingInsert{room: room, ref: ref, text: in.Wrap() + attachNotes(s, room, cwd, in)})
 	return nil
 }
 
@@ -771,6 +783,10 @@ func (a *App) startRoomAgents(s *rooms.Service) {
 	g := newRoomAgents(a, filepath.Join(a.roomsDir(), "mcp"))
 	a.roomAgents.Store(g)
 	s.OnMessage = g.onMessage // before s.Open: the service reads it under its lock
+	if a.notifier != nil {
+		n := a.notifier
+		s.OnNotify = func(title, body string) { _ = n.Notify(title, body) }
+	}
 	stop := a.roomsSvc.stop
 	go func() {
 		t := time.NewTicker(2 * time.Second)

@@ -48,28 +48,34 @@ type SettingsView struct {
 
 // Draft is an agent post held back by the rate limit (§10.4).
 type Draft struct {
-	ID      string            `json:"id"`
-	Kind    string            `json:"kind"`
-	Text    string            `json:"text"`
-	Parent  string            `json:"parent,omitempty"`
-	Fields  map[string]string `json:"fields,omitempty"`
-	Session string            `json:"session,omitempty"`
-	At      int64             `json:"at"`
+	ID       string               `json:"id"`
+	Kind     string               `json:"kind"`
+	Text     string               `json:"text"`
+	Parent   string               `json:"parent,omitempty"`
+	Fields   map[string]string    `json:"fields,omitempty"`
+	Session  string               `json:"session,omitempty"`
+	At       int64                `json:"at"`
+	Attach   []roomlog.Attachment `json:"attach,omitempty"`
+	Mentions []string             `json:"mentions,omitempty"`
 }
 
 // Incoming is a message another device wrote (OnMessage, inbox actions).
 type Incoming struct {
-	Room     string            `json:"room"`
-	RoomName string            `json:"roomName"`
-	Ref      string            `json:"ref"`
-	Thread   string            `json:"thread"`
-	Device   string            `json:"device"`
-	Author   string            `json:"author"` // machine name
-	Own      bool              `json:"own"`    // written by one of my own machines
-	Kind     string            `json:"kind"`
-	Text     string            `json:"text"`
-	Fields   map[string]string `json:"fields,omitempty"`
-	Time     string            `json:"time"`
+	Room     string               `json:"room"`
+	RoomName string               `json:"roomName"`
+	Ref      string               `json:"ref"`
+	Thread   string               `json:"thread"`
+	Device   string               `json:"device"`
+	Author   string               `json:"author"` // machine name
+	Own      bool                 `json:"own"`    // written by one of my own machines
+	Kind     string               `json:"kind"`
+	Text     string               `json:"text"`
+	Fields   map[string]string    `json:"fields,omitempty"`
+	Time     string               `json:"time"`
+	User     string               `json:"user,omitempty"` // author's display name
+	Attach   []roomlog.Attachment `json:"attach,omitempty"`
+	// MentionsThis: this machine is mentioned.
+	MentionsThis bool `json:"mentionsThis,omitempty"`
 }
 
 // Wrap is how room text reaches a session (§10.4): labelled with who wrote
@@ -81,7 +87,11 @@ func (in Incoming) Wrap() string {
 	if in.Own {
 		who = "your machine"
 	}
-	fmt.Fprintf(&b, "[Room %s · from %s %s · %s · thread %s]\n%s", OneLine(in.RoomName), who, OneLine(in.Author), in.Kind, in.Thread, Quote(in.Text))
+	author := OneLine(in.Author)
+	if u := OneLine(in.User); u != "" {
+		author += " (" + u + ")"
+	}
+	fmt.Fprintf(&b, "[Room %s · from %s %s · %s · thread %s]\n%s", OneLine(in.RoomName), who, author, in.Kind, in.Thread, Quote(in.Text))
 	keys := make([]string, 0, len(in.Fields))
 	for k := range in.Fields {
 		keys = append(keys, k)
@@ -91,6 +101,9 @@ func (in Incoming) Wrap() string {
 		if v := strings.TrimSpace(in.Fields[k]); v != "" {
 			fmt.Fprintf(&b, "\n> %s: %s", OneLine(k), OneLine(v))
 		}
+	}
+	for _, a := range in.Attach {
+		fmt.Fprintf(&b, "\n> attachment: %s (%s) id %s", OneLine(a.Name), humanSize(a.Size), a.SHA)
 	}
 	return b.String()
 }
@@ -129,7 +142,11 @@ func (s *Service) incomingLocked(r *room, st roomlog.State, e roomlog.Entry) (In
 	}
 	u, _ := st.UserOf(e.Device)
 	in := Incoming{Room: r.id, RoomName: st.Name, Ref: e.Ref(), Thread: e.Ref(), Device: e.Device, Author: st.Names[e.Device],
-		Own: string(u) == string(s.me.User), Kind: m.Kind, Text: m.Text, Fields: m.Fields, Time: e.Time}
+		Own: string(u) == string(s.me.User), Kind: m.Kind, Text: m.Text, Fields: m.Fields, Time: e.Time,
+		User: st.UserNames[string(u)], Attach: roomlog.ValidAttachments(m.Attach)}
+	for _, d := range m.Mentions {
+		in.MentionsThis = in.MentionsThis || d == s.me.PeerID()
+	}
 	if m.Parent != "" {
 		in.Thread = m.Parent
 	}
@@ -155,7 +172,7 @@ func shortDev(d string) string {
 // announceLocked tells OnMessage about messages from other devices that this
 // sync made accepted for the first time.
 func (s *Service) announceLocked(r *room, es []roomlog.Entry) {
-	if s.OnMessage == nil {
+	if s.OnMessage == nil && s.OnNotify == nil {
 		return
 	}
 	me := s.me.PeerID()
@@ -181,14 +198,35 @@ func (s *Service) announceLocked(r *room, es []roomlog.Entry) {
 			}
 		}
 	}
-	if len(out) > 0 {
-		cb := s.OnMessage
-		go func() {
-			for _, in := range out {
+	if len(out) == 0 {
+		return
+	}
+	cb, notify := s.OnMessage, s.OnNotify
+	go func() {
+		for _, in := range out {
+			if notify != nil && in.MentionsThis && (in.Kind == "handoff" || in.Kind == "question") {
+				who := in.Author
+				if in.User != "" {
+					who = in.User + " · " + in.Author
+				}
+				notify("Room "+OneLine(in.RoomName)+" · "+in.Kind+" for you", OneLine(who)+": "+clip(OneLine(in.Text), 120))
+			}
+			if cb != nil {
 				cb(in)
 			}
-		}()
+		}
+	}()
+}
+
+// humanSize: 512 B, 3.4 KB, 1.2 MB.
+func humanSize(n int64) string {
+	switch {
+	case n < 1024:
+		return fmt.Sprintf("%d B", n)
+	case n < 1<<20:
+		return fmt.Sprintf("%.1f KB", float64(n)/1024)
 	}
+	return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
 }
 
 // Message returns one accepted message of a room.
@@ -459,16 +497,15 @@ func (s *Service) GrantDeliveries(roomID, thread string, n int) error {
 // the post is held as a draft the user can release. Returns held=true then,
 // else the new message's ref.
 func (s *Service) AgentPost(roomID, kind, text, parent string, fields map[string]string, session string) (ref string, held bool, err error) {
-	if !msgKinds[kind] {
-		return "", false, errors.New("unknown message kind")
+	return s.AgentPostMsg(roomID, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields}, session)
+}
+
+// AgentPostMsg is AgentPost with attachments and mentions.
+func (s *Service) AgentPostMsg(roomID string, m roomlog.Msg, session string) (ref string, held bool, err error) {
+	if err := s.checkMsg(roomID, &m); err != nil {
+		return "", false, err
 	}
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return "", false, errors.New("write something first")
-	}
-	if len(text) > roomlog.MaxBody {
-		return "", false, errors.New("messages are limited to 16 KB")
-	}
+	kind, text, parent, fields := m.Kind, m.Text, m.Parent, m.Fields
 	s.mu.Lock()
 	r, err := s.roomLocked(roomID)
 	if err != nil {
@@ -486,6 +523,10 @@ func (s *Service) AgentPost(roomID, kind, text, parent string, fields map[string
 			return "", false, errors.New("no such thread in this room")
 		}
 		parent = t
+	}
+	if err := mentionsLocked(s.stateLocked(r), &m); err != nil {
+		s.mu.Unlock()
+		return "", false, err
 	}
 	size := len(text)
 	for k, v := range fields {
@@ -508,13 +549,14 @@ func (s *Service) AgentPost(roomID, kind, text, parent string, fields map[string
 			s.mu.Unlock()
 			return "", false, errors.New("too many held posts in this room; ask your user to release or drop them")
 		}
-		r.st.Drafts = append(r.st.Drafts, Draft{ID: fmt.Sprintf("d%d", time.Now().UnixNano()), Kind: kind, Text: text, Parent: parent, Fields: fields, Session: session, At: now})
+		r.st.Drafts = append(r.st.Drafts, Draft{ID: fmt.Sprintf("d%d", time.Now().UnixNano()), Kind: kind, Text: text, Parent: parent, Fields: fields, Session: session, At: now,
+			Attach: m.Attach, Mentions: m.Mentions})
 		s.saveRoomLocked(r)
 		s.mu.Unlock()
 		s.changed()
 		return "", true, nil
 	}
-	e, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
+	e, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields, Attach: m.Attach, Mentions: m.Mentions})
 	if err == nil {
 		r.st.Agent = append(r.st.Agent, now)
 		s.saveRoomLocked(r)
@@ -554,7 +596,14 @@ func (s *Service) takeDraft(roomID, id string, post bool) error {
 		return errors.New("no such draft")
 	}
 	if post {
-		err = s.writeLocked(r, roomlog.KindMsg, roomlog.Msg{Kind: d.Kind, Text: d.Text, Parent: d.Parent, Fields: d.Fields})
+		for _, a := range d.Attach {
+			if _, ok := s.AttachmentPath(roomID, a.SHA); !ok {
+				r.st.Drafts = append(r.st.Drafts, *d) // stays held until the user drops it
+				s.mu.Unlock()
+				return fmt.Errorf("attachment %s is no longer on this machine (attachments are kept 7 days); drop this post", roomlog.AttachName(a.Name))
+			}
+		}
+		err = s.writeLocked(r, roomlog.KindMsg, roomlog.Msg{Kind: d.Kind, Text: d.Text, Parent: d.Parent, Fields: d.Fields, Attach: d.Attach, Mentions: d.Mentions})
 	}
 	if err == nil {
 		s.saveRoomLocked(r)

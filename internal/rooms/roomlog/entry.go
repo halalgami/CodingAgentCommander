@@ -11,7 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -35,6 +37,7 @@ const (
 	KindStatus       = "status"        // automatic session/git status (spec §8.1)
 	KindClaim        = "claim"         // a device takes a handoff/question thread (§8.3)
 	KindClaimRelease = "claim.release" // that device gives it back
+	KindProfile      = "profile"       // the author's user display name (spec §10.4 "from <user>/<machine>")
 )
 
 const (
@@ -107,10 +110,103 @@ func SignRevoke(user ed25519.PrivateKey, device []byte, head int64) Revoke {
 }
 
 type Msg struct {
-	Kind   string            `json:"kind"` // note|question|handoff|result|ack
-	Text   string            `json:"text"`
-	Parent string            `json:"parent,omitempty"` // thread ref
-	Fields map[string]string `json:"fields,omitempty"` // handoff/result fields
+	Kind     string            `json:"kind"` // note|question|handoff|result|ack
+	Text     string            `json:"text"`
+	Parent   string            `json:"parent,omitempty"`   // thread ref
+	Fields   map[string]string `json:"fields,omitempty"`   // handoff/result fields
+	Attach   []Attachment      `json:"attach,omitempty"`   // content-addressed files (§6.3)
+	Mentions []string          `json:"mentions,omitempty"` // device ids, highlight + notify only (§8.2)
+}
+
+// Attachment names a file by content; the bytes travel separately, fetched
+// by hash from any member that holds them (§6.4 step 4).
+type Attachment struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	SHA  string `json:"sha256"`
+}
+
+// Attachment caps (spec §6.3).
+const (
+	MaxAttachment  = 2 << 20
+	MaxAttachTotal = 8 << 20
+	MaxAttachCount = 8
+	MaxMentions    = 16
+	MaxUserName    = 40
+	maxAttachName  = 100
+)
+
+// cleanText drops control characters (keeps nothing multi-line).
+func cleanText(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || r == 0x7f || r == '\u2028' || r == '\u2029' {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// AttachName reduces a name to a safe base name: no directories, no control
+// characters, at most 100 characters, never "", "." or "..".
+func AttachName(n string) string {
+	n = strings.ReplaceAll(n, "\\", "/")
+	if i := strings.LastIndex(n, "/"); i >= 0 {
+		n = n[i+1:]
+	}
+	n = strings.TrimSpace(cleanText(n))
+	if r := []rune(n); len(r) > maxAttachName {
+		n = string(r[:maxAttachName])
+	}
+	if n == "" || n == "." || n == ".." {
+		return "file"
+	}
+	return n
+}
+
+// ValidSHA: 64 lowercase hex characters.
+func ValidSHA(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidAttachments keeps the well-formed attachments within the caps, with
+// cleaned names. Whatever a peer signs, this is all anyone here acts on.
+func ValidAttachments(as []Attachment) []Attachment {
+	var out []Attachment
+	var total int64
+	for _, a := range as {
+		if len(out) == MaxAttachCount {
+			break
+		}
+		if !ValidSHA(a.SHA) || a.Size < 0 || a.Size > MaxAttachment || total+a.Size > MaxAttachTotal {
+			continue
+		}
+		total += a.Size
+		a.Name = AttachName(a.Name)
+		out = append(out, a)
+	}
+	return out
+}
+
+// Profile is the body of a profile entry: the author's user display name.
+type Profile struct {
+	Name string `json:"name"`
+}
+
+// UserName cleans a display name: one line, at most MaxUserName characters.
+func UserName(n string) string {
+	n = strings.TrimSpace(cleanText(n))
+	if r := []rune(n); len(r) > MaxUserName {
+		n = strings.TrimSpace(string(r[:MaxUserName]))
+	}
+	return n
 }
 
 // Close is the body of a room.close entry.

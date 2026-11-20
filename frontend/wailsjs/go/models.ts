@@ -2212,6 +2212,28 @@ export namespace main {
 		}
 	}
 	
+	export class RoomPost {
+	    kind: string;
+	    text: string;
+	    parent: string;
+	    fields: Record<string, string>;
+	    files: string[];
+	    mentions: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RoomPost(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.text = source["text"];
+	        this.parent = source["parent"];
+	        this.fields = source["fields"];
+	        this.files = source["files"];
+	        this.mentions = source["mentions"];
+	    }
+	}
 	export class SessionInfo {
 	    windowID: string;
 	    name: string;
@@ -2586,8 +2608,47 @@ export namespace rates {
 
 }
 
+export namespace roomlog {
+	
+	export class Attachment {
+	    name: string;
+	    size: number;
+	    sha256: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Attachment(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.size = source["size"];
+	        this.sha256 = source["sha256"];
+	    }
+	}
+
+}
+
 export namespace rooms {
 	
+	export class AttachView {
+	    name: string;
+	    size: number;
+	    sha256: string;
+	    have: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AttachView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.size = source["size"];
+	        this.sha256 = source["sha256"];
+	        this.have = source["have"];
+	    }
+	}
 	export class CodeView {
 	    code: string;
 	    net: string;
@@ -2614,6 +2675,8 @@ export namespace rooms {
 	    fields?: Record<string, string>;
 	    session?: string;
 	    at: number;
+	    attach?: roomlog.Attachment[];
+	    mentions?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Draft(source);
@@ -2628,7 +2691,27 @@ export namespace rooms {
 	        this.fields = source["fields"];
 	        this.session = source["session"];
 	        this.at = source["at"];
+	        this.attach = this.convertValues(source["attach"], roomlog.Attachment);
+	        this.mentions = source["mentions"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class HiddenRoom {
 	    id: string;
@@ -2714,6 +2797,10 @@ export namespace rooms {
 	    delivery?: Record<string, string>;
 	    own: boolean;
 	    pickedUp?: boolean;
+	    user?: string;
+	    attach?: AttachView[];
+	    mentions?: string[];
+	    mentionsMe?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new MsgView(source);
@@ -2734,7 +2821,29 @@ export namespace rooms {
 	        this.delivery = source["delivery"];
 	        this.own = source["own"];
 	        this.pickedUp = source["pickedUp"];
+	        this.user = source["user"];
+	        this.attach = this.convertValues(source["attach"], AttachView);
+	        this.mentions = source["mentions"];
+	        this.mentionsMe = source["mentionsMe"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class OutItem {
 	    ref: string;
@@ -2869,6 +2978,7 @@ export namespace rooms {
 	    claimedBy?: string[];
 	    myClaim?: boolean;
 	    conflict?: boolean;
+	    outOfBudget?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Thread(source);
@@ -2882,6 +2992,7 @@ export namespace rooms {
 	        this.claimedBy = source["claimedBy"];
 	        this.myClaim = source["myClaim"];
 	        this.conflict = source["conflict"];
+	        this.outOfBudget = source["outOfBudget"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

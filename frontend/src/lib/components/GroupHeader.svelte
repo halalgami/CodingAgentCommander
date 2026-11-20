@@ -2,7 +2,7 @@
   import GroupCaret from "./GroupCaret.svelte";
 
   // section: { key, group, count, attn } from deriveSections.
-  let { section, ontoggle, onrename, ondelete, onremember, oncollapseothers, onkeymove, onpointerdown } = $props();
+  let { section, roomName = "", onroom, ontoggle, onrename, ondelete, onremember, oncollapseothers, onkeymove, onpointerdown } = $props();
   const g = $derived(section.group);
 
   let renaming = $state(false);
@@ -48,6 +48,7 @@
       {/if}
     </button>
   {/if}
+  {#if roomName}<button class="icon groom" data-testid="group-room" title={"Room " + roomName} aria-label={"Open room " + roomName} onclick={() => onroom?.()}>👥</button>{/if}
   <span class="gmenu-wrap">
     <button class="icon" data-testid="group-menu" aria-label="Group options" aria-haspopup="menu" aria-expanded={menuOpen}
       onclick={() => (menuOpen = !menuOpen)}>⋯</button>

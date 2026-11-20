@@ -12,7 +12,7 @@
   import RoomLive from "./RoomLive.svelte";
   import RoomInbox from "./RoomInbox.svelte";
   import RoomSettings from "./RoomSettings.svelte";
-  import { byteLen } from "./rooms.js";
+  import { byteLen, baseName, fmtSize, authorLine, canSend, outboxGroups } from "./rooms.js";
 
   const sum = $derived(summaryOf(rooms.current));
   const v = $derived(rooms.view && rooms.view.id === rooms.current ? rooms.view : null);
@@ -145,6 +145,22 @@
   let text = $state("");
   let fields = $state({});
   let replyTo = $state(null);
+  let files = $state([]); // paths the user picked (≤ 8)
+  let mentions = $state([]); // device ids
+  let outboxOpen = $state(false);
+  async function pickFiles() {
+    try {
+      const got = await App.PickRoomFiles();
+      files = [...new Set([...files, ...(got || [])])].slice(0, 8);
+    } catch (e) { toast(String(e?.message || e)); }
+  }
+  const toggleMention = (d) => (mentions = mentions.includes(d) ? mentions.filter((x) => x !== d) : [...mentions, d]);
+  async function saveAttachment(sha) {
+    try {
+      const p = await App.SaveRoomAttachment(rooms.current, sha);
+      toast("Saved to " + p);
+    } catch (e) { toast(String(e?.message || e)); }
+  }
   // Handoff: branch + sha from the selected session, when it is in this room's
   // project (spec §6.4) — once per (room, session) handoff, so a cleared field
   // stays cleared, and a late answer for another room or session is dropped.
@@ -161,12 +177,12 @@
   });
   // A draft belongs to its room.
   let draftRoom = rooms.current;
-  $effect(() => { if (rooms.current !== draftRoom) { draftRoom = rooms.current; fields = {}; replyTo = null; prefilled = ""; } });
+  $effect(() => { if (rooms.current !== draftRoom) { draftRoom = rooms.current; fields = {}; replyTo = null; prefilled = ""; files = []; mentions = []; } });
   async function send() {
-    if (!text.trim() || rooms.busy) return;
+    if (!canSend(text, files, bytes, rooms.busy)) return;
     const f = kind === "handoff" ? fields : kind === "result" ? { outcome: fields.outcome || "pass" } : null;
-    await act("PostRoomMessage", rooms.current, kind, text, replyTo?.ref || "", f);
-    if (!rooms.error) { text = ""; fields = {}; replyTo = null; kind = "note"; }
+    await act("SendRoomPost", rooms.current, { kind, text, parent: replyTo?.ref || "", fields: f, files, mentions });
+    if (!rooms.error) { text = ""; fields = {}; replyTo = null; kind = "note"; files = []; mentions = []; }
   }
   function key(e) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey || !e.shiftKey)) { e.preventDefault(); send(); }
@@ -269,6 +285,16 @@
       </div>
     {/if}
 
+    {#if v?.outbox?.length}
+      <div class="outbox" data-testid="room-outbox">
+        <button class="link small" aria-expanded={outboxOpen} onclick={() => (outboxOpen = !outboxOpen)}>Outbox · {v.outbox.length} waiting {outboxOpen ? "▾" : "▸"}</button>
+        {#if outboxOpen}{#each outboxGroups(v.outbox) as g (g.device)}
+          <p class="small"><strong>{g.name}</strong> — {g.items.length} not there yet</p>
+          {#each g.items as it (it.ref + it.device)}<p class="small dim ob">{it.state}: {it.text}</p>{/each}
+        {/each}{/if}
+      </div>
+    {/if}
+
     {#if (sum.queued || 0) >= 2}<p class="amber small">{sum.queued} messages are only on {here} — they'll go when another machine connects.</p>{/if}
 
     <div class="feed" bind:this={feedEl} data-testid="room-feed">
@@ -277,10 +303,17 @@
         {@const dl = deliveryLine(it.msg, v?.peers, here)}
         {@const th = it.depth === 0 ? claims[it.msg.ref] : null}
         <div class="msg" class:reply={it.depth > 0} class:mine={it.msg.mine} data-ref={it.msg.ref} data-unseen={!it.msg.mine && !it.msg.seen} data-testid="room-msg">
-          <div class="meta"><strong>{it.msg.author}</strong>{#if it.msg.kind !== "note"}<span class="kind">{it.msg.kind}</span>{/if}<span class="dim small">{new Date(it.msg.time).toLocaleString()}</span>
+          <div class="meta"><strong>{authorLine(it.msg)}</strong>{#if it.msg.kind !== "note"}<span class="kind">{it.msg.kind}</span>{/if}<span class="dim small">{new Date(it.msg.time).toLocaleString()}</span>
             {#if th?.conflict}<span class="claim conflict" data-testid="room-claim-conflict">Claimed twice: {th.claimedBy.join(", ")}</span>
-            {:else if th?.claimedBy?.length}<span class="claim" data-testid="room-claimed">Claimed by {th.claimedBy.join(", ")}</span>{/if}</div>
-          <p>{it.msg.text}</p>
+            {:else if th?.claimedBy?.length}<span class="claim" data-testid="room-claimed">Claimed by {th.claimedBy.join(", ")}</span>{/if}
+            {#if it.msg.mentionsMe}<span class="claim mention" data-testid="room-mention-me">for you</span>{:else if it.msg.mentions?.length}<span class="dim small">@ {it.msg.mentions.join(", ")}</span>{/if}</div>
+          {#if it.msg.text}<p>{it.msg.text}</p>{/if}
+          {#if it.msg.attach?.length}
+            <div class="atts">{#each it.msg.attach as at (at.sha256)}
+              <button class="att" data-testid="room-attachment" title={"Save to the project's .commander/attachments folder" + (at.have ? "" : " (fetches it from another machine)")} onclick={() => saveAttachment(at.sha256)}>📎 {at.name} <span class="dim">{fmtSize(at.size)}</span></button>
+            {/each}</div>
+          {/if}
+          {#if th?.outOfBudget}<p class="small amber" data-testid="room-budget">Automatic deliveries used up on this thread. <button class="link" data-testid="room-grant" onclick={() => act("GrantThread", rooms.current, it.msg.ref)}>Allow 5 more</button></p>{/if}
           {#if it.msg.fields}{#each Object.entries(it.msg.fields) as [k, val]}{#if val}<p class="small"><span class="dim">{k}:</span> {val}</p>{/if}{/each}{/if}
           {#if dl.text}<p class="small dl" data-testid="room-delivery" data-amber={dl.amber}>{dl.text}</p>{/if}
           {#if sum.closed}
@@ -315,9 +348,23 @@
         {:else if kind === "result"}
           <select aria-label="Outcome" bind:value={fields.outcome}>{#each ["pass", "fail", "partial", "blocked"] as o}<option value={o}>{o}</option>{/each}</select>
         {/if}
+        {#if (kind === "question" || kind === "handoff") && v?.peers?.length}
+          <div class="kinds" aria-label="Notify machines">
+            <span class="dim small">Notify</span>
+            {#each v.peers as p (p.device)}
+              <button role="checkbox" aria-checked={mentions.includes(p.device)} data-testid="room-mention" onclick={() => toggleMention(p.device)}>{p.name}</button>
+            {/each}
+          </div>
+        {/if}
         <textarea rows="3" placeholder="Message — Enter sends, Shift+Enter new line" data-testid="room-text" bind:value={text} onkeydown={key}></textarea>
+        {#if files.length}
+          <div class="atts" data-testid="room-files">{#each files as f (f)}<span class="att">📎 {baseName(f)} <button class="link" aria-label={"Remove " + baseName(f)} onclick={() => (files = files.filter((x) => x !== f))}>×</button></span>{/each}</div>
+        {/if}
         {#if bytes > 12000}<p class="small" class:over={bytes > 16384} data-testid="room-bytes">{(bytes / 1024).toFixed(1)} / 16 KB</p>{/if}
-        <button class="primary" data-testid="room-send" disabled={!text.trim() || rooms.busy || bytes > 16384} onclick={send}>Send</button>
+        <div class="row">
+          <button data-testid="room-attach" disabled={files.length >= 8} onclick={pickFiles} title="Attach files (up to 8, 2 MB each)">Attach…</button>
+          <button class="primary" data-testid="room-send" disabled={!canSend(text, files, bytes, rooms.busy)} onclick={send}>Send</button>
+        </div>
       </div>
     {/if}
   {/if}
@@ -383,4 +430,12 @@
   .draft { display: flex; gap: 6px; align-items: baseline; }
   .drafttext { white-space: pre-wrap; word-break: break-word; max-height: 12em; overflow-y: auto; flex: 1; }
   .over { color: var(--crit, #d03b3b); }
+  .atts { display: flex; flex-wrap: wrap; gap: 4px; }
+  .att { display: inline-flex; gap: 4px; align-items: baseline; background: var(--surface-2); border: 1px solid var(--border-0); border-radius: 8px; padding: 1px 8px; font-size: var(--fs-0); color: var(--text-0); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .claim.mention { color: var(--accent); border-color: var(--accent); }
+  .row { display: flex; gap: 6px; justify-content: flex-end; }
+  .outbox { padding: 4px var(--sp-2); border-bottom: 1px solid var(--border-0); }
+  .outbox p { margin: 2px 0; }
+  .ob { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kinds button[role="checkbox"][aria-checked="true"] { border-color: var(--accent); color: var(--text-0); }
 </style>

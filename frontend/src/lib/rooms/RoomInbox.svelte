@@ -3,7 +3,7 @@
   // has taken. Every way into a session goes through a human click here.
   import { app } from "../stores.svelte.js";
   import { rooms, act } from "./rooms.svelte.js";
-  import { inboxActions } from "./rooms.js";
+  import { inboxActions, authorLine } from "./rooms.js";
   import * as App from "../../../wailsjs/go/main/App.js";
 
   let { v, onreply } = $props();
@@ -52,8 +52,9 @@
         {@const w = waiting[threadOf(m)]}
         {@const acts = inboxActions(m, { waiting: !!w, sessions: sessions.length, folder: !v.needsFolder })}
         <div class="item" data-testid="room-inbox-item">
-          <div class="meta"><strong>{m.author}</strong><span class="kind">{m.kind}</span>{#if w}<span class="wait">· {w} is waiting on this thread</span>{/if}</div>
+          <div class="meta"><strong>{authorLine(m)}</strong><span class="kind">{m.kind}</span>{#if m.mentionsMe}<span class="kind for">for you</span>{/if}{#if w}<span class="wait">· {w} is waiting on this thread</span>{/if}</div>
           <p class="text">{m.text}</p>
+          {#if m.attach?.length}<p class="small dim">📎 {m.attach.map((a) => a.name).join(", ")}</p>{/if}
           <div class="acts">
             {#if acts.includes("deliver")}<button class="primary" data-testid="room-inbox-deliver" onclick={() => act("DeliverToWaiting", v.id, m.ref)}>Deliver to {w}</button>{/if}
             {#if acts.includes("start")}<button data-testid="room-inbox-start" onclick={(e) => openStart(m, e)}>Start session…</button>{/if}
@@ -103,6 +104,9 @@
   .item { padding: 4px 0; border-top: 1px solid var(--border-0); }
   .meta { display: flex; gap: 6px; align-items: baseline; font-size: var(--fs-0); }
   .kind { text-transform: uppercase; color: var(--text-2); }
+  .kind.for { color: var(--accent); }
+  .small { font-size: var(--fs-0); margin: 2px 0; }
+  .dim { color: var(--text-2); }
   .wait { color: #c98500; }
   .text { margin: 2px 0; white-space: pre-wrap; word-break: break-word; max-height: 6em; overflow: hidden; }
   .acts { display: flex; flex-wrap: wrap; gap: 4px; }

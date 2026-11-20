@@ -56,7 +56,7 @@ func newMachine(t *testing.T) *machine {
 
 func (m *machine) boot(t *testing.T) {
 	t.Helper()
-	m.Service = &Service{Dir: m.dir, Ring: m.ring, ListenIPs: []string{"127.0.0.1"}, TailscaleUp: func() bool { return false }}
+	m.Service = &Service{Dir: m.dir, Ring: m.ring, ListenIPs: []string{"127.0.0.1"}, TailscaleUp: func() bool { return false }, TailPeers: func() []netsel.TailPeer { return nil }}
 	if err := m.Open(); err != nil {
 		t.Fatal(err)
 	}
