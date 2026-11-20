@@ -54,6 +54,10 @@ export function CityView() {
   return window['go']['main']['App']['CityView']();
 }
 
+export function ClaimThread(arg1, arg2) {
+  return window['go']['main']['App']['ClaimThread'](arg1, arg2);
+}
+
 export function ClearCompanionPack() {
   return window['go']['main']['App']['ClearCompanionPack']();
 }
@@ -110,6 +114,10 @@ export function DeleteRaidPack(arg1) {
   return window['go']['main']['App']['DeleteRaidPack'](arg1);
 }
 
+export function DeliverToWaiting(arg1, arg2) {
+  return window['go']['main']['App']['DeliverToWaiting'](arg1, arg2);
+}
+
 export function DependencyStatus() {
   return window['go']['main']['App']['DependencyStatus']();
 }
@@ -128,6 +136,14 @@ export function DiscoverOllamaModels() {
 
 export function DiscoverZenModels() {
   return window['go']['main']['App']['DiscoverZenModels']();
+}
+
+export function DismissMessage(arg1, arg2) {
+  return window['go']['main']['App']['DismissMessage'](arg1, arg2);
+}
+
+export function DropDraft(arg1, arg2) {
+  return window['go']['main']['App']['DropDraft'](arg1, arg2);
 }
 
 export function EnableRemoteControl(arg1) {
@@ -406,6 +422,14 @@ export function RefreshModels() {
   return window['go']['main']['App']['RefreshModels']();
 }
 
+export function ReleaseDraft(arg1, arg2) {
+  return window['go']['main']['App']['ReleaseDraft'](arg1, arg2);
+}
+
+export function ReleaseThread(arg1, arg2) {
+  return window['go']['main']['App']['ReleaseThread'](arg1, arg2);
+}
+
 export function RemoveModel(arg1) {
   return window['go']['main']['App']['RemoveModel'](arg1);
 }
@@ -462,6 +486,18 @@ export function RevealFolder(arg1) {
   return window['go']['main']['App']['RevealFolder'](arg1);
 }
 
+export function RevokeMachine(arg1) {
+  return window['go']['main']['App']['RevokeMachine'](arg1);
+}
+
+export function RoomMessagePrompt(arg1, arg2) {
+  return window['go']['main']['App']['RoomMessagePrompt'](arg1, arg2);
+}
+
+export function RoomSessions(arg1) {
+  return window['go']['main']['App']['RoomSessions'](arg1);
+}
+
 export function RoomView(arg1) {
   return window['go']['main']['App']['RoomView'](arg1);
 }
@@ -512,6 +548,10 @@ export function SelectRaidPack(arg1) {
 
 export function SelectSession(arg1) {
   return window['go']['main']['App']['SelectSession'](arg1);
+}
+
+export function SendToSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SendToSession'](arg1, arg2, arg3);
 }
 
 export function SessionHero(arg1) {
@@ -566,6 +606,10 @@ export function SetRaidHeroine(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRaidHeroine'](arg1, arg2, arg3);
 }
 
+export function SetRoomSettings(arg1, arg2) {
+  return window['go']['main']['App']['SetRoomSettings'](arg1, arg2);
+}
+
 export function SetSidebarLayout(arg1) {
   return window['go']['main']['App']['SetSidebarLayout'](arg1);
 }
@@ -576,6 +620,10 @@ export function ShareProject(arg1) {
 
 export function SidebarLayout() {
   return window['go']['main']['App']['SidebarLayout']();
+}
+
+export function StartFromMessage(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['StartFromMessage'](arg1, arg2, arg3, arg4);
 }
 
 export function StartPackGen(arg1) {
@@ -616,6 +664,10 @@ export function WSPort() {
 
 export function WSToken() {
   return window['go']['main']['App']['WSToken']();
+}
+
+export function WaitingThreads(arg1) {
+  return window['go']['main']['App']['WaitingThreads'](arg1);
 }
 
 export function Wrapped(arg1) {

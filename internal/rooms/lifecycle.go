@@ -267,7 +267,7 @@ func (s *Service) Machines() []PeerView {
 	out := []PeerView{}
 	me := s.me.PeerID()
 	for d, pref := range s.devices {
-		if d == me || len(s.me.User) == 0 || string(pref.User) != string(s.me.User) {
+		if d == me || len(s.me.User) == 0 || string(pref.User) != string(s.me.User) || pref.Revoked {
 			continue
 		}
 		pv := PeerView{Device: d, Name: pref.Name, Mine: true, Net: string(pref.Net), LastSeen: pref.LastSeen}
@@ -281,4 +281,88 @@ func (s *Service) Machines() []PeerView {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+// RevokeDevice retires one of my other machines (rooms spec §5.5): a signed
+// device.revoke in every room — and in rooms made later — so no member
+// accepts or shares anything from it again. Needs the user key, which lives
+// on the machine rooms were first set up on.
+func (s *Service) RevokeDevice(dev string) error {
+	s.mu.Lock()
+	if !s.setUp {
+		s.mu.Unlock()
+		return errNotSetUp
+	}
+	pref, known := s.devices[dev]
+	if dev == s.me.PeerID() {
+		s.mu.Unlock()
+		return errors.New("this machine can't remove itself — use Reset rooms instead")
+	}
+	if !known || string(pref.User) != string(s.me.User) {
+		s.mu.Unlock()
+		return errors.New("only your own machines can be removed here")
+	}
+	uk, ok := s.ids.UserKey()
+	if !ok {
+		s.mu.Unlock()
+		return errors.New("remove machines from the machine you first set rooms up on")
+	}
+	id, err := peer.Decode(dev)
+	if err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	pub, err := id.ExtractPublicKey()
+	if err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	raw, err := pub.Raw()
+	if err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	// Mark first: a write that fails half way still leaves it refused here.
+	pref.Revoked = true
+	s.devices[dev] = pref
+	s.saveDevicesLocked()
+	for _, r := range s.rooms {
+		if r.gone {
+			continue
+		}
+		if _, err := r.w.Write(roomlog.KindDeviceRevoke, roomlog.SignRevoke(uk, raw, r.lanes.Heads()[dev])); err != nil {
+			s.mu.Unlock()
+			return err
+		}
+	}
+	s.updateMDNSLocked()
+	node := s.node
+	s.mu.Unlock()
+	if node != nil {
+		node.Host().Network().ClosePeer(id)
+	}
+	go s.SyncAll()
+	s.changed()
+	return nil
+}
+
+// revokeIntoLocked writes my standing revocations into a new room.
+func (s *Service) revokeIntoLocked(r *room) {
+	uk, ok := s.ids.UserKey()
+	if !ok {
+		return
+	}
+	st := s.stateLocked(r)
+	for d, p := range s.devices {
+		if !p.Revoked || st.Revoked[d] || st.PreRevoked[d][string(s.me.User)] {
+			continue
+		}
+		if id, err := peer.Decode(d); err == nil {
+			if pub, err := id.ExtractPublicKey(); err == nil {
+				if raw, err := pub.Raw(); err == nil {
+					r.w.Write(roomlog.KindDeviceRevoke, roomlog.SignRevoke(uk, raw, 0))
+				}
+			}
+		}
+	}
 }

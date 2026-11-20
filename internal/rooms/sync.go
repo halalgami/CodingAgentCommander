@@ -112,8 +112,11 @@ func (s *Service) apply(r *room, es []roomlog.Entry) (added, rejected int) {
 // not have.
 func (s *Service) mayShareLocked(r *room, dev string, user []byte) bool {
 	st := s.stateLocked(r)
-	if st.Revoked[dev] || len(user) == 0 {
+	if st.Revoked[dev] || len(user) == 0 || s.devices[dev].Revoked {
 		return false
+	}
+	if st.PreRevoked[dev][string(user)] {
+		return false // its own user retired it before it reached this room
 	}
 	if u, certified := st.Devices[dev]; certified && string(u) != string(user) {
 		return false // the log certifies this device to someone else
@@ -185,6 +188,7 @@ func (s *Service) observeLocked(dev, room string, heads map[string]int64) {
 // receiptsLocked: one cumulative "delivered" receipt per foreign lane that
 // brought new messages (spec §8.4).
 func (s *Service) receiptsLocked(r *room, es []roomlog.Entry) {
+	s.announceLocked(r, es)
 	me := s.me.PeerID()
 	lanes := map[string]bool{}
 	for _, e := range es {

@@ -38,6 +38,12 @@
     if (rooms.code?.code) act("CancelCode");
     rooms.machines = null;
   }
+  let removing = $state(""); // device whose Remove is being confirmed
+  async function revoke(dev) {
+    await act("RevokeMachine", dev);
+    removing = "";
+    if (!rooms.error) list = (await App.Machines?.().catch(() => list)) || [];
+  }
   const TITLE = { list: "Machines & network", add: "Add a machine", join: "Join with a code", invite: "Invite a colleague", reset: "Reset rooms on this machine" };
 </script>
 
@@ -58,6 +64,15 @@
             <option value="tailscale">{netLabel("tailscale")}</option>
           </select>
           <span class="dim small">{m.state}{m.reason ? " — " + m.reason : ""}</span>
+          {#if st?.first}
+            {#if removing === m.device}
+              <span class="confirm" data-testid="machine-remove-confirm">Remove {m.name} from every room? It stops syncing for good; add it again with a new code.
+                <button class="danger" data-testid="machine-remove-yes" onclick={() => revoke(m.device)}>Remove</button>
+                <button onclick={() => (removing = "")}>Keep</button></span>
+            {:else}
+              <button class="link small" data-testid="machine-remove" onclick={() => (removing = m.device)}>Remove…</button>
+            {/if}
+          {/if}
         </div>
       {:else}
         <p class="dim">No other machines yet.</p>
@@ -120,6 +135,9 @@
   .code { display: flex; flex-direction: column; gap: 4px; }
   textarea { font-family: var(--font-mono); font-size: var(--fs-0); }
   label { display: flex; flex-direction: column; gap: 4px; }
+  .confirm { flex-basis: 100%; font-size: var(--fs-0); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; }
+  .danger { color: var(--crit, #d03b3b); }
   .words { font-family: var(--font-mono); font-size: var(--fs-2); letter-spacing: 0.04em; }
   .icon { background: none; border: 0; color: var(--text-1); cursor: pointer; }
   .dim { color: var(--text-2); }

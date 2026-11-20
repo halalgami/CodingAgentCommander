@@ -20,7 +20,8 @@ import (
 // Off until the user sets rooms up in the drawer; no Anthropic calls anywhere.
 
 type roomsState struct {
-	svc *rooms.Service
+	svc  *rooms.Service
+	stop chan struct{} // ends the status pump and insert queue tickers
 }
 
 func (a *App) roomsDir() string { return filepath.Join(filepath.Dir(configPath()), "rooms") }
@@ -33,14 +34,21 @@ func (a *App) openRooms() error {
 			_ = a.notifier.Notify("Commander", p.Name+" wants to join — check the 4 words")
 		}
 	}
+	a.roomsSvc.stop = make(chan struct{})
+	a.startRoomAgents(s) // sets OnMessage, which must happen before Open
 	if err := s.Open(); err != nil {
 		return err
 	}
 	a.roomsSvc.svc = s
+	a.startRoomStatus(s)
 	return nil
 }
 
 func (a *App) closeRooms() {
+	if a.roomsSvc.stop != nil {
+		close(a.roomsSvc.stop)
+		a.roomsSvc.stop = nil
+	}
 	if a.roomsSvc.svc != nil {
 		a.roomsSvc.svc.Close()
 	}
@@ -180,7 +188,13 @@ func (a *App) PostRoomMessage(room, kind, text, parent string, fields map[string
 	if err != nil {
 		return err
 	}
-	return s.Post(room, kind, text, parent, fields)
+	ref, err := s.PostRef(room, kind, text, parent, fields)
+	if err == nil {
+		if g := a.ra(); g != nil {
+			go g.localPosted(room, ref, "") // a session here may be waiting on this thread
+		}
+	}
+	return err
 }
 
 func (a *App) MarkRoomSeen(room, ref string) error {

@@ -115,3 +115,31 @@ export function handoffBranch(head) {
   const sha = head.sha.slice(0, 7);
   return head.branch && head.branch !== "HEAD" ? `${head.branch} @ ${sha}` : sha;
 }
+
+// ---- phases 2–5 ----
+
+// liveLine: one line per running session in the live strip (rooms spec §11).
+export function liveLine(l) {
+  const parts = [l.label || "session", l.state || "idle"];
+  if (l.title) parts.push(l.title);
+  if (l.branch) parts.push(l.branch + (l.sha ? "@" + l.sha.slice(0, 7) : "") + (l.dirty ? "*" : ""));
+  if (l.listening) parts.push("listening on " + l.listening.slice(-10));
+  return parts.join(" · ");
+}
+
+// byteLen counts UTF-8 bytes (the 16 KB message limit is in bytes).
+export function byteLen(s) {
+  return new TextEncoder().encode(s || "").length;
+}
+
+// inboxActions: what an inbox item offers (spec §10.5). waiting = a session
+// here is in room_wait on the item's thread.
+export function inboxActions(m, { waiting = false, sessions = 0, folder = true } = {}) {
+  const out = [];
+  if (waiting) out.push("deliver");
+  if (folder) out.push("start");
+  if (sessions > 0) out.push("send");
+  if (m.kind === "handoff" || m.kind === "question") out.push("claim");
+  out.push("reply", "dismiss");
+  return out;
+}

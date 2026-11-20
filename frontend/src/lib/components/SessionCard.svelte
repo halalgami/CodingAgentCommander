@@ -130,6 +130,9 @@
   {#if activity}
     <div class="activity mono" class:attn={stat?.activity === "permission"} data-testid="session-activity">{activity}</div>
   {/if}
+  {#if stat?.listening}
+    <div class="activity mono" data-testid="card-listening" title="A room_wait is open; replies from your own machines go straight in">listening on thread …{stat.listening.slice(-10)}</div>
+  {/if}
   {#if folder && folder !== session.name}
     <div class="folder mono" title={stat.cwd} data-testid="session-folder">{folder}</div>
   {/if}

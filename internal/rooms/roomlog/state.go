@@ -20,6 +20,61 @@ type State struct {
 	Accepted []Entry           // entries that passed membership, in order
 	Closed   *ClosedInfo       // set by the owner's room.close
 	Removed  map[string]bool   // users removed or who left (final in v1)
+	// Live: running sessions by "device|session", merged from status entries
+	// (session.ended removes one). Phase 2, spec §8.1.
+	Live map[string]Status
+	// Claims: thread ref → active claims, in log order (spec §8.3). More than
+	// one device = a conflict a human resolves.
+	Claims map[string][]ClaimInfo
+	// PreRevoked: device → the user who retired it before it had a
+	// certificate in this room (device-level revocation, rooms made later).
+	PreRevoked map[string]map[string]bool // device → signing users
+}
+
+// ClaimInfo is one active claim on a thread.
+type ClaimInfo struct {
+	Device  string `json:"device"`
+	Session string `json:"session,omitempty"`
+	Lamport int64  `json:"lamport"`
+	Time    string `json:"time"`
+}
+
+// mergeStatus folds a session event into the live record.
+func mergeStatus(old, n Status) Status {
+	if old.Session == "" {
+		old.Session = n.Session
+	}
+	set := func(dst *string, v string) {
+		if v != "" {
+			*dst = v
+		}
+	}
+	set(&old.Label, n.Label)
+	set(&old.Model, n.Model)
+	set(&old.Machine, n.Machine)
+	set(&old.Branch, n.Branch)
+	set(&old.Sha, n.Sha)
+	set(&old.State, n.State)
+	set(&old.Since, n.Since)
+	set(&old.Title, n.Title)
+	switch n.Event {
+	case EvStarted, EvCommit:
+		old.Dirty = n.Dirty
+		if n.Event == EvCommit {
+			old.Pushed, old.Subject = n.Pushed, n.Subject
+		}
+	case EvPush:
+		old.Pushed = true
+	case EvFinished:
+		old.Summary, old.Turns, old.DurationS, old.Pushed = n.Summary, n.Turns, n.DurationS, n.Pushed
+		if old.State == "" || old.State == "working" {
+			old.State = "idle"
+		}
+	case EvState:
+		old.Listening = n.Listening
+	}
+	old.Event = n.Event
+	return old
 }
 
 // ClosedInfo records who closed the room and when (UX spec §7).
@@ -51,7 +106,8 @@ func (s State) MemberDevice(dev string) bool {
 // backdated: the owner (bound to the room id) and the cut-offs recorded by
 // removals and revocations (seq-based, not time-based).
 func Replay(entries []Entry) State {
-	s := State{Members: map[string]string{}, Devices: map[string][]byte{}, Names: map[string]string{}, Revoked: map[string]bool{}}
+	s := State{Members: map[string]string{}, Devices: map[string][]byte{}, Names: map[string]string{}, Revoked: map[string]bool{},
+		Live: map[string]Status{}, Claims: map[string][]ClaimInfo{}, PreRevoked: map[string]map[string]bool{}}
 
 	// Pass 1: certificates, the genuine genesis, removal and revoke cut-offs.
 	for _, e := range entries {
@@ -82,8 +138,22 @@ func Replay(entries []Entry) State {
 		}
 		pid := ident.PeerIDOf(r.Device)
 		du, ok := s.Devices[pid]
-		if !ok || string(du) != string(u) || !ed25519.Verify(ed25519.PublicKey(u), revokeBytes(r.Device, r.Head), r.Sig) {
-			continue // only a user's own key can retire that user's own machine
+		// Only a user's own key can retire that user's own machine. A device
+		// with no certificate in this room yet can be retired ahead of time
+		// (device-level revocation in rooms made after it): if it ever shows
+		// up certified to this user, it is already out.
+		if (ok && string(du) != string(u)) || !ed25519.Verify(ed25519.PublicKey(u), revokeBytes(r.Device, r.Head), r.Sig) {
+			continue
+		}
+		if !ok {
+			// Not certified here (yet): pending, bound to the signer. It only
+			// takes effect once the device turns up certified to that same
+			// user, so nobody can pre-revoke another user's machine.
+			if s.PreRevoked[pid] == nil {
+				s.PreRevoked[pid] = map[string]bool{}
+			}
+			s.PreRevoked[pid][string(u)] = true // every signer (security review: no squatting)
+			continue
 		}
 		s.Revoked[pid] = true
 		if old, seen := cut[pid]; !seen || r.Head < old {
@@ -142,7 +212,8 @@ func Replay(entries []Entry) State {
 		break
 	}
 	afterClose := func(e Entry) bool {
-		if s.Closed == nil || (e.Kind != KindMsg && e.Kind != KindMemberAdd && e.Kind != KindRoomRename) {
+		if s.Closed == nil || (e.Kind != KindMsg && e.Kind != KindMemberAdd && e.Kind != KindRoomRename &&
+			e.Kind != KindStatus && e.Kind != KindClaim && e.Kind != KindClaimRelease) {
 			return false
 		}
 		if closeHeads != nil && e.Seq > closeHeads[e.Device] {
@@ -152,6 +223,7 @@ func Replay(entries []Entry) State {
 	}
 
 	// Pass 2: membership in order, entries past a cut-off never count.
+	msgs := map[string]bool{} // accepted msg refs (claims must name one)
 	s.Name = s.Meta.Name
 	s.Members[owner] = "owner"
 	for _, e := range entries {
@@ -178,6 +250,38 @@ func Replay(entries []Entry) State {
 			continue // nothing new is said, admitted or renamed after the close
 		}
 		switch e.Kind {
+		case KindMsg:
+			msgs[e.Ref()] = true
+		case KindStatus:
+			var st Status
+			if json.Unmarshal(e.Body, &st) != nil || st.Session == "" || len(st.Session) > 128 {
+				continue
+			}
+			key := e.Device + "|" + st.Session
+			if st.Event == EvEnded {
+				delete(s.Live, key)
+			} else {
+				s.Live[key] = mergeStatus(s.Live[key], st)
+			}
+		case KindClaim, KindClaimRelease:
+			var c Claim
+			if json.Unmarshal(e.Body, &c) != nil || !msgs[c.Thread] {
+				continue
+			}
+			cur := s.Claims[c.Thread][:0:0]
+			for _, ci := range s.Claims[c.Thread] {
+				if ci.Device != e.Device {
+					cur = append(cur, ci)
+				}
+			}
+			if e.Kind == KindClaim {
+				cur = append(cur, ClaimInfo{Device: e.Device, Session: c.Session, Lamport: e.Lamport, Time: e.Time})
+			}
+			if len(cur) == 0 {
+				delete(s.Claims, c.Thread)
+			} else {
+				s.Claims[c.Thread] = cur
+			}
 		case KindRoomClose:
 			if s.Closed == nil || e.Device != s.Closed.Device || e.Seq != s.Closed.Seq {
 				continue
@@ -225,6 +329,7 @@ const (
 	Relayed   DeliveryState = "relayed"
 	Delivered DeliveryState = "delivered"
 	Seen      DeliveryState = "seen"
+	PickedUp  DeliveryState = "picked-up"
 )
 
 // Delivery derives a message's state for each device other than its author.
@@ -278,10 +383,14 @@ func Delivery(m Entry, devices []string, entries []Entry, observed map[string]ma
 type Receipts struct {
 	held map[string]map[string]int64 // lane → device → highest delivered seq
 	seen map[string]map[string]bool  // ref → device
+	pick map[string]map[string]bool  // ref → device that picked it up
 }
 
+// PickedUpBy reports whether device took the message into a session.
+func (ix Receipts) PickedUpBy(ref, device string) bool { return ix.pick[ref][device] }
+
 func IndexReceipts(accepted []Entry) Receipts {
-	ix := Receipts{held: map[string]map[string]int64{}, seen: map[string]map[string]bool{}}
+	ix := Receipts{held: map[string]map[string]int64{}, seen: map[string]map[string]bool{}, pick: map[string]map[string]bool{}}
 	for _, e := range accepted {
 		if e.Kind != KindReceipt {
 			continue
@@ -293,7 +402,14 @@ func IndexReceipts(accepted []Entry) Receipts {
 		if ix.held[r.Lane] == nil {
 			ix.held[r.Lane] = map[string]int64{}
 		}
-		if r.State == "seen" {
+		if r.State == "picked-up" {
+			ref := fmt.Sprintf("%s:%d", r.Lane, r.Seq)
+			if ix.pick[ref] == nil {
+				ix.pick[ref] = map[string]bool{}
+			}
+			ix.pick[ref][e.Device] = true
+		}
+		if r.State == "seen" || r.State == "picked-up" {
 			ref := fmt.Sprintf("%s:%d", r.Lane, r.Seq)
 			if ix.seen[ref] == nil {
 				ix.seen[ref] = map[string]bool{}
@@ -333,6 +449,8 @@ func DeliveryOf(m Entry, devices []string, ix Receipts, observed map[string]map[
 			continue
 		}
 		switch {
+		case ix.pick[m.Ref()][d]:
+			out[d] = PickedUp
 		case seen[d]:
 			out[d] = Seen
 		case held[d]:

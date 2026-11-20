@@ -9,6 +9,10 @@
   import { toast } from "../stores.svelte.js";
   import * as App from "../../../wailsjs/go/main/App.js";
   import CloseRoomDialog from "./CloseRoomDialog.svelte";
+  import RoomLive from "./RoomLive.svelte";
+  import RoomInbox from "./RoomInbox.svelte";
+  import RoomSettings from "./RoomSettings.svelte";
+  import { byteLen } from "./rooms.js";
 
   const sum = $derived(summaryOf(rooms.current));
   const v = $derived(rooms.view && rooms.view.id === rooms.current ? rooms.view : null);
@@ -44,6 +48,10 @@
   // ---- menu and dialogs ----
   let menu = $state(false);
   let dialog = $state(null); // "close" | "leave" | "remove"
+  let settingsOpen = $state(false);
+  // Claims per thread root (rooms spec §8.3).
+  const claims = $derived(Object.fromEntries((v?.threads || []).map((t) => [t.root.ref, t])));
+  const bytes = $derived(byteLen(text));
   $effect(() => {
     if (!menu) return;
     const k = (e) => { if (e.key === "Escape") { e.stopPropagation(); menu = false; } };
@@ -193,6 +201,7 @@
             <button role="menuitem" onclick={chooseFolder}>Folder on this machine…</button>
             {#if sum.owner && !sum.closed}<button role="menuitem" data-testid="room-menu-invite" onclick={() => { menu = false; rooms.machines = "invite"; }}>Invite colleague…</button>{/if}
             <button role="menuitem" onclick={() => { menu = false; rooms.machines = "list"; }}>Machines &amp; network…</button>
+            <button role="menuitem" data-testid="room-menu-settings" onclick={() => { menu = false; settingsOpen = true; }}>Settings on this machine…</button>
             {#if sum.owner && !sum.closed}<button role="menuitem" data-testid="room-menu-close" onclick={() => { menu = false; dialog = "close"; }}>Close room…</button>{/if}
             {#if !sum.owner && !sum.closed}<button role="menuitem" data-testid="room-menu-leave" onclick={() => { menu = false; dialog = "leave"; }}>Leave room…</button>{/if}
             <button role="menuitem" data-testid="room-menu-remove" onclick={() => { menu = false; dialog = "remove"; }}>Remove from this machine…</button>
@@ -231,6 +240,21 @@
       <p class="dim pad small">No other machines yet — your other Commander machines will see this room once they're paired. <button class="link" onclick={() => (rooms.machines = "list")}>Machines &amp; network…</button></p>
     {/if}
 
+    <RoomLive live={v?.live || []} />
+
+    {#if v?.drafts?.length}
+      <div class="banner" data-testid="room-drafts">
+        <p>{v.drafts.length} agent post{v.drafts.length === 1 ? "" : "s"} held — this machine reached its hourly limit.</p>
+        {#each v.drafts as d (d.id)}
+          <div class="draft"><span class="small drafttext">{d.kind}: {d.text}</span>
+            <button class="link small" data-testid="room-draft-release" onclick={() => act("ReleaseDraft", rooms.current, d.id)}>Post</button>
+            <button class="link small" onclick={() => act("DropDraft", rooms.current, d.id)}>Drop</button></div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if !sum.closed}<RoomInbox {v} onreply={(r) => (replyTo = r)} />{/if}
+
     {#if selUnshared}
       <p class="hint small">This session's project isn't shared — <button class="link" onclick={() => (rooms.share = { windowID: app.sessionKey.split(":")[0], cwd: selCwd, label: projectOf(selCwd)?.label || selCwd.split(/[\\/]/).pop() })}>Share</button></p>
     {/if}
@@ -251,8 +275,11 @@
       {#each feed.items as it, i (it.msg.ref)}
         {#if i === feed.firstUnread}<div class="divider" data-testid="room-new-divider"><span>New</span></div>{/if}
         {@const dl = deliveryLine(it.msg, v?.peers, here)}
+        {@const th = it.depth === 0 ? claims[it.msg.ref] : null}
         <div class="msg" class:reply={it.depth > 0} class:mine={it.msg.mine} data-ref={it.msg.ref} data-unseen={!it.msg.mine && !it.msg.seen} data-testid="room-msg">
-          <div class="meta"><strong>{it.msg.author}</strong>{#if it.msg.kind !== "note"}<span class="kind">{it.msg.kind}</span>{/if}<span class="dim small">{new Date(it.msg.time).toLocaleString()}</span></div>
+          <div class="meta"><strong>{it.msg.author}</strong>{#if it.msg.kind !== "note"}<span class="kind">{it.msg.kind}</span>{/if}<span class="dim small">{new Date(it.msg.time).toLocaleString()}</span>
+            {#if th?.conflict}<span class="claim conflict" data-testid="room-claim-conflict">Claimed twice: {th.claimedBy.join(", ")}</span>
+            {:else if th?.claimedBy?.length}<span class="claim" data-testid="room-claimed">Claimed by {th.claimedBy.join(", ")}</span>{/if}</div>
           <p>{it.msg.text}</p>
           {#if it.msg.fields}{#each Object.entries(it.msg.fields) as [k, val]}{#if val}<p class="small"><span class="dim">{k}:</span> {val}</p>{/if}{/each}{/if}
           {#if dl.text}<p class="small dl" data-testid="room-delivery" data-amber={dl.amber}>{dl.text}</p>{/if}
@@ -263,6 +290,8 @@
               <button class="link small" onclick={() => (replyTo = { ref: rootOf(it.msg), author: it.msg.author })}>Reply</button>
               <button class="link small" data-testid="room-copy-prompt" onclick={() => copyPrompt(it.msg)}>Copy as prompt</button>
               {#if !it.msg.mine && it.msg.kind !== "ack"}<button class="link small" aria-label="Acknowledge" onclick={() => ack(it.msg)}>👍</button>{/if}
+              {#if th?.myClaim}<button class="link small" data-testid="room-release" onclick={() => act("ReleaseThread", rooms.current, it.msg.ref)}>Release</button>
+              {:else if th && (it.msg.kind === "handoff" || it.msg.kind === "question")}<button class="link small" data-testid="room-claim" onclick={() => act("ClaimThread", rooms.current, it.msg.ref)}>Claim</button>{/if}
             </span>
           {/if}
         </div>
@@ -286,12 +315,14 @@
         {:else if kind === "result"}
           <select aria-label="Outcome" bind:value={fields.outcome}>{#each ["pass", "fail", "partial", "blocked"] as o}<option value={o}>{o}</option>{/each}</select>
         {/if}
-        <textarea rows="3" placeholder="Message — Enter sends, Shift+Enter new line" data-testid="room-text" bind:value={text} maxlength="16000" onkeydown={key}></textarea>
-        <button class="primary" data-testid="room-send" disabled={!text.trim() || rooms.busy} onclick={send}>Send</button>
+        <textarea rows="3" placeholder="Message — Enter sends, Shift+Enter new line" data-testid="room-text" bind:value={text} onkeydown={key}></textarea>
+        {#if bytes > 12000}<p class="small" class:over={bytes > 16384} data-testid="room-bytes">{(bytes / 1024).toFixed(1)} / 16 KB</p>{/if}
+        <button class="primary" data-testid="room-send" disabled={!text.trim() || rooms.busy || bytes > 16384} onclick={send}>Send</button>
       </div>
     {/if}
   {/if}
 
+  {#if settingsOpen && v}<RoomSettings {v} onclose={() => (settingsOpen = false)} />{/if}
   {#if dialog && sum}<CloseRoomDialog mode={dialog} {sum} peers={v?.peers || []} onclose={() => (dialog = null)} />{/if}
 </aside>
 
@@ -347,4 +378,9 @@
   .dim { color: var(--text-2); }
   .small { font-size: var(--fs-0); }
   .err { color: var(--crit, #d03b3b); margin: 0; padding: 4px var(--sp-2); }
+  .claim { font-size: var(--fs-0); color: var(--text-2); border: 1px solid var(--border-1); border-radius: 8px; padding: 0 6px; }
+  .claim.conflict { color: #c98500; border-color: #c98500; }
+  .draft { display: flex; gap: 6px; align-items: baseline; }
+  .drafttext { white-space: pre-wrap; word-break: break-word; max-height: 12em; overflow-y: auto; flex: 1; }
+  .over { color: var(--crit, #d03b3b); }
 </style>

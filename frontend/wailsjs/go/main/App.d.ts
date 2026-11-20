@@ -39,6 +39,8 @@ export function ChooseRaidFolder():Promise<main.RaidPackView>;
 
 export function CityView():Promise<city.CityView>;
 
+export function ClaimThread(arg1:string,arg2:string):Promise<void>;
+
 export function ClearCompanionPack():Promise<void>;
 
 export function ClearImagegenKey(arg1:string):Promise<void>;
@@ -67,6 +69,8 @@ export function DeleteLedger():Promise<void>;
 
 export function DeleteRaidPack(arg1:string):Promise<void>;
 
+export function DeliverToWaiting(arg1:string,arg2:string):Promise<void>;
+
 export function DependencyStatus():Promise<Array<deps.Tool>>;
 
 export function DiscardPackGen():Promise<void>;
@@ -76,6 +80,10 @@ export function DiscoverBedrockModels(arg1:string):Promise<Array<bedrock.Model>>
 export function DiscoverOllamaModels():Promise<Array<main.OllamaModel>>;
 
 export function DiscoverZenModels():Promise<Array<zen.Model>>;
+
+export function DismissMessage(arg1:string,arg2:string):Promise<void>;
+
+export function DropDraft(arg1:string,arg2:string):Promise<void>;
 
 export function EnableRemoteControl(arg1:string):Promise<void>;
 
@@ -215,6 +223,10 @@ export function RecentProjects():Promise<Array<main.ProjectRoom>>;
 
 export function RefreshModels():Promise<void>;
 
+export function ReleaseDraft(arg1:string,arg2:string):Promise<void>;
+
+export function ReleaseThread(arg1:string,arg2:string):Promise<void>;
+
 export function RemoveModel(arg1:string):Promise<void>;
 
 export function RemoveProject(arg1:string):Promise<void>;
@@ -243,6 +255,12 @@ export function RestoreRoom(arg1:string):Promise<void>;
 
 export function RevealFolder(arg1:string):Promise<void>;
 
+export function RevokeMachine(arg1:string):Promise<void>;
+
+export function RoomMessagePrompt(arg1:string,arg2:string):Promise<string>;
+
+export function RoomSessions(arg1:string):Promise<Array<main.SessionInfo>>;
+
 export function RoomView(arg1:string):Promise<rooms.RoomView>;
 
 export function Rooms():Promise<Array<rooms.RoomSummary>>;
@@ -268,6 +286,8 @@ export function SelectCompanionPack(arg1:string):Promise<string>;
 export function SelectRaidPack(arg1:string):Promise<main.RaidPackView>;
 
 export function SelectSession(arg1:string):Promise<void>;
+
+export function SendToSession(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SessionHero(arg1:string):Promise<progress.Hero>;
 
@@ -295,11 +315,15 @@ export function SetPackVariantFocus(arg1:string,arg2:string,arg3:string,arg4:num
 
 export function SetRaidHeroine(arg1:string,arg2:string,arg3:string):Promise<main.RaidPackView>;
 
+export function SetRoomSettings(arg1:string,arg2:rooms.SettingsView):Promise<void>;
+
 export function SetSidebarLayout(arg1:sidebar.Layout):Promise<void>;
 
 export function ShareProject(arg1:string):Promise<rooms.RoomSummary>;
 
 export function SidebarLayout():Promise<sidebar.Layout>;
+
+export function StartFromMessage(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.SessionInfo>;
 
 export function StartPackGen(arg1:main.PackGenRequest):Promise<main.PackGenState>;
 
@@ -320,5 +344,7 @@ export function TitleBarDoubleClick():Promise<void>;
 export function WSPort():Promise<number>;
 
 export function WSToken():Promise<string>;
+
+export function WaitingThreads(arg1:string):Promise<Record<string, string>>;
 
 export function Wrapped(arg1:number):Promise<main.WrappedView>;

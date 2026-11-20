@@ -120,11 +120,13 @@ type App struct {
 	// memory-only store so a not-yet-started App is still usable.
 	windows        *winstate.Store
 	sidebar        *sidebar.Store
-	stats          statsState // Al Asturlab (stats_bindings.go)
-	ai             aiState    // Al Asturlab AI features (asturlab_ai_bindings.go)
-	roomsSvc       roomsState // Commander rooms (rooms_bindings.go)
-	roomsListenIPs []string   // tests: 127.0.0.1
-	roomsQueued    func() int // tests
+	stats          statsState                 // Al Asturlab (stats_bindings.go)
+	ai             aiState                    // Al Asturlab AI features (asturlab_ai_bindings.go)
+	roomsSvc       roomsState                 // Commander rooms (rooms_bindings.go)
+	roomStatus     atomic.Pointer[statusPump] // automatic room status (rooms_status.go)
+	roomAgents     atomic.Pointer[roomAgents] // room MCP tools, inserts, listening (rooms_agent.go)
+	roomsListenIPs []string                   // tests: 127.0.0.1
+	roomsQueued    func() int                 // tests
 	quitAnyway     atomic.Bool
 	// autocont counts auto-continue nudges per Claude session; hookHTTP is
 	// whether the installed Claude Code takes the http Stop hook (≥ 2.1.210).
@@ -314,6 +316,9 @@ type sessionRec struct {
 	// launch; the http Stop hook echoes it so /stop can tell exactly which
 	// window stopped. Empty for windows launched before this build.
 	Tag string
+	// PermMode is the permission_mode the session's hooks last reported
+	// ("bypassPermissions" refuses room_wait, rooms spec §10.4).
+	PermMode string
 }
 
 // SessionStats is the per-session card data.
@@ -343,6 +348,8 @@ type SessionStats struct {
 	Hotspot bool `json:"hotspot"`
 	// AutoContinues counts auto-continue nudges on the current prompt.
 	AutoContinues int `json:"autoContinues"`
+	// Listening is the room thread a room_wait is open on (rooms §11).
+	Listening string `json:"listening,omitempty"`
 }
 
 // now is a tiny seam so tests don't depend on wall clock.
@@ -374,6 +381,13 @@ func (a *App) handleNotify(body []byte) {
 		return
 	}
 	a.learnSession(p)
+	if p.PermissionMode != "" {
+		a.mu.Lock()
+		if m := a.matchRecs(p); len(m) == 1 {
+			m[0].PermMode = p.PermissionMode
+		}
+		a.mu.Unlock()
+	}
 	switch p.HookEventName {
 	case "", "Stop":
 		a.setAwaiting(p, false)
@@ -571,6 +585,19 @@ func (a *App) handleStop(p hookPayload) {
 	a.mu.Unlock()
 
 	a.ledger.hook(p.SessionID, string(live.HookStop))
+	if pp := a.pump(); pp != nil {
+		last := ""
+		if p.LastAssistantMessage != nil {
+			last = *p.LastAssistantMessage
+		}
+		a.mu.Lock()
+		w := winInfoOf(id, rec)
+		a.mu.Unlock()
+		go pp.finished(w, last)
+	}
+	if g := a.ra(); g != nil {
+		go g.flush(id)
+	}
 	a.emitter.Emit("session:finished", id)
 	if !focused {
 		_ = a.notifier.Notify("Commander", "Claude finished in "+name)
@@ -1198,7 +1225,7 @@ func (a *App) saveAndSyncCompanion(mut func(*CompanionConfig)) error {
 func (a *App) mediaHandler() http.Handler { return a.packMediaHandler() }
 
 func (a *App) startWS() {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := stableListen(filepath.Join(filepath.Dir(configPath()), "listen-port"))
 	if err != nil {
 		return
 	}
@@ -1232,6 +1259,7 @@ func (a *App) startWS() {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/stop", a.stopHandler())
+	mux.HandleFunc("/mcp", a.mcpHandler()) // room tools, bearer token per session (rooms spec §10.1)
 	go func() { _ = http.Serve(ln, mux) }()
 }
 
@@ -1709,18 +1737,36 @@ func (a *App) startSession(folder string, m config.Model, extraArgs []string) (S
 	}
 	tag := randomHex(8)
 	env[hookmgr.TagEnv] = tag
-	cmd := append(append([]string{}, launch.Command()...), extraArgs...)
+	// Options first; anything after "--" (a first prompt) stays last.
+	opts, rest := extraArgs, []string(nil)
+	for i, x := range extraArgs {
+		if x == "--" {
+			opts, rest = extraArgs[:i], extraArgs[i:]
+			break
+		}
+	}
+	cmd := append(append([]string{}, launch.Command()...), opts...)
+	// A folder with an open room: room tools (MCP) and the room brief (§10.1).
+	if g := a.ra(); g != nil {
+		if args, renv, ok := g.prepareLaunch(folder, tag); ok {
+			cmd = append(cmd, args...)
+			for k, v := range renv {
+				env[k] = v
+			}
+		}
+	}
 	sid := resumeID(extraArgs)
 	if sid == "" {
 		sid = newSessionID()
 		cmd = append(cmd, "--session-id", sid)
 	}
+	cmd = append(cmd, rest...)
 	w, err := a.host.Launch(tmux.LaunchSpec{
 		SessionName: a.cfg.TmuxSession, WindowName: name, Dir: folder, Env: env, Command: cmd,
 		// Every variable Commander can set, not just this launch's: a native
 		// launch sets only ANTHROPIC_MODEL, and would otherwise inherit the
 		// proxy vars a routed launch left on the session.
-		ClearEnv: launch.EnvKeys(),
+		ClearEnv: append(launch.EnvKeys(), "MCP_TOOL_TIMEOUT"),
 	})
 	if err != nil {
 		return SessionInfo{}, err
@@ -1964,6 +2010,9 @@ func (a *App) SessionStats(windowID string) SessionStats {
 	st.SessionID = sid
 	if sid != "" {
 		st.AutoContinues = a.autocont.Count(sid)
+	}
+	if g := a.ra(); g != nil {
+		st.Listening = g.listening(windowID)
 	}
 	var ls live.Session
 	ok := false

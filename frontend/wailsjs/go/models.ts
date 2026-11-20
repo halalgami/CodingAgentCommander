@@ -2276,6 +2276,7 @@ export namespace main {
 	    unread: boolean;
 	    hotspot: boolean;
 	    autoContinues: number;
+	    listening?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionStats(source);
@@ -2303,6 +2304,7 @@ export namespace main {
 	        this.unread = source["unread"];
 	        this.hotspot = source["hotspot"];
 	        this.autoContinues = source["autoContinues"];
+	        this.listening = source["listening"];
 	    }
 	}
 	export class StatsOverviewView {
@@ -2604,6 +2606,30 @@ export namespace rooms {
 	        this.words = source["words"];
 	    }
 	}
+	export class Draft {
+	    id: string;
+	    kind: string;
+	    text: string;
+	    parent?: string;
+	    fields?: Record<string, string>;
+	    session?: string;
+	    at: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Draft(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.text = source["text"];
+	        this.parent = source["parent"];
+	        this.fields = source["fields"];
+	        this.session = source["session"];
+	        this.at = source["at"];
+	    }
+	}
 	export class HiddenRoom {
 	    id: string;
 	    name: string;
@@ -2620,6 +2646,60 @@ export namespace rooms {
 	        this.restoring = source["restoring"];
 	    }
 	}
+	export class LiveView {
+	    event: string;
+	    session: string;
+	    label?: string;
+	    model?: string;
+	    machine?: string;
+	    branch?: string;
+	    sha?: string;
+	    dirty?: boolean;
+	    state?: string;
+	    since?: string;
+	    title?: string;
+	    summary?: string;
+	    turns?: number;
+	    durationS?: number;
+	    pushed?: boolean;
+	    reason?: string;
+	    subject?: string;
+	    listening?: string;
+	    device: string;
+	    mine: boolean;
+	    owned: boolean;
+	    online: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new LiveView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.event = source["event"];
+	        this.session = source["session"];
+	        this.label = source["label"];
+	        this.model = source["model"];
+	        this.machine = source["machine"];
+	        this.branch = source["branch"];
+	        this.sha = source["sha"];
+	        this.dirty = source["dirty"];
+	        this.state = source["state"];
+	        this.since = source["since"];
+	        this.title = source["title"];
+	        this.summary = source["summary"];
+	        this.turns = source["turns"];
+	        this.durationS = source["durationS"];
+	        this.pushed = source["pushed"];
+	        this.reason = source["reason"];
+	        this.subject = source["subject"];
+	        this.listening = source["listening"];
+	        this.device = source["device"];
+	        this.mine = source["mine"];
+	        this.owned = source["owned"];
+	        this.online = source["online"];
+	    }
+	}
 	export class MsgView {
 	    ref: string;
 	    parent?: string;
@@ -2632,6 +2712,8 @@ export namespace rooms {
 	    time: string;
 	    seen: boolean;
 	    delivery?: Record<string, string>;
+	    own: boolean;
+	    pickedUp?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new MsgView(source);
@@ -2650,6 +2732,8 @@ export namespace rooms {
 	        this.time = source["time"];
 	        this.seen = source["seen"];
 	        this.delivery = source["delivery"];
+	        this.own = source["own"];
+	        this.pickedUp = source["pickedUp"];
 	    }
 	}
 	export class OutItem {
@@ -2762,10 +2846,29 @@ export namespace rooms {
 	        this.last = source["last"];
 	    }
 	}
+	export class SettingsView {
+	    summaries: boolean;
+	    budget: number;
+	    rate: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SettingsView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.summaries = source["summaries"];
+	        this.budget = source["budget"];
+	        this.rate = source["rate"];
+	    }
+	}
 	export class Thread {
 	    root: MsgView;
 	    replies: MsgView[];
 	    last: string;
+	    claimedBy?: string[];
+	    myClaim?: boolean;
+	    conflict?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Thread(source);
@@ -2776,6 +2879,9 @@ export namespace rooms {
 	        this.root = this.convertValues(source["root"], MsgView);
 	        this.replies = this.convertValues(source["replies"], MsgView);
 	        this.last = source["last"];
+	        this.claimedBy = source["claimedBy"];
+	        this.myClaim = source["myClaim"];
+	        this.conflict = source["conflict"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2813,6 +2919,10 @@ export namespace rooms {
 	    threads: Thread[];
 	    peers: PeerView[];
 	    outbox: OutItem[];
+	    live: LiveView[];
+	    inbox: MsgView[];
+	    settings: SettingsView;
+	    drafts: Draft[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RoomView(source);
@@ -2836,6 +2946,10 @@ export namespace rooms {
 	        this.threads = this.convertValues(source["threads"], Thread);
 	        this.peers = this.convertValues(source["peers"], PeerView);
 	        this.outbox = this.convertValues(source["outbox"], OutItem);
+	        this.live = this.convertValues(source["live"], LiveView);
+	        this.inbox = this.convertValues(source["inbox"], MsgView);
+	        this.settings = this.convertValues(source["settings"], SettingsView);
+	        this.drafts = this.convertValues(source["drafts"], Draft);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2856,6 +2970,7 @@ export namespace rooms {
 		    return a;
 		}
 	}
+	
 	export class joinState {
 	    kind: string;
 	    net: string;

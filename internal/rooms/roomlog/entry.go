@@ -30,8 +30,11 @@ const (
 	KindAddr         = "addr"
 	KindMsg          = "msg"
 	KindReceipt      = "receipt"
-	KindRoomClose    = "room.close"  // owner ends the room for everyone (UX spec §7)
-	KindRoomRename   = "room.rename" // owner renames the room (UX spec §5)
+	KindRoomClose    = "room.close"    // owner ends the room for everyone (UX spec §7)
+	KindRoomRename   = "room.rename"   // owner renames the room (UX spec §5)
+	KindStatus       = "status"        // automatic session/git status (spec §8.1)
+	KindClaim        = "claim"         // a device takes a handoff/question thread (§8.3)
+	KindClaimRelease = "claim.release" // that device gives it back
 )
 
 const (
@@ -135,10 +138,50 @@ func ValidRoomName(n string) bool {
 	return n != "" && len(n) <= maxRoomNameBytes && utf8.RuneCountInString(n) <= MaxRoomName
 }
 
+// Status events (spec §8.1). They are data: shown and given to agents through
+// room_status, never inserted into a session as prompt text.
+const (
+	EvStarted  = "session.started"
+	EvTitle    = "session.title"
+	EvState    = "session.state"
+	EvFinished = "session.finished"
+	EvEnded    = "session.ended"
+	EvCommit   = "git.commit"
+	EvPush     = "git.push"
+)
+
+// Status is the body of a status entry. Session is a per-device session key.
+type Status struct {
+	Event     string `json:"event"`
+	Session   string `json:"session"`
+	Label     string `json:"label,omitempty"`
+	Model     string `json:"model,omitempty"`
+	Machine   string `json:"machine,omitempty"`
+	Branch    string `json:"branch,omitempty"`
+	Sha       string `json:"sha,omitempty"`
+	Dirty     bool   `json:"dirty,omitempty"`
+	State     string `json:"state,omitempty"` // working | idle | needs approval | errored
+	Since     string `json:"since,omitempty"`
+	Title     string `json:"title,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	Turns     int64  `json:"turns,omitempty"`
+	DurationS int64  `json:"durationS,omitempty"`
+	Pushed    bool   `json:"pushed,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Subject   string `json:"subject,omitempty"`
+	Listening string `json:"listening,omitempty"` // thread a room_wait is open on
+}
+
+// Claim is the body of claim and claim.release entries (spec §8.3).
+type Claim struct {
+	Thread  string `json:"thread"`
+	Session string `json:"session,omitempty"`
+}
+
 type Receipt struct {
 	Lane  string `json:"lane"`
 	Seq   int64  `json:"seq"`
-	State string `json:"state"` // delivered (cumulative: holds lane up to seq) | seen (that entry)
+	State string `json:"state"` // delivered (cumulative: holds lane up to seq) | seen | picked-up (that entry)
 }
 
 type Addr struct {

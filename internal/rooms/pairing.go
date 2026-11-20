@@ -486,6 +486,9 @@ func (s *Service) ensureCerts() {
 				r.w.Write(roomlog.KindDeviceCert, c)
 			}
 		}
+		// A room I just joined or adopted carries my standing revocations
+		// too (review I1); only the machine with the user key can sign them.
+		s.revokeIntoLocked(r)
 	}
 	s.publishAddrsLocked()
 }

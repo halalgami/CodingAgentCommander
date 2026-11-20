@@ -34,6 +34,7 @@ type DevicePref struct {
 	User     []byte         `json:"user,omitempty"`
 	Addrs    []string       `json:"addrs,omitempty"`
 	LastSeen int64          `json:"lastSeen,omitempty"`
+	Revoked  bool           `json:"revoked,omitempty"` // one of my machines I removed: never dialled or shared with
 }
 
 type roomState struct {
@@ -44,6 +45,13 @@ type roomState struct {
 	Owner []byte `json:"owner"`
 	// Left: I left this colleague's room; my copy is read-only (UX spec §7).
 	Left bool `json:"left,omitempty"`
+	// Phase 3–5, all local to this machine:
+	Dismissed map[string]bool `json:"dismissed,omitempty"` // inbox items dismissed here
+	Settings  RoomSettings    `json:"settings"`
+	Used      map[string]int  `json:"used,omitempty"`    // thread → automatic deliveries used (§10.4)
+	Granted   map[string]int  `json:"granted,omitempty"` // thread → extra deliveries the user allowed
+	Agent     []int64         `json:"agent,omitempty"`   // ms times of agent posts in the last hour
+	Drafts    []Draft         `json:"drafts,omitempty"`  // agent posts held by the rate limit
 }
 
 type room struct {
@@ -60,6 +68,8 @@ type room struct {
 	users map[string]bool // users whose devices may open a lane (Admit)
 
 	gone bool // removed from this machine; in-flight syncs must not touch it (final review I8)
+
+	told map[string]bool // msg refs already announced (or history at open)
 }
 
 // stateLocked replays the room once per change of its lanes.
@@ -112,6 +122,9 @@ type Service struct {
 	OnConfirm func(Pending)
 	// TailscaleUp reports whether Tailscale runs (stubbed in tests).
 	TailscaleUp func() bool
+	// OnMessage is told about each message another device wrote, once, when
+	// it is first accepted here (notifications, listening). Not for history.
+	OnMessage func(Incoming)
 
 	mu       sync.Mutex
 	ids      *ident.Store
@@ -228,9 +241,17 @@ func (s *Service) openRoomLocked(id string) *room {
 	if r.st.Seen == nil {
 		r.st.Seen = map[string]bool{}
 	}
+	if r.st.Dismissed == nil {
+		r.st.Dismissed = map[string]bool{}
+	}
 	l.Admit = r.admit
 	s.rooms[id] = r
-	s.stateLocked(r)
+	r.told = map[string]bool{}
+	for _, e := range s.stateLocked(r).Accepted {
+		if e.Kind == roomlog.KindMsg {
+			r.told[e.Ref()] = true
+		}
+	}
 	return r
 }
 
@@ -388,7 +409,7 @@ func (s *Service) DialAll() {
 	s.mu.Lock()
 	var ids []peer.ID
 	for k, d := range s.devices {
-		if d.Net == "" {
+		if d.Net == "" || d.Revoked {
 			continue
 		}
 		if id, err := peer.Decode(k); err == nil {
@@ -444,6 +465,9 @@ func lastAddrs(entries []roomlog.Entry, dev string) []string {
 			var a roomlog.Addr
 			if json.Unmarshal(e.Body, &a) == nil {
 				out = a.Addrs
+				if len(out) > maxAddrs { // a peer can't make us dial a long list (phase-1 deferred)
+					out = out[:maxAddrs]
+				}
 			}
 		}
 	}
@@ -465,6 +489,8 @@ func (s *Service) touch(id peer.ID) {
 	s.mu.Unlock()
 }
 
+const maxAddrs = 8
+
 func mergeAddr(as []string, a string) []string {
 	for _, x := range as {
 		if x == a {
@@ -472,8 +498,8 @@ func mergeAddr(as []string, a string) []string {
 		}
 	}
 	as = append(as, a)
-	if len(as) > 8 {
-		as = as[len(as)-8:]
+	if len(as) > maxAddrs {
+		as = as[len(as)-maxAddrs:]
 	}
 	return as
 }

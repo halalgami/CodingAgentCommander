@@ -82,6 +82,7 @@ func (s *Service) CreateRoom(folder, name, project string) (RoomSummary, error) 
 	if _, err := r.w.Write(roomlog.KindRoomMeta, meta); err != nil {
 		return RoomSummary{}, err
 	}
+	s.revokeIntoLocked(r)
 	r.st.Folder, r.st.Owner = folder, s.me.User
 	s.saveRoomLocked(r)
 	s.publishAddrsLocked()
@@ -201,12 +202,18 @@ type MsgView struct {
 	Time     string            `json:"time"`
 	Seen     bool              `json:"seen"`
 	Delivery map[string]string `json:"delivery,omitempty"` // device → state (my messages)
+	Own      bool              `json:"own"`                // one of my machines wrote it
+	PickedUp bool              `json:"pickedUp,omitempty"` // a session here took it
 }
 
 type Thread struct {
 	Root    MsgView   `json:"root"`
 	Replies []MsgView `json:"replies"`
 	Last    string    `json:"last"`
+	// Claims (§8.3): who took the thread; two devices = Conflict.
+	ClaimedBy []string `json:"claimedBy,omitempty"`
+	MyClaim   bool     `json:"myClaim,omitempty"`
+	Conflict  bool     `json:"conflict,omitempty"`
 }
 
 // PeerView is one member device as this machine sees it (spec §9, D10).
@@ -234,9 +241,13 @@ type OutItem struct {
 
 type RoomView struct {
 	RoomSummary
-	Threads []Thread   `json:"threads"`
-	Peers   []PeerView `json:"peers"`
-	Outbox  []OutItem  `json:"outbox"`
+	Threads  []Thread     `json:"threads"`
+	Peers    []PeerView   `json:"peers"`
+	Outbox   []OutItem    `json:"outbox"`
+	Live     []LiveView   `json:"live"`
+	Inbox    []MsgView    `json:"inbox"`
+	Settings SettingsView `json:"settings"`
+	Drafts   []Draft      `json:"drafts"`
 }
 
 func (s *Service) View(roomID string) (RoomView, error) {
@@ -252,7 +263,8 @@ func (s *Service) View(roomID string) (RoomView, error) {
 	devs := s.memberDevicesLocked(st)
 	obs := s.observedRoomLocked(r.id)
 	heads := r.lanes.Heads()
-	v := RoomView{RoomSummary: s.summaryLocked(r), Threads: []Thread{}, Peers: []PeerView{}, Outbox: []OutItem{}}
+	v := RoomView{RoomSummary: s.summaryLocked(r), Threads: []Thread{}, Peers: []PeerView{}, Outbox: []OutItem{},
+		Live: []LiveView{}, Inbox: []MsgView{}, Settings: settingsView(r.st.Settings), Drafts: append([]Draft{}, r.st.Drafts...)}
 	name := func(dev string) string {
 		if n := st.Names[dev]; n != "" {
 			return n
@@ -272,7 +284,12 @@ func (s *Service) View(roomID string) (RoomView, error) {
 		if json.Unmarshal(e.Body, &m) != nil {
 			continue
 		}
-		mv := MsgView{Ref: e.Ref(), Parent: m.Parent, Author: name(e.Device), Device: e.Device, Mine: e.Device == me, Kind: m.Kind, Text: m.Text, Fields: m.Fields, Time: e.Time, Seen: e.Device == me || r.st.Seen[e.Ref()]}
+		au, _ := st.UserOf(e.Device)
+		mv := MsgView{Ref: e.Ref(), Parent: m.Parent, Author: name(e.Device), Device: e.Device, Mine: e.Device == me, Kind: m.Kind, Text: m.Text, Fields: m.Fields, Time: e.Time, Seen: e.Device == me || r.st.Seen[e.Ref()],
+			Own: string(au) == string(s.me.User), PickedUp: r.ix.PickedUpBy(e.Ref(), me)}
+		if inInbox(mv, st, r.st.Dismissed, me) {
+			v.Inbox = append(v.Inbox, mv)
+		}
 		if mv.Mine {
 			mv.Delivery = map[string]string{}
 			for d, ds := range roomlog.DeliveryOf(e, devs, r.ix, obs) {
@@ -292,6 +309,36 @@ func (s *Service) View(roomID string) (RoomView, error) {
 		v.Threads = append(v.Threads, Thread{Root: mv, Replies: []MsgView{}, Last: e.Time})
 	}
 	sort.SliceStable(v.Threads, func(i, j int) bool { return v.Threads[i].Last > v.Threads[j].Last })
+	for i := range v.Threads {
+		devsSeen := map[string]bool{}
+		for _, c := range st.Claims[v.Threads[i].Root.Ref] {
+			v.Threads[i].ClaimedBy = append(v.Threads[i].ClaimedBy, name(c.Device))
+			v.Threads[i].MyClaim = v.Threads[i].MyClaim || c.Device == me
+			devsSeen[c.Device] = true
+		}
+		v.Threads[i].Conflict = len(devsSeen) > 1
+	}
+	sort.SliceStable(v.Inbox, func(i, j int) bool { return v.Inbox[i].Time > v.Inbox[j].Time })
+	for key, ls := range st.Live {
+		dev, _, _ := strings.Cut(key, "|")
+		if !st.MemberDevice(dev) {
+			continue // removed users and revoked machines run nothing here
+		}
+		u, _ := st.UserOf(dev)
+		lv := LiveView{Status: ls, Device: dev, Mine: dev == me, Owned: string(u) == string(s.me.User)}
+		lv.Machine = name(dev) // the certified name, never what the status claims
+		if id, err := peer.Decode(dev); err == nil && s.node != nil && dev != me {
+			_, lv.Online = s.node.Conn(id)
+		}
+		lv.Online = lv.Online || lv.Mine
+		v.Live = append(v.Live, lv)
+	}
+	sort.Slice(v.Live, func(i, j int) bool {
+		if v.Live[i].Machine != v.Live[j].Machine {
+			return v.Live[i].Machine < v.Live[j].Machine
+		}
+		return v.Live[i].Session < v.Live[j].Session
+	})
 	for _, d := range devs {
 		if d == me {
 			continue
@@ -311,11 +358,29 @@ func (s *Service) View(roomID string) (RoomView, error) {
 	return v, nil
 }
 
-func clip(s string, n int) string {
-	if len(s) <= n {
-		return s
+// inInbox (§10.5): another device's message that is not an ack, not
+// dismissed here, not taken by a session here and not in a thread I claimed.
+func inInbox(mv MsgView, st roomlog.State, dismissed map[string]bool, me string) bool {
+	if mv.Mine || mv.Kind == "ack" || dismissed[mv.Ref] || mv.PickedUp {
+		return false
 	}
-	return s[:n] + "…"
+	thread := mv.Ref
+	if mv.Parent != "" {
+		thread = mv.Parent
+	}
+	for _, c := range st.Claims[thread] {
+		if c.Device == me {
+			return false
+		}
+	}
+	return true
+}
+
+func clip(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n]) + "…"
+	}
+	return s
 }
 
 func (s *Service) peerStateLocked(dev string, pref DevicePref, tailscaleUp bool) (string, string) {
@@ -347,34 +412,40 @@ func (s *Service) peerStateLocked(dev string, pref DevicePref, tailscaleUp bool)
 
 // Post writes a human message into a room (spec §8.2).
 func (s *Service) Post(roomID, kind, text, parent string, fields map[string]string) error {
+	_, err := s.PostRef(roomID, kind, text, parent, fields)
+	return err
+}
+
+// PostRef is Post that also returns the new message's ref.
+func (s *Service) PostRef(roomID, kind, text, parent string, fields map[string]string) (string, error) {
 	if !msgKinds[kind] {
-		return errors.New("unknown message kind")
+		return "", errors.New("unknown message kind")
 	}
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return errors.New("write something first")
+		return "", errors.New("write something first")
 	}
 	if len(text) > roomlog.MaxBody {
-		return errors.New("messages are limited to 16 KB")
+		return "", errors.New("messages are limited to 16 KB")
 	}
 	s.mu.Lock()
 	r := s.rooms[roomID]
 	if r == nil {
 		s.mu.Unlock()
-		return errors.New("no such room")
+		return "", errors.New("no such room")
 	}
 	if s.closedLocked(r) {
 		s.mu.Unlock()
-		return errClosed
+		return "", errClosed
 	}
-	_, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
+	e, err := r.w.Write(roomlog.KindMsg, roomlog.Msg{Kind: kind, Text: text, Parent: parent, Fields: fields})
 	s.mu.Unlock()
 	if err != nil {
-		return err
+		return "", err
 	}
 	go s.SyncAll()
 	s.changed()
-	return nil
+	return e.Ref(), nil
 }
 
 // MarkSeen records that a human here opened a message (a "seen" receipt).

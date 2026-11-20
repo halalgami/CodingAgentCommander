@@ -52,3 +52,6 @@ scripts/fleetart/*.jpg
 scripts/fleetart/*.log
 
 test-results/
+
+# go build . output
+/CodingAgentCommander

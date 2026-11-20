@@ -4,18 +4,23 @@
   import * as App from "../../../wailsjs/go/main/App.js";
 
   let waiting = $state(false);
+  let gen = 0; // each Wait/Cancel starts a new generation; a stale loop never quits
   async function wait() {
+    const mine = ++gen;
     waiting = true;
     // Keep syncing; quit on its own once nothing is queued (checks every 2 s, up to 2 min).
-    for (let i = 0; i < 60 && waiting; i++) {
+    for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 2000));
+      if (mine !== gen) return;
       let n = 1;
       try { n = await App.QueuedCount(); } catch {}
+      if (mine !== gen) return; // cancelled while counting (phase-1 deferred race)
       if (n === 0) { App.QuitAnyway(); return; }
     }
     waiting = false;
     loadRooms();
   }
+  function cancel() { gen++; waiting = false; rooms.quit = 0; }
 </script>
 
 {#if rooms.quit}
@@ -26,7 +31,7 @@
       {#if waiting}<p data-testid="rooms-quitguard-waiting">Waiting for a machine to come online…</p>{/if}
       <button class="primary" data-testid="rooms-quitguard-wait" disabled={waiting} onclick={wait}>Wait for a machine</button>
       <button data-testid="rooms-quitguard-quit" onclick={() => App.QuitAnyway()}>Quit anyway</button>
-      <button data-testid="rooms-quitguard-cancel" onclick={() => { waiting = false; rooms.quit = 0; }}>Cancel</button>
+      <button data-testid="rooms-quitguard-cancel" onclick={cancel}>Cancel</button>
     </div>
   </div>
 {/if}

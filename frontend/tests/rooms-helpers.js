@@ -41,12 +41,26 @@ export async function openRooms(page, state = {}, dash = {}) {
       RemoveRoomLocal: async (id) => rec("RemoveRoomLocal", id),
       RestoreRoom: async (id) => rec("RestoreRoom", id),
       ResetRooms: async () => rec("ResetRooms"),
-      QueuedCount: async () => 0,
+      QueuedCount: async () => { await new Promise((r) => setTimeout(r, R.countDelay || 0)); return R.queued || 0; },
       RenameRoom: async (...a) => { rec("RenameRoom", ...a); R.list = R.list.map((r) => (r.id === a[0] ? { ...r, name: a[1] } : r)); },
       GitHead: async (id) => { rec("GitHead", id); return { branch: "main", sha: "0123456789abcdef0123456789abcdef01234567" }; },
       RecentProjects: async () => R.recent || [],
       ProjectRoomByKey: async (k) => { rec("ProjectRoomByKey", k); await new Promise((r) => setTimeout(r, (R.delay || {})[k] || 0)); return (R.byKey || {})[k] || { root: "" }; },
       QuitAnyway: async () => rec("QuitAnyway"),
+      // phases 2–5
+      RoomSessions: async (id) => { rec("RoomSessions", id); return R.roomSessions || []; },
+      WaitingThreads: async (id) => (R.waiting || {}),
+      RoomMessagePrompt: async (id, ref) => "[Room proj · from MacBook Pro · handoff · thread " + ref + "]\nFinish it",
+      StartFromMessage: async (...a) => { rec("StartFromMessage", ...a); return { windowID: "@1", name: "proj", model: a[2] }; },
+      SendToSession: async (...a) => rec("SendToSession", ...a),
+      DeliverToWaiting: async (...a) => rec("DeliverToWaiting", ...a),
+      ClaimThread: async (...a) => rec("ClaimThread", ...a),
+      ReleaseThread: async (...a) => rec("ReleaseThread", ...a),
+      DismissMessage: async (...a) => rec("DismissMessage", ...a),
+      SetRoomSettings: async (...a) => rec("SetRoomSettings", ...a),
+      ReleaseDraft: async (...a) => rec("ReleaseDraft", ...a),
+      DropDraft: async (...a) => rec("DropDraft", ...a),
+      RevokeMachine: async (d) => { rec("RevokeMachine", d); R.machines = R.machines.filter((m) => m.device !== d); },
     });
   }, state);
   await page.goto("/?nointro");
